@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
+              name="StudentIdCards"
+              pageWidth="595" pageHeight="842"
+              columnCount="2" columnWidth="265" columnSpacing="25"
+              leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20"
+              uuid="b1c2d3e4-f5a6-7b8c-9d0e-1f2a3b4c5d6e">
+
+    <!-- الحقول التي سيتم تمريرها من كود الجافا (Student Entity) -->
+    <field name="name" class="java.lang.String"/>
+    <field name="barcode" class="java.lang.String"/>
+    <field name="schoolLevel" class="java.lang.String"/>
+
+    <detail>
+        <!-- ارتفاع الكارنيه الواحد (مثلاً 160 بيكسل) -->
+        <band height="170" splitType="Stretch">
+
+            <!-- إطار الكارنيه الخارجي -->
+            <rectangle radius="10">
+                <reportElement x="0" y="0" width="265" height="150" backcolor="#F8F9FA" uuid="12345678-1234-1234-1234-123456789012"/>
+                <graphicElement>
+                    <pen lineWidth="1.5" lineColor="#2C3E50"/>
+                </graphicElement>
+            </rectangle>
+
+            <!-- ترويسة الكارنيه (اسم السنتر) -->
+            <rectangle radius="10">
+                <reportElement x="0" y="0" width="265" height="35" backcolor="#3498DB" uuid="87654321-4321-4321-4321-210987654321"/>
+                <graphicElement>
+                    <pen lineWidth="0.0"/>
+                </graphicElement>
+            </rectangle>
+            <staticText>
+                <reportElement x="0" y="5" width="265" height="25" forecolor="#FFFFFF" uuid="aabbccdd-eeff-1122-3344-556677889900"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle">
+                    <font size="14" isBold="true"/>
+                </textElement>
+                <text><![CDATA[كارنيه دخول الطالب]]></text>
+            </staticText>
+
+            <!-- بيانات الطالب -->
+            <textField>
+                <reportElement x="10" y="45" width="245" height="20" forecolor="#2C3E50" uuid="11223344-5566-7788-9900-aabbccddeeff"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle">
+                    <font size="14" isBold="true"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$F{name}]]></textFieldExpression>
+            </textField>
+
+            <textField>
+                <reportElement x="10" y="65" width="245" height="15" forecolor="#7F8C8D" uuid="22334455-6677-8899-00aa-bbccddeeff11"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle">
+                    <font size="10"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$F{schoolLevel}]]></textFieldExpression>
+            </textField>
+
+            <!-- الباركود الآلي -->
+            <componentElement>
+                <reportElement x="32" y="90" width="200" height="40" uuid="33445566-7788-9900-aabb-ccddeeff1122"/>
+                <jr:Code128 xmlns:jr="http://jasperreports.sourceforge.net/jasperreports/components"
+                            xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports/components http://jasperreports.sourceforge.net/xsd/components.xsd"
+                            textPosition="bottom">
+                    <jr:codeExpression><![CDATA[$F{barcode}]]></jr:codeExpression>
+                </jr:Code128>
+            </componentElement>
+
+        </band>
+    </detail>
+</jasperReport>

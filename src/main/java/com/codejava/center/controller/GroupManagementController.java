@@ -10,6 +10,8 @@ import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
+import javafx.collections.transformation.SortedList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -43,6 +45,7 @@ public class GroupManagementController {
     @FXML private Button updateButton;
     @FXML private Button deleteButton;
     @FXML private Button printButton;
+    @FXML private TextField searchField;
 
     // متغير للاحتفاظ بالمجموعة المحددة حالياً
     private CourseGroup selectedGroup = null;
@@ -61,6 +64,28 @@ public class GroupManagementController {
 
         // تأمين خانة السعر (أرقام وكسور عشرية للمبالغ)
         InputValidator.makeDecimalOnly(priceField);
+
+        FilteredList<CourseGroup> filteredData = new FilteredList<>(groupsList, b -> true);
+
+        searchField.textProperty().addListener((observable, oldValue, newValue) -> {
+            filteredData.setPredicate(group -> {
+                if (newValue == null || newValue.isEmpty()) {
+                    return true;
+                }
+                String lowerCaseFilter = newValue.toLowerCase();
+
+                if (group.getName().toLowerCase().contains(lowerCaseFilter)) {
+                    return true;
+                } else if (group.getTeacher().getName().toLowerCase().contains(lowerCaseFilter)) {
+                    return true;
+                }
+                return false;
+            });
+        });
+
+        SortedList<CourseGroup> sortedData = new SortedList<>(filteredData);
+        sortedData.comparatorProperty().bind(groupsTable.comparatorProperty());
+        groupsTable.setItems(sortedData);
     }
 
     private void setupTableColumns() {

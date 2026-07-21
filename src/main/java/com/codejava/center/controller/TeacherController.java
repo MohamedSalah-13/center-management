@@ -7,6 +7,8 @@ import com.codejava.center.util.InputValidator;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
+import javafx.collections.transformation.SortedList;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
 import javafx.scene.control.*;
@@ -24,6 +26,7 @@ public class TeacherController {
     private final ObservableList<Teacher> teachersList = FXCollections.observableArrayList();
     @FXML
     private TextField nameField, subjectField, valueField;
+    @FXML private TextField searchField;
     @FXML
     private ComboBox<String> typeCombo;
     @FXML
@@ -48,6 +51,29 @@ public class TeacherController {
 
         // تأمين خانة المبلغ
         InputValidator.makeDecimalOnly(valueField);
+
+
+        FilteredList<Teacher> filteredData = new FilteredList<>(teachersList, b -> true);
+
+        searchField.textProperty().addListener((observable, oldValue, newValue) -> {
+            filteredData.setPredicate(teacher -> {
+                if (newValue == null || newValue.isEmpty()) {
+                    return true;
+                }
+                String lowerCaseFilter = newValue.toLowerCase();
+
+                if (teacher.getName().toLowerCase().contains(lowerCaseFilter)) {
+                    return true;
+                } else if (teacher.getSubject().toLowerCase().contains(lowerCaseFilter)) {
+                    return true;
+                }
+                return false;
+            });
+        });
+
+        SortedList<Teacher> sortedData = new SortedList<>(filteredData);
+        sortedData.comparatorProperty().bind(teacherTable.comparatorProperty());
+        teacherTable.setItems(sortedData);
     }
 
     private void setupTableSelectionListener() {

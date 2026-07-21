@@ -38,6 +38,11 @@
         </HBox>
     </GridPane>
 
+    <HBox spacing="10.0" alignment="CENTER_LEFT" style="-fx-padding: 0 0 10 0;">
+        <Label text="بحث عن معلم:" />
+        <TextField fx:id="searchField" promptText="ابحث باسم المعلم أو المادة..." prefWidth="300.0" />
+    </HBox>
+
     <TableView fx:id="teacherTable" VBox.vgrow="ALWAYS">
         <columns>
             <TableColumn fx:id="colName" text="الاسم" prefWidth="200.0" />

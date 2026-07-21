@@ -52,6 +52,10 @@
         <Label text="المجموعات المسجلة بالنظام">
             <font><Font name="System Bold" size="16.0" /></font>
         </Label>
+        <HBox spacing="10.0" alignment="CENTER_LEFT" style="-fx-padding: 0 0 10 0;">
+            <Label text="بحث عن مجموعة:" />
+            <TextField fx:id="searchField" promptText="ابحث باسم المجموعة أو المعلم..." prefWidth="300.0" />
+        </HBox>
         <TableView fx:id="groupsTable" VBox.vgrow="ALWAYS">
             <columns>
                 <TableColumn fx:id="colId" text="الرقم" prefWidth="50.0" />

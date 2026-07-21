@@ -38,6 +38,7 @@
         <Button fx:id="updateButton" text="تعديل" disable="true" onAction="#handleUpdateAction" style="-fx-background-color: #f39c12; -fx-text-fill: white;" />
         <Button fx:id="deleteButton" text="حذف" disable="true" onAction="#handleDeleteAction" style="-fx-background-color: #e74c3c; -fx-text-fill: white;" />
         <Button text="إلغاء التحديد" onAction="#handleClearAction" style="-fx-background-color: #95a5a6; -fx-text-fill: white;" />
+        <Button text="تصدير كارنيهات الجدول (PDF) 🖨️" onAction="#handleExportIdCards" style="-fx-background-color: #8e44ad; -fx-text-fill: white;" />
     </HBox>
 
     <!-- القسم الجديد: إدارة الاشتراك في المجموعات -->
@@ -58,6 +59,12 @@
             <font><Font name="System Bold" size="14.0" /></font>
         </Label>
     </VBox>
+
+    <!-- أضف هذا الجزء فوق تعريف الـ TableView -->
+    <HBox spacing="10.0" alignment="CENTER_LEFT" style="-fx-padding: 0 0 10 0;">
+        <Label text="بحث عن طالب:" />
+        <TextField fx:id="searchField" promptText="ابحث بالاسم، الهاتف، أو الباركود..." prefWidth="300.0" styleClass="text-field" />
+    </HBox>
 
     <TableView fx:id="studentTable" VBox.vgrow="ALWAYS">
         <columns>

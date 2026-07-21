@@ -5,12 +5,15 @@ import com.codejava.center.domain.Student;
 import com.codejava.center.domain.StudentGroup;
 import com.codejava.center.repository.StudentGroupRepository;
 import com.codejava.center.service.CourseGroupService;
+import com.codejava.center.service.ReportService;
 import com.codejava.center.service.StudentService;
 import com.codejava.center.util.InputValidator;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
+import javafx.collections.transformation.SortedList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -19,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -27,6 +31,7 @@ import java.util.stream.Collectors;
 public class StudentRegistrationController {
 
     private final StudentService studentService;
+    private final ReportService reportService;
     // إضافة الخدمات الجديدة
     private final CourseGroupService courseGroupService;
     private final StudentGroupRepository studentGroupRepository;
@@ -43,6 +48,7 @@ public class StudentRegistrationController {
     @FXML private Label groupCapacityLabel;
     @FXML private Label subscribedGroupsLabel;
     @FXML private Button subscribeButton;
+    @FXML private TextField searchField;
 
     private final ObservableList<Student> studentsList = FXCollections.observableArrayList();
     private Student selectedStudent = null;
@@ -64,6 +70,36 @@ public class StudentRegistrationController {
         loadStudents();
         loadGroups();
         InputValidator.makeNumericOnly(phoneField, parentPhoneField);
+
+
+        FilteredList<Student> filteredData = new FilteredList<>(studentsList, b -> true);
+
+        searchField.textProperty().addListener((observable, oldValue, newValue) -> {
+            filteredData.setPredicate(student -> {
+                if (newValue == null || newValue.isEmpty()) {
+                    return true;
+                }
+                String lowerCaseFilter = newValue.toLowerCase();
+
+                // البحث بالاسم
+                if (student.getName().toLowerCase().contains(lowerCaseFilter)) {
+                    return true;
+                }
+                // البحث برقم الهاتف
+                else if (student.getPhone() != null && student.getPhone().contains(lowerCaseFilter)) {
+                    return true;
+                }
+                // البحث بالباركود
+                else if (student.getBarcode() != null && student.getBarcode().toLowerCase().contains(lowerCaseFilter)) {
+                    return true;
+                }
+                return false; // لا يوجد تطابق
+            });
+        });
+
+        SortedList<Student> sortedData = new SortedList<>(filteredData);
+        sortedData.comparatorProperty().bind(studentTable.comparatorProperty());
+        studentTable.setItems(sortedData);
     }
 
     private void setupGroupComboBox() {
@@ -261,6 +297,46 @@ public class StudentRegistrationController {
         subscribedGroupsLabel.setText("المجموعات المشترك بها: لم يتم تحديد طالب");
     }
 
+    @FXML
+    public void handleExportIdCards(ActionEvent event) {
+        if (studentsList.isEmpty()) {
+            showAlert(Alert.AlertType.WARNING, "تنبيه", "لا يوجد طلاب في الجدول لتصدير كارنيهاتهم.");
+            return;
+        }
+
+        // تجهيز مسار الحفظ (مثلاً سطح المكتب) بملف يحمل تاريخ اليوم
+        String fileName = "Student_ID_Cards_" + java.time.LocalDate.now().toString();
+
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                // استدعاء دالة التصدير الموجودة مسبقاً في ReportService
+                // يتم تمرير studentsList كمصدر بيانات (DataSource) بدلاً من استعلام قاعدة البيانات
+                return reportService.exportReportToPdf(
+                        "StudentIdCards.jrxml",
+                        new HashMap<>(), // لا توجد بارامترات إضافية نحتاجها هنا
+                        studentsList,
+                        fileName
+                );
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }).thenAccept(outputPath -> Platform.runLater(() -> {
+            showAlert(Alert.AlertType.INFORMATION, "نجاح العملية", "تم تصدير الكارنيهات بنجاح إلى:\n" + outputPath);
+
+            // (اختياري) فتح الملف تلقائياً بعد إنشائه
+            try {
+                java.awt.Desktop.getDesktop().open(new java.io.File(outputPath));
+            } catch (Exception e) {
+                // تجاهل الخطأ إذا كان نظام التشغيل لا يدعم الفتح التلقائي
+            }
+        })).exceptionally(ex -> {
+            Platform.runLater(() -> {
+                ex.printStackTrace();
+                showAlert(Alert.AlertType.ERROR, "خطأ في التصدير", "فشلت عملية إنشاء الكارنيهات:\n" + ex.getCause().getMessage());
+            });
+            return null;
+        });
+    }
     private void showAlert(Alert.AlertType type, String title, String message) {
         Alert alert = new Alert(type);
         alert.setTitle(title);
