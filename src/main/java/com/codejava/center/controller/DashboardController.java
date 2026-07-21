@@ -49,6 +49,8 @@ public class DashboardController {
     @FXML
     private Button paymentHistoryButton;
     @FXML
+    private Button usersManagementButton;
+    @FXML
     private VBox homeView;
     @FXML
     private Label totalStudentsLabel;
@@ -80,6 +82,10 @@ public class DashboardController {
             // 2. إخفاء زر المعلمين عن السكرتارية (لأنه يحتوي على بيانات اللائحة المالية للرواتب)
             teachersButton.setVisible(false);
             teachersButton.setManaged(false);
+
+            usersManagementButton.setVisible(false);
+            usersManagementButton.setManaged(false);
+
         }
 
         loadDashboardStats();
@@ -120,6 +126,10 @@ public class DashboardController {
     @FXML
     public void showGroups(ActionEvent actionEvent) {
         loadView("/fxml/GroupManagement.fxml");
+    }
+    @FXML
+    public void showUsers(ActionEvent event) {
+        loadView("/fxml/UserManagement.fxml");
     }
 
     private void loadDashboardStats() {

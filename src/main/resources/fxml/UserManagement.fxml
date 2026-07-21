@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
+
+<VBox spacing="20.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.codejava.center.controller.UserManagementController"
+      style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
+
+    <Label text="إدارة المستخدمين والصلاحيات" textFill="#2c3e50">
+        <font><Font name="System Bold" size="26.0" /></font>
+    </Label>
+
+    <!-- نموذج إضافة/تعديل المستخدم -->
+    <GridPane hgap="20.0" vgap="15.0" styleClass="card">
+        <columnConstraints>
+            <ColumnConstraints halignment="RIGHT" minWidth="120.0" />
+            <ColumnConstraints hgrow="ALWAYS" minWidth="200.0" />
+            <ColumnConstraints halignment="RIGHT" minWidth="120.0" />
+            <ColumnConstraints hgrow="ALWAYS" minWidth="200.0" />
+        </columnConstraints>
+
+        <Label text="اسم المستخدم:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+        <TextField fx:id="usernameField" promptText="مثال: ahmed_sec" styleClass="text-field" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+
+        <Label text="الصلاحية (الدور):" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+        <ComboBox fx:id="roleCombo" promptText="اختر الصلاحية" maxWidth="Infinity" styleClass="combo-box" GridPane.columnIndex="3" GridPane.rowIndex="0" />
+
+        <Label text="كلمة المرور:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+        <PasswordField fx:id="passwordField" promptText="تترك فارغة عند التعديل لعدم التغيير" styleClass="text-field" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+
+        <HBox alignment="CENTER_LEFT" spacing="15.0" GridPane.columnIndex="1" GridPane.rowIndex="2" GridPane.columnSpan="3" style="-fx-padding: 10 0 0 0;">
+            <Button text="حفظ جديد" onAction="#handleSaveAction" styleClass="button, btn-success" />
+            <Button fx:id="updateButton" text="تعديل" disable="true" onAction="#handleUpdateAction" styleClass="button, btn-warning" />
+            <Button fx:id="deleteButton" text="حذف" disable="true" onAction="#handleDeleteAction" styleClass="button, btn-danger" />
+            <Button text="إلغاء التحديد" onAction="#clearForm" styleClass="button, btn-secondary" />
+        </HBox>
+    </GridPane>
+
+    <!-- جدول المستخدمين -->
+    <VBox VBox.vgrow="ALWAYS" spacing="10.0" styleClass="card">
+        <Label text="المستخدمين المسجلين بالنظام">
+            <font><Font name="System Bold" size="16.0" /></font>
+        </Label>
+        <TableView fx:id="usersTable" VBox.vgrow="ALWAYS" styleClass="table-view">
+            <columns>
+                <TableColumn fx:id="colId" text="الرقم" prefWidth="50.0" />
+                <TableColumn fx:id="colUsername" text="اسم المستخدم" prefWidth="250.0" />
+                <TableColumn fx:id="colRole" text="الصلاحية" prefWidth="200.0" />
+            </columns>
+        </TableView>
+    </VBox>
+</VBox>
