@@ -51,6 +51,8 @@ public class DashboardController {
     @FXML
     private Button usersManagementButton;
     @FXML
+    private Button settingsButton;
+    @FXML
     private VBox homeView;
     @FXML
     private Label totalStudentsLabel;
@@ -86,6 +88,9 @@ public class DashboardController {
             usersManagementButton.setVisible(false);
             usersManagementButton.setManaged(false);
 
+            // إخفاء زر الإعدادات عن السكرتارية (متاح للمدير فقط)
+            settingsButton.setVisible(false);
+            settingsButton.setManaged(false);
         }
 
         loadDashboardStats();
@@ -132,6 +137,10 @@ public class DashboardController {
         loadView("/fxml/UserManagement.fxml");
     }
 
+    @FXML
+    public void showSettings(ActionEvent event) {
+        loadView("/fxml/Settings.fxml");
+    }
     private void loadDashboardStats() {
         // تنفيذ جلب البيانات في Thread منفصل لضمان سلاسة الواجهة
         CompletableFuture.supplyAsync(() -> {

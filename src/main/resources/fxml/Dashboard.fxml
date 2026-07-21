@@ -34,6 +34,7 @@
             <Button fx:id="teachersButton" text="👨‍🏫 إدارة المعلمين" onAction="#showTeachers" maxWidth="Infinity" styleClass="sidebar-btn"/>
             <Button fx:id="groupsButton" text="📚 إدارة المجموعات" onAction="#showGroups" maxWidth="Infinity" styleClass="sidebar-btn"/>
             <Button fx:id="usersManagementButton" text="🔐 إدارة المستخدمين" onAction="#showUsers" maxWidth="Infinity" styleClass="sidebar-btn"/>
+            <Button fx:id="settingsButton" text="⚙️ الإعدادات" onAction="#showSettings" maxWidth="Infinity" styleClass="sidebar-btn"/>
             <Region VBox.vgrow="ALWAYS" />
             <Button text="🚪 تسجيل الخروج" onAction="#handleLogout" maxWidth="Infinity" styleClass="sidebar-btn, sidebar-btn-logout"/>
         </VBox>

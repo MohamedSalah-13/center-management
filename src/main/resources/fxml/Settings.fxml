@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
+<?import javafx.scene.image.ImageView?>
+
+<VBox spacing="20.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.codejava.center.controller.SettingsController"
+      style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
+
+    <Label text="إعدادات النظام" textFill="#2c3e50">
+        <font><Font name="System Bold" size="26.0" /></font>
+    </Label>
+
+    <!-- قسم بيانات السنتر -->
+    <VBox spacing="15.0" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0;">
+        <Label text="بيانات السنتر الأساسية" textFill="#34495e">
+            <font><Font name="System Bold" size="18.0" /></font>
+        </Label>
+
+        <GridPane hgap="15.0" vgap="15.0">
+            <columnConstraints>
+                <ColumnConstraints halignment="RIGHT" minWidth="120.0" />
+                <ColumnConstraints hgrow="ALWAYS" minWidth="300.0" />
+            </columnConstraints>
+
+            <Label text="اسم السنتر:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+            <TextField fx:id="centerNameField" promptText="يظهر في ترويسة التقارير والفواتير" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+
+            <Label text="رقم الهاتف:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+            <TextField fx:id="centerPhoneField" promptText="أرقام التواصل للطباعة" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+
+            <Label text="شعار السنتر (لوجو):" GridPane.columnIndex="0" GridPane.rowIndex="2" />
+            <HBox spacing="10" GridPane.columnIndex="1" GridPane.rowIndex="2" alignment="CENTER_LEFT">
+                <TextField fx:id="logoPathField" editable="false" promptText="مسار الصورة..." HBox.hgrow="ALWAYS" />
+                <Button text="استعراض..." onAction="#handleBrowseLogo" style="-fx-background-color: #3498db; -fx-text-fill: white;" />
+            </HBox>
+
+            <!-- معاينة الشعار -->
+            <ImageView fx:id="logoImageView" fitWidth="120" fitHeight="120" preserveRatio="true" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+        </GridPane>
+    </VBox>
+
+    <!-- قسم النسخ الاحتياطي -->
+    <VBox spacing="15.0" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0;">
+        <Label text="إعدادات النسخ الاحتياطي (Backup)" textFill="#34495e">
+            <font><Font name="System Bold" size="18.0" /></font>
+        </Label>
+
+        <GridPane hgap="15.0" vgap="15.0">
+            <columnConstraints>
+                <ColumnConstraints halignment="RIGHT" minWidth="150.0" />
+                <ColumnConstraints hgrow="ALWAYS" minWidth="300.0" />
+            </columnConstraints>
+
+            <Label text="مسار الحفظ الافتراضي:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+            <HBox spacing="10" GridPane.columnIndex="1" GridPane.rowIndex="0" alignment="CENTER_LEFT">
+                <TextField fx:id="backupPathField" editable="false" promptText="اختر مجلد حفظ النسخ الاحتياطية..." HBox.hgrow="ALWAYS" />
+                <Button text="تغيير المجلد..." onAction="#handleBrowseBackupPath" style="-fx-background-color: #3498db; -fx-text-fill: white;" />
+            </HBox>
+
+            <Label text="النسخ التلقائي:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+            <CheckBox fx:id="autoBackupCheckBox" text="تفعيل أخذ نسخة احتياطية تلقائياً كل يوم" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                <font><Font name="System Bold" size="14.0" /></font>
+            </CheckBox>
+        </GridPane>
+
+        <HBox spacing="15.0" style="-fx-padding: 10 0 0 0;">
+            <Button text="أخذ نسخة احتياطية الآن 💽" onAction="#handleManualBackup" style="-fx-background-color: #8e44ad; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+        </HBox>
+    </VBox>
+
+    <!-- زر الحفظ النهائي -->
+    <HBox alignment="CENTER_LEFT" spacing="15.0">
+        <Button text="حفظ الإعدادات" onAction="#handleSaveSettings" style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 30; -fx-font-size: 16px;" />
+    </HBox>
+
+</VBox>
