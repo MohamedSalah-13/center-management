@@ -1,23 +1,23 @@
 package com.codejava.center.domain;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
 @Table(name = "students", indexes = {
         @Index(name = "idx_student_barcode", columnList = "barcode", unique = true)
 })
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Student {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
     @Column(nullable = false, unique = true, length = 50)
@@ -35,7 +35,6 @@ public class Student {
     @Column(length = 50)
     private String schoolLevel;
 
-    // هل حساب الطالب مفعل أم موقوف
     @Column(nullable = false)
     @Builder.Default
     private boolean isActive = true;

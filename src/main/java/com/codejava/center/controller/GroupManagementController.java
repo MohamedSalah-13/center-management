@@ -230,6 +230,7 @@ public class GroupManagementController {
             try {
                 reportService.generatePdfReport("GroupStudents", params, outputPath);
             } catch (Exception e) {
+                e.printStackTrace();
                 throw new RuntimeException(e);
             }
         }).thenRun(() -> {
@@ -238,10 +239,45 @@ public class GroupManagementController {
             });
         }).exceptionally(ex -> {
             Platform.runLater(() -> {
+                ex.printStackTrace();
                 showAlert(Alert.AlertType.ERROR, "خطأ", "فشل استخراج التقرير: " + ex.getCause().getMessage());
             });
             return null;
         });
+    }
+
+    public void previewGroupReport(Long groupId) {
+        // تجهيز المعاملات (Parameters) التي سيستقبلها التقرير
+        Map<String, Object> params = new HashMap<>();
+        params.put("GROUP_ID", groupId);
+
+        // تنفيذ المهمة في الخلفية لعدم تجميد واجهة الـ JavaFX
+        CompletableFuture.runAsync(() -> {
+            try {
+                // استدعاء دالة المعاينة بدلاً من التصدير لملف
+                reportService.showReportPreview("GroupStudents", params);
+            } catch (Exception e) {
+                e.printStackTrace();
+                throw new RuntimeException(e);
+            }
+        }).exceptionally(ex -> {
+            Platform.runLater(() -> {
+                showAlert(Alert.AlertType.ERROR, "خطأ", "فشل عرض التقرير: " + ex.getCause().getMessage());
+            });
+            return null;
+        });
+    }
+
+    @FXML
+    public void handlePrintAction(ActionEvent event) {
+        // التأكد من أنه تم تحديد مجموعة بالفعل
+        if (selectedGroup == null) {
+            showAlert(Alert.AlertType.WARNING, "تنبيه", "يرجى تحديد مجموعة من الجدول أولاً للعرض.");
+            return;
+        }
+
+        // استدعاء دالة المعاينة للمجموعة المحددة
+        printGroupReport(selectedGroup.getId());
     }
 
     private void showAlert(Alert.AlertType type, String title, String content) {
@@ -252,15 +288,4 @@ public class GroupManagementController {
         alert.showAndWait();
     }
 
-    @FXML
-    public void handlePrintAction(ActionEvent event) {
-        // التأكد من أنه تم تحديد مجموعة بالفعل
-        if (selectedGroup == null) {
-            showAlert(Alert.AlertType.WARNING, "تنبيه", "يرجى تحديد مجموعة من الجدول أولاً للطباعة.");
-            return;
-        }
-
-        // استدعاء دالة الطباعة وتمرير رقم المجموعة المحددة
-        printGroupReport(selectedGroup.getId());
-    }
 }

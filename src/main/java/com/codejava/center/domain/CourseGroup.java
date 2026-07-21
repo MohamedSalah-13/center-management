@@ -3,25 +3,29 @@ package com.codejava.center.domain;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.NoArgsConstructor;
+import lombok.EqualsAndHashCode;
 
 @Entity
 @Table(name = "course_groups")
-@Data
+@Getter // استبدال Data
+@Setter // استبدال Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@EqualsAndHashCode(onlyExplicitlyIncluded = true) // حصر المقارنة في الحقول المحددة فقط
 public class CourseGroup {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include // تحديد الـ ID كمعيار وحيد لدالة equals لتجنب لمس الحقول الكسولة
     private Long id;
 
     @Column(nullable = false, length = 100)
     private String name;
 
-    // علاقة: كل مجموعة تتبع معلماً واحداً (Many Groups to One Teacher)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "teacher_id", nullable = false)
     private Teacher teacher;

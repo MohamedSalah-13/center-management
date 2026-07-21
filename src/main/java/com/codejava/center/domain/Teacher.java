@@ -1,21 +1,21 @@
 package com.codejava.center.domain;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
 @Table(name = "teachers")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Teacher {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
     @Column(nullable = false, length = 100)
@@ -24,7 +24,6 @@ public class Teacher {
     @Column(nullable = false, length = 50)
     private String subject;
 
-    // نوع العمولة (نسبة، مبلغ ثابت، إيجار)
     @Column(nullable = false, length = 20)
     private String commissionType;
 

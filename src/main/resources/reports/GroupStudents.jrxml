@@ -9,18 +9,17 @@
     <!-- المعامل الذي يتم تمريره من كود الجافا (رقم المجموعة) -->
     <parameter name="GROUP_ID" class="java.lang.Long"/>
 
-    <!-- الاستعلام: يجلب بيانات الطلاب المرتبطين بالمجموعة المحددة -->
-    <!-- تنبيه: تأكد أن أسماء الجداول (student و student_group) مطابقة لما تم إنشاؤه في قاعدة بياناتك -->
+    <!-- الاستعلام المحدث بعد تصحيح أسماء الجداول -->
     <queryString>
         <![CDATA[
             SELECT s.id, s.name, s.phone
-            FROM student s
-            INNER JOIN student_group sg ON s.id = sg.student_id
-            WHERE sg.course_group_id = $P{GROUP_ID}
+            FROM students s
+            INNER JOIN student_groups sg ON s.id = sg.student_id
+            WHERE sg.group_id = $P{GROUP_ID}
         ]]>
     </queryString>
 
-    <!-- الحقول الناتجة من الاستعلام (يجب أن تتطابق مع أسماء الأعمدة في جملة SELECT) -->
+    <!-- الحقول الناتجة من الاستعلام -->
     <field name="id" class="java.lang.Long"/>
     <field name="name" class="java.lang.String"/>
     <field name="phone" class="java.lang.String"/>
@@ -31,15 +30,15 @@
             <textField>
                 <reportElement x="0" y="10" width="555" height="40" uuid="12345678-1234-1234-1234-123456789012"/>
                 <textElement textAlignment="Center" verticalAlignment="Middle">
-                    <!-- استخدام pdfEncoding لدعم اللغة العربية -->
-                    <font size="22" isBold="true" pdfEncoding="Identity-H"/>
+                    <!-- تم حذف pdfEncoding لتجنب الخطأ -->
+                    <font fontName="Arial" size="22" isBold="true"/>
                 </textElement>
                 <textFieldExpression><![CDATA["كشف أسماء طلاب المجموعة رقم: " + $P{GROUP_ID}]]></textFieldExpression>
             </textField>
         </band>
     </title>
 
-    <!-- 2. رأس الجدول (عناوين الأعمدة) - تم ترتيبها من اليمين لليسار لدعم العربية -->
+    <!-- 2. رأس الجدول (عناوين الأعمدة) -->
     <columnHeader>
         <band height="30" splitType="Stretch">
             <!-- عمود رقم الطالب (يمين) -->
@@ -49,7 +48,7 @@
                     <topPen lineWidth="1.0"/><leftPen lineWidth="1.0"/><bottomPen lineWidth="1.0"/><rightPen lineWidth="1.0"/>
                 </box>
                 <textElement textAlignment="Center" verticalAlignment="Middle">
-                    <font size="14" isBold="true" pdfEncoding="Identity-H"/>
+                    <font size="14" isBold="true"/>
                 </textElement>
                 <text><![CDATA[رقم الطالب]]></text>
             </staticText>
@@ -61,7 +60,7 @@
                     <topPen lineWidth="1.0"/><leftPen lineWidth="1.0"/><bottomPen lineWidth="1.0"/><rightPen lineWidth="1.0"/>
                 </box>
                 <textElement textAlignment="Center" verticalAlignment="Middle">
-                    <font size="14" isBold="true" pdfEncoding="Identity-H"/>
+                    <font size="14" isBold="true"/>
                 </textElement>
                 <text><![CDATA[اسم الطالب]]></text>
             </staticText>
@@ -73,14 +72,14 @@
                     <topPen lineWidth="1.0"/><leftPen lineWidth="1.0"/><bottomPen lineWidth="1.0"/><rightPen lineWidth="1.0"/>
                 </box>
                 <textElement textAlignment="Center" verticalAlignment="Middle">
-                    <font size="14" isBold="true" pdfEncoding="Identity-H"/>
+                    <font size="14" isBold="true"/>
                 </textElement>
                 <text><![CDATA[رقم الهاتف]]></text>
             </staticText>
         </band>
     </columnHeader>
 
-    <!-- 3. تفاصيل البيانات (هذا الجزء يتكرر لكل طالب) -->
+    <!-- 3. تفاصيل البيانات -->
     <detail>
         <band height="30" splitType="Stretch">
             <!-- بيانات رقم الطالب -->
@@ -102,7 +101,7 @@
                     <topPen lineWidth="1.0"/><leftPen lineWidth="1.0"/><bottomPen lineWidth="1.0"/><rightPen lineWidth="1.0"/>
                 </box>
                 <textElement textAlignment="Center" verticalAlignment="Middle">
-                    <font size="12" pdfEncoding="Identity-H"/>
+                    <font size="12"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$F{name}]]></textFieldExpression>
             </textField>
@@ -127,7 +126,7 @@
             <textField>
                 <reportElement x="0" y="0" width="555" height="30" uuid="8a9b0c1d-2e3f-4a5b-6c7e-8f9a0b1c2d"/>
                 <textElement textAlignment="Center" verticalAlignment="Middle">
-                    <font size="10" pdfEncoding="Identity-H"/>
+                    <font size="10"/>
                 </textElement>
                 <textFieldExpression><![CDATA["الصفحة " + $V{PAGE_NUMBER}]]></textFieldExpression>
             </textField>

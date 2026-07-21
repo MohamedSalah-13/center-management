@@ -1,23 +1,22 @@
 package com.codejava.center.domain;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
+import lombok.*;
 import java.time.LocalDate;
 
 @Entity
 @Table(name = "student_groups")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class StudentGroup {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -31,7 +30,6 @@ public class StudentGroup {
     @Column(nullable = false)
     private LocalDate joinDate;
 
-    // لإيقاف اشتراك طالب في مجموعة معينة دون مسح تاريخه
     @Column(nullable = false)
     @Builder.Default
     private boolean isActive = true;

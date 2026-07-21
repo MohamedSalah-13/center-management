@@ -82,4 +82,31 @@ public class ReportService {
             }
         }
     }
+
+    /**
+     * دالة لعرض التقرير مباشرة في نافذة معاينة JasperViewer
+     * @param reportName اسم ملف التقرير (بدون صيغة jrxml)
+     * @param parameters المعاملات الممررة للتقرير
+     */
+    public void showReportPreview(String reportName, Map<String, Object> parameters) throws Exception {
+        InputStream reportStream = getClass().getResourceAsStream("/reports/" + reportName + ".jrxml");
+        if (reportStream == null) {
+            throw new RuntimeException("لم يتم العثور على ملف التقرير: " + reportName);
+        }
+
+        JasperReport jasperReport = JasperCompileManager.compileReport(reportStream);
+
+        try (Connection connection = dataSource.getConnection()) {
+            JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, connection);
+
+            // إنشاء ملف PDF مؤقت
+            java.io.File tempPdfFile = java.io.File.createTempFile("center_report_", ".pdf");
+            JasperExportManager.exportReportToPdfFile(jasperPrint, tempPdfFile.getAbsolutePath());
+
+            // فتحه تلقائياً بواسطة البرنامج الافتراضي في نظام التشغيل (عبر واجهة JavaFX/Desktop الآمنة)
+            if (java.awt.Desktop.isDesktopSupported()) {
+                java.awt.Desktop.getDesktop().open(tempPdfFile);
+            }
+        }
+    }
 }

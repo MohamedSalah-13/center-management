@@ -4,6 +4,8 @@ import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Student;
 import com.codejava.center.domain.StudentGroup;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -11,12 +13,11 @@ import java.util.List;
 @Repository
 public interface StudentGroupRepository extends JpaRepository<StudentGroup, Long> {
 
-    // تتحقق مما إذا كان الطالب مشتركاً في هذه المجموعة (ترجع true أو false)
     boolean existsByStudentAndGroup(Student student, CourseGroup group);
 
-    // داخل StudentGroupRepository.java
-    List<StudentGroup> findByStudentAndIsActiveTrue(Student student);
+    // التعديل هنا: استخدام JOIN FETCH لجلب بيانات المجموعة والمعلم مسبقاً لتجنب خطأ LazyInitializationException
+    @Query("SELECT sg FROM StudentGroup sg JOIN FETCH sg.group cg JOIN FETCH cg.teacher WHERE sg.student = :student AND sg.isActive = true")
+    List<StudentGroup> findByStudentAndIsActiveTrue(@Param("student") Student student);
 
-    // الدالة الجديدة لحساب عدد الطلاب في المجموعة
     long countByGroup(CourseGroup group);
 }

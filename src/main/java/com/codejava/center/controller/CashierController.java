@@ -137,6 +137,9 @@ public class CashierController {
             // استدعاء السيرفيس المالي لحفظ العملية كـ INCOME
             transactionService.recordStudentPayment(currentStudent, selectedGroup, amount, description);
 
+            // -- إضافة استدعاء الطباعة هنا --
+            printReceipt(currentStudent, selectedGroup, amount, description);
+
             showAlert(Alert.AlertType.INFORMATION, "نجاح العملية", "تم تسجيل مبلغ " + amount + " ج.م بنجاح لخزينة السنتر.");
             handleCancelAction(null); // إعادة تعيين الشاشة لاستقبال الطالب التالي
 
@@ -152,6 +155,35 @@ public class CashierController {
         resetUI();
     }
 
+    // أضف هذه الدالة داخل CashierController
+    private void printReceipt(Student student, CourseGroup group, Double amount, String description) {
+        javafx.print.PrinterJob job = javafx.print.PrinterJob.createPrinterJob();
+        if (job != null) {
+            // يمكنك تخطي إظهار حوار الطباعة للطباعة المباشرة السريعة (Point of Sale)
+            // إذا أردت الطباعة المباشرة على الطابعة الافتراضية، احذف شرط showPrintDialog
+            boolean doPrint = job.showPrintDialog(paymentSection.getScene().getWindow());
+
+            if (doPrint) {
+                VBox receipt = new VBox(10);
+                receipt.setStyle("-fx-padding: 20; -fx-background-color: white; -fx-border-color: black; -fx-border-width: 1;");
+
+                Label title = new Label("إيصال استلام نقدية");
+                title.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
+
+                Label date = new Label("التاريخ: " + java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+                Label studentName = new Label("الطالب: " + student.getName());
+                Label groupName = new Label("المجموعة: " + group.getName());
+                Label paidAmount = new Label("المبلغ المدفوع: " + amount + " ج.م");
+                Label desc = new Label("البيان: " + description);
+
+                receipt.getChildren().addAll(title, new javafx.scene.control.Separator(), date, studentName, groupName, paidAmount, desc);
+
+                if (job.printPage(receipt)) {
+                    job.endJob();
+                }
+            }
+        }
+    }
     private void resetUI() {
         currentStudent = null;
         barcodeSearchField.clear();

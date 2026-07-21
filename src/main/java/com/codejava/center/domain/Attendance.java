@@ -1,23 +1,22 @@
 package com.codejava.center.domain;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
+import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "attendances")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Attendance {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -28,7 +27,6 @@ public class Attendance {
     @JoinColumn(name = "session_id", nullable = false)
     private Session session;
 
-    // وقت تسجيل الدخول بدقة
     @Column(nullable = false)
     private LocalDateTime timeIn;
 }

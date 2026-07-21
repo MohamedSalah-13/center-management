@@ -1,21 +1,21 @@
 package com.codejava.center.domain;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
 @Table(name = "users")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
     @Column(nullable = false, unique = true, length = 50)
@@ -24,7 +24,6 @@ public class User {
     @Column(nullable = false)
     private String password;
 
-    // أمثلة للصلاحيات: ADMIN, SECRETARY, CASHIER
     @Column(nullable = false, length = 20)
     private String role;
 }
