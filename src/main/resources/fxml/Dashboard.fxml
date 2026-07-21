@@ -2,16 +2,28 @@
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
+<?import javafx.scene.shape.Circle?>
+<?import javafx.scene.text.Font?>
 
+<?import javafx.scene.chart.BarChart?>
+<?import javafx.scene.chart.CategoryAxis?>
+<?import javafx.scene.chart.NumberAxis?>
+<?import javafx.scene.chart.PieChart?>
 <BorderPane nodeOrientation="RIGHT_TO_LEFT" prefHeight="768.0" prefWidth="1024.0"
             xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="com.codejava.center.controller.DashboardController">
+            fx:controller="com.codejava.center.controller.DashboardController"
+            stylesheets="@../css/style.css">
 
+    <!-- القائمة الجانبية -->
     <left>
-        <VBox spacing="10.0" styleClass="sidebar" prefWidth="250.0" BorderPane.alignment="CENTER">
-            <Label text="السنتر التعليمي" textFill="WHITE" alignment="CENTER" maxWidth="Infinity" style="-fx-font-size: 24px; -fx-font-weight: bold;">
-                <VBox.margin><Insets bottom="30.0"/></VBox.margin>
-            </Label>
+        <VBox spacing="10.0" styleClass="sidebar" prefWidth="260.0" BorderPane.alignment="CENTER">
+            <VBox alignment="CENTER" spacing="10">
+                <VBox.margin><Insets top="20.0" bottom="30.0"/></VBox.margin>
+                <!-- يمكن استبدال الدائرة بصورة الشعار -->
+                <Circle radius="40" fill="#ecf0f1" />
+                <Label text="كود جافا للتعليم" textFill="WHITE" style="-fx-font-size: 22px; -fx-font-weight: bold;"/>
+                <Label fx:id="userNameLabel" text="مدير النظام" textFill="#bdc3c7" style="-fx-font-size: 14px;"/>
+            </VBox>
 
             <Button text="🏠 الرئيسية" onAction="#showHome" maxWidth="Infinity" styleClass="sidebar-btn, sidebar-btn-active"/>
             <Button text="👥 تسجيل الطلاب" onAction="#showStudentRegistration" maxWidth="Infinity" styleClass="sidebar-btn"/>
@@ -22,16 +34,54 @@
             <Button fx:id="teachersButton" text="👨‍🏫 إدارة المعلمين" onAction="#showTeachers" maxWidth="Infinity" styleClass="sidebar-btn"/>
             <Button fx:id="groupsButton" text="📚 إدارة المجموعات" onAction="#showGroups" maxWidth="Infinity" styleClass="sidebar-btn"/>
 
-            <Region VBox.vgrow="ALWAYS" /> <!-- لدفع زر الخروج للأسفل -->
-            <Button text="🚪 تسجيل الخروج" maxWidth="Infinity" styleClass="sidebar-btn, sidebar-btn-logout"/>
+            <Region VBox.vgrow="ALWAYS" />
+            <Button text="🚪 تسجيل الخروج" onAction="#handleLogout" maxWidth="Infinity" styleClass="sidebar-btn, sidebar-btn-logout"/>
         </VBox>
     </left>
 
+    <!-- المنطقة المركزية (المتغيرة) -->
     <center>
-        <StackPane fx:id="contentArea" BorderPane.alignment="CENTER">
-            <VBox alignment="CENTER" spacing="20">
-                <Label text="مرحباً بك في نظام الإدارة" styleClass="header-label, muted-text" />
-                <Label text="اختر من القائمة الجانبية للبدء" styleClass="sub-label, muted-text" />
+        <StackPane fx:id="contentArea" BorderPane.alignment="CENTER" style="-fx-background-color: #f4f6f9;">
+            <!-- واجهة "الرئيسية" الافتراضية -->
+            <VBox fx:id="homeView" spacing="30.0" style="-fx-padding: 40;">
+                <Label text="نظرة عامة على النظام" styleClass="header-label" />
+
+                <!-- بطاقات الإحصائيات (Cards) -->
+                <HBox spacing="20.0" alignment="CENTER_LEFT">
+                    <VBox styleClass="stat-card, card-blue" HBox.hgrow="ALWAYS">
+                        <Label text="إجمالي الطلاب" textFill="WHITE" style="-fx-font-size: 16px;"/>
+                        <Label fx:id="totalStudentsLabel" text="0" textFill="WHITE" style="-fx-font-size: 32px; -fx-font-weight: bold;"/>
+                    </VBox>
+                    <VBox styleClass="stat-card, card-green" HBox.hgrow="ALWAYS">
+                        <Label text="إيرادات اليوم" textFill="WHITE" style="-fx-font-size: 16px;"/>
+                        <Label fx:id="dailyRevenueLabel" text="0 ج.م" textFill="WHITE" style="-fx-font-size: 32px; -fx-font-weight: bold;"/>
+                    </VBox>
+                    <VBox styleClass="stat-card, card-orange" HBox.hgrow="ALWAYS">
+                        <Label text="الحصص النشطة" textFill="WHITE" style="-fx-font-size: 16px;"/>
+                        <Label fx:id="activeSessionsLabel" text="0" textFill="WHITE" style="-fx-font-size: 32px; -fx-font-weight: bold;"/>
+                    </VBox>
+                </HBox>
+
+                <HBox spacing="20.0" VBox.vgrow="ALWAYS" alignment="CENTER">
+
+                    <!-- مخطط الإيرادات الدائري -->
+                    <VBox styleClass="card" HBox.hgrow="ALWAYS" prefWidth="400">
+                        <PieChart fx:id="revenuePieChart" title="توزيع الإيرادات للمجموعات" legendSide="BOTTOM" animated="true"/>
+                    </VBox>
+
+                    <!-- مخطط أعمدة للحضور -->
+                    <VBox styleClass="card" HBox.hgrow="ALWAYS" prefWidth="500">
+                        <BarChart fx:id="attendanceBarChart" title="إحصائيات الحضور (الأيام الأخيرة)" animated="true">
+                            <xAxis>
+                                <CategoryAxis label="المجموعة/اليوم" />
+                            </xAxis>
+                            <yAxis>
+                                <NumberAxis label="عدد الطلاب" />
+                            </yAxis>
+                        </BarChart>
+                    </VBox>
+
+                </HBox>
             </VBox>
         </StackPane>
     </center>

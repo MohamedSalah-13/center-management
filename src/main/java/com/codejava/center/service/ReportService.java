@@ -8,6 +8,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Window;
 import net.sf.jasperreports.engine.*;
+import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
 import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
@@ -15,6 +16,7 @@ import java.io.InputStream;
 import java.sql.Connection;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -108,5 +110,27 @@ public class ReportService {
                 java.awt.Desktop.getDesktop().open(tempPdfFile);
             }
         }
+    }
+
+    /**
+     * توليد تقرير بصيغة PDF وحفظه في مسار محدد
+     */
+    public String exportReportToPdf(String jrxmlFileName, Map<String, Object> parameters, List<?> data, String outputFileName) throws JRException {
+
+        // 1. قراءة ملف التصميم من مجلد resources
+        InputStream reportStream = getClass().getResourceAsStream("/reports/" + jrxmlFileName);
+        JasperReport jasperReport = JasperCompileManager.compileReport(reportStream);
+
+        // 2. تحويل قائمة الكيانات إلى DataSource
+        JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(data);
+
+        // 3. تعبئة التقرير بالبيانات
+        JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
+
+        // 4. تحديد مسار الحفظ (سطح المكتب كمثال) وتصدير الملف
+        String outputPath = System.getProperty("user.home") + "/Desktop/" + outputFileName + ".pdf";
+        JasperExportManager.exportReportToPdfFile(jasperPrint, outputPath);
+
+        return outputPath;
     }
 }
