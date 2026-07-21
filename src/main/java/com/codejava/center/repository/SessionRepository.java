@@ -1,0 +1,17 @@
+package com.codejava.center.repository;
+
+import com.codejava.center.domain.Session;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+
+@Repository
+public interface SessionRepository extends JpaRepository<Session, Long> {
+
+    // جلب الحصة المفتوحة حالياً (التي يتم إدخال الطلاب عليها الآن)
+    // استخدمنا @Query للتوضيح، ويمكن الاعتماد على تسمية الدالة findFirstByIsActiveTrue()
+    @Query("SELECT s FROM Session s WHERE s.isActive = true")
+    Optional<Session> findActiveSessionForToday();
+}

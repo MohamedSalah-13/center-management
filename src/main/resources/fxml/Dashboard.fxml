@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
+<BorderPane nodeOrientation="RIGHT_TO_LEFT" prefHeight="768.0" prefWidth="1024.0"
+            xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.codejava.center.controller.DashboardController">
+
+    <!-- القائمة الجانبية (Sidebar) -->
+    <left>
+        <VBox spacing="15.0" style="-fx-background-color: #2c3e50; -fx-padding: 20;" prefWidth="250.0"
+              BorderPane.alignment="CENTER">
+
+            <!-- لوجو أو عنوان السنتر -->
+            <Label text="السنتر التعليمي" textFill="WHITE" alignment="CENTER" maxWidth="Infinity">
+                <font>
+                    <Font name="System Bold" size="24.0"/>
+                </font>
+                <VBox.margin>
+                    <Insets bottom="30.0"/>
+                </VBox.margin>
+            </Label>
+
+            <!-- أزرار التنقل -->
+            <Button text="🏠 الرئيسية" onAction="#showHome" maxWidth="Infinity"
+                    style="-fx-background-color: #34495e; -fx-text-fill: white; -fx-font-size: 16px; -fx-padding: 10; -fx-alignment: center-right;"/>
+
+            <Button text="👥 تسجيل الطلاب" onAction="#showStudentRegistration" maxWidth="Infinity"
+                    style="-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 16px; -fx-padding: 10; -fx-alignment: center-right;"/>
+
+            <Button text="⏱️ الحضور والانصراف" onAction="#showAttendance" maxWidth="Infinity"
+                    style="-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 16px; -fx-padding: 10; -fx-alignment: center-right;"/>
+
+            <Button fx:id="cashierButton" text="💰 الخزينة والاشتراكات" onAction="#showCashier" maxWidth="Infinity"
+                    style="-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 16px; -fx-padding: 10; -fx-alignment: center-right;"/>
+
+            <Button fx:id="groupsButton" text="📚 إدارة المجموعات" onAction="#showGroups" maxWidth="Infinity"
+                    style="-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 16px; -fx-padding: 10; -fx-alignment: center-right;"/>
+
+            <Button text="🚪 تسجيل الخروج" maxWidth="Infinity"
+                    style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-size: 16px; -fx-padding: 10;"/>
+        </VBox>
+    </left>
+
+    <!-- منطقة المحتوى المتغير (ستتغير محتوياتها عند الضغط على الأزرار) -->
+    <center>
+        <StackPane fx:id="contentArea" style="-fx-background-color: #ecf0f1;" BorderPane.alignment="CENTER">
+            <!-- الشاشة الترحيبية الافتراضية -->
+            <VBox alignment="CENTER" spacing="20">
+                <Label text="مرحباً بك في نظام الإدارة" textFill="#7f8c8d">
+                    <font>
+                        <Font name="System Bold" size="36.0"/>
+                    </font>
+                </Label>
+                <Label text="اختر من القائمة الجانبية للبدء" textFill="#95a5a6">
+                    <font>
+                        <Font size="18.0"/>
+                    </font>
+                </Label>
+            </VBox>
+        </StackPane>
+    </center>
+
+</BorderPane>

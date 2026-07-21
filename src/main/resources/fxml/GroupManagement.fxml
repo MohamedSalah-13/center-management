@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import java.util.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<?import javafx.scene.text.Font?>
+<VBox spacing="20.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.codejava.center.controller.GroupManagementController"
+      style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
+
+    <Label text="إدارة المجموعات" textFill="#2c3e50">
+        <font><Font name="System Bold" size="26.0" /></font>
+    </Label>
+
+    <!-- نموذج إضافة مجموعة جديدة -->
+    <GridPane hgap="20.0" vgap="15.0" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
+        <columnConstraints>
+            <ColumnConstraints halignment="RIGHT" minWidth="120.0" />
+            <ColumnConstraints hgrow="ALWAYS" minWidth="200.0" />
+            <ColumnConstraints halignment="RIGHT" minWidth="120.0" />
+            <ColumnConstraints hgrow="ALWAYS" minWidth="200.0" />
+        </columnConstraints>
+
+        <Label text="اسم المجموعة:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+        <TextField fx:id="groupNameField" promptText="مثال: سبت وثلاثاء 4 عصراً" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+
+        <Label text="المعلم:" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+        <ComboBox fx:id="teacherComboBox" promptText="اختر المعلم" maxWidth="Infinity" GridPane.columnIndex="3" GridPane.rowIndex="0" />
+
+        <Label text="السعة القصوى:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+        <TextField fx:id="capacityField" promptText="عدد الطلاب الأقصى" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+
+        <Label text="سعر الحصة/الشهر:" GridPane.columnIndex="2" GridPane.rowIndex="1" />
+        <TextField fx:id="priceField" promptText="القيمة بالجنيه" GridPane.columnIndex="3" GridPane.rowIndex="1" />
+
+        <!-- استبدل الـ HBox الخاصة بزر الحفظ بهذا الكود -->
+        <HBox alignment="CENTER_LEFT" spacing="15.0" GridPane.columnIndex="1" GridPane.rowIndex="2" GridPane.columnSpan="3" style="-fx-padding: 10 0 0 0;">
+            <Button text="حفظ جديد" onAction="#handleSaveAction" style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+            <Button fx:id="updateButton" text="تعديل" disable="true" onAction="#handleUpdateAction" style="-fx-background-color: #f39c12; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+            <Button fx:id="deleteButton" text="حذف" disable="true" onAction="#handleDeleteAction" style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+            <Button text="إلغاء التحديد" onAction="#clearForm" style="-fx-background-color: #95a5a6; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+        </HBox>
+    </GridPane>
+
+    <!-- جدول المجموعات الحالية -->
+    <VBox VBox.vgrow="ALWAYS" spacing="10.0" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
+        <Label text="المجموعات المسجلة بالنظام">
+            <font><Font name="System Bold" size="16.0" /></font>
+        </Label>
+        <TableView fx:id="groupsTable" VBox.vgrow="ALWAYS">
+            <columns>
+                <TableColumn fx:id="colId" text="الرقم" prefWidth="50.0" />
+                <TableColumn fx:id="colName" text="اسم المجموعة" prefWidth="250.0" />
+                <TableColumn fx:id="colTeacher" text="المعلم" prefWidth="200.0" />
+                <TableColumn fx:id="colCapacity" text="السعة" prefWidth="100.0" />
+                <TableColumn fx:id="colPrice" text="السعر" prefWidth="100.0" />
+            </columns>
+        </TableView>
+    </VBox>
+
+</VBox>

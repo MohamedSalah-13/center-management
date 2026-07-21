@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import java.util.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<?import javafx.scene.text.Font?>
+<VBox spacing="20.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.codejava.center.controller.CashierController"
+      style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
+
+    <Label text="الخزينة - دفع الاشتراكات" textFill="#2c3e50">
+        <font><Font name="System Bold" size="26.0" /></font>
+    </Label>
+
+    <!-- منطقة البحث بالباركود -->
+    <HBox spacing="15.0" alignment="CENTER_LEFT" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
+        <Label text="بحث بالباركود:">
+            <font><Font name="System Bold" size="16.0" /></font>
+        </Label>
+        <TextField fx:id="barcodeSearchField" onAction="#handleSearchAction" promptText="مرر الكارنيه هنا..." prefWidth="250.0" style="-fx-font-size: 16px;" />
+        <Button text="بحث" onAction="#handleSearchAction" style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+    </HBox>
+
+    <!-- منطقة عرض بيانات الطالب -->
+    <GridPane hgap="20.0" vgap="15.0" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
+        <columnConstraints>
+            <ColumnConstraints halignment="RIGHT" minWidth="120.0" />
+            <ColumnConstraints hgrow="ALWAYS" minWidth="200.0" />
+        </columnConstraints>
+
+        <Label text="اسم الطالب:" GridPane.columnIndex="0" GridPane.rowIndex="0">
+            <font><Font name="System Bold" size="14.0" /></font>
+        </Label>
+        <Label fx:id="studentNameLabel" text="---" textFill="#7f8c8d" GridPane.columnIndex="1" GridPane.rowIndex="0">
+            <font><Font size="16.0" /></font>
+        </Label>
+
+        <Label text="المرحلة الدراسية:" GridPane.columnIndex="0" GridPane.rowIndex="1">
+            <font><Font name="System Bold" size="14.0" /></font>
+        </Label>
+        <Label fx:id="schoolLevelLabel" text="---" textFill="#7f8c8d" GridPane.columnIndex="1" GridPane.rowIndex="1">
+            <font><Font size="14.0" /></font>
+        </Label>
+    </GridPane>
+
+    <!-- منطقة الدفع (تكون معطلة حتى يتم اختيار طالب) -->
+    <VBox fx:id="paymentSection" spacing="15.0" disable="true" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
+        <Label text="بيانات الدفع">
+            <font><Font name="System Bold" size="18.0" /></font>
+        </Label>
+
+        <GridPane hgap="20.0" vgap="15.0">
+            <columnConstraints>
+                <ColumnConstraints halignment="RIGHT" minWidth="120.0" />
+                <ColumnConstraints hgrow="ALWAYS" minWidth="250.0" />
+            </columnConstraints>
+
+            <Label text="المجموعة:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+            <ComboBox fx:id="groupsComboBox" promptText="اختر المجموعة المشترك بها" prefWidth="300.0" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+
+            <Label text="المبلغ المدفوع:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+            <TextField fx:id="amountField" promptText="أدخل القيمة" prefWidth="300.0" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+
+            <Label text="البيان (الوصف):" GridPane.columnIndex="0" GridPane.rowIndex="2" />
+            <TextField fx:id="descriptionField" promptText="مثال: اشتراك شهر 8" prefWidth="300.0" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+        </GridPane>
+
+        <HBox alignment="CENTER_LEFT" spacing="15.0" style="-fx-padding: 10 0 0 0;">
+            <Button text="تأكيد وتسجيل الدفع" onAction="#handlePaymentAction" style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 25; -fx-font-size: 16px;" />
+            <Button text="إلغاء" onAction="#handleCancelAction" style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 25; -fx-font-size: 16px;" />
+        </HBox>
+    </VBox>
+
+</VBox>

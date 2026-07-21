@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
+
+<VBox spacing="20.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.codejava.center.controller.SessionManagementController"
+      style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
+
+    <Label text="إدارة الحصص" textFill="#2c3e50">
+        <font><Font name="System Bold" size="26.0" /></font>
+    </Label>
+
+    <GridPane hgap="20.0" vgap="15.0" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0;">
+        <Label text="المجموعة الدراسية:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+        <ComboBox fx:id="groupComboBox" promptText="اختر المجموعة..." maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+
+        <Label text="تاريخ الحصة:" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+        <DatePicker fx:id="sessionDatePicker" GridPane.columnIndex="3" GridPane.rowIndex="0" />
+
+        <HBox spacing="10" GridPane.columnIndex="1" GridPane.rowIndex="1" GridPane.columnSpan="3" style="-fx-padding: 10 0 0 0;">
+            <Button text="فتح الحصة (Active)" onAction="#handleOpenSession" style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold;" />
+            <Button text="إنهاء الحصة الحالية" onAction="#handleCloseSession" style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold;" />
+        </HBox>
+    </GridPane>
+
+    <TableView fx:id="sessionsTable" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="colId" text="م" prefWidth="50.0" />
+            <TableColumn fx:id="colGroup" text="المجموعة" prefWidth="200.0" />
+            <TableColumn fx:id="colDate" text="التاريخ" prefWidth="150.0" />
+            <TableColumn fx:id="colStatus" text="الحالة" prefWidth="100.0" />
+        </columns>
+    </TableView>
+</VBox>
