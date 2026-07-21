@@ -29,9 +29,9 @@
         <band height="60" splitType="Stretch">
             <textField>
                 <reportElement x="0" y="10" width="555" height="40" uuid="12345678-1234-1234-1234-123456789012"/>
-                <textElement textAlignment="Center" verticalAlignment="Middle">
+                <textElement textAlignment="Right" verticalAlignment="Middle">
                     <!-- تم حذف pdfEncoding لتجنب الخطأ -->
-                    <font fontName="Arial" size="22" isBold="true"/>
+                    <font fontName="ArabicFont" size="22" isBold="true"/>
                 </textElement>
                 <textFieldExpression><![CDATA["كشف أسماء طلاب المجموعة رقم: " + $P{GROUP_ID}]]></textFieldExpression>
             </textField>
@@ -47,8 +47,8 @@
                 <box>
                     <topPen lineWidth="1.0"/><leftPen lineWidth="1.0"/><bottomPen lineWidth="1.0"/><rightPen lineWidth="1.0"/>
                 </box>
-                <textElement textAlignment="Center" verticalAlignment="Middle">
-                    <font size="14" isBold="true"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle">
+                    <font fontName="ArabicFont" size="14" isBold="true"/>
                 </textElement>
                 <text><![CDATA[رقم الطالب]]></text>
             </staticText>
@@ -59,8 +59,8 @@
                 <box>
                     <topPen lineWidth="1.0"/><leftPen lineWidth="1.0"/><bottomPen lineWidth="1.0"/><rightPen lineWidth="1.0"/>
                 </box>
-                <textElement textAlignment="Center" verticalAlignment="Middle">
-                    <font size="14" isBold="true"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle">
+                    <font fontName="ArabicFont" size="14" isBold="true"/>
                 </textElement>
                 <text><![CDATA[اسم الطالب]]></text>
             </staticText>
@@ -71,8 +71,8 @@
                 <box>
                     <topPen lineWidth="1.0"/><leftPen lineWidth="1.0"/><bottomPen lineWidth="1.0"/><rightPen lineWidth="1.0"/>
                 </box>
-                <textElement textAlignment="Center" verticalAlignment="Middle">
-                    <font size="14" isBold="true"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle">
+                    <font fontName="ArabicFont" size="14" isBold="true"/>
                 </textElement>
                 <text><![CDATA[رقم الهاتف]]></text>
             </staticText>
@@ -88,8 +88,8 @@
                 <box>
                     <topPen lineWidth="1.0"/><leftPen lineWidth="1.0"/><bottomPen lineWidth="1.0"/><rightPen lineWidth="1.0"/>
                 </box>
-                <textElement textAlignment="Center" verticalAlignment="Middle">
-                    <font size="12"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle">
+                    <font fontName="ArabicFont" size="12"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$F{id}]]></textFieldExpression>
             </textField>
@@ -100,8 +100,8 @@
                 <box>
                     <topPen lineWidth="1.0"/><leftPen lineWidth="1.0"/><bottomPen lineWidth="1.0"/><rightPen lineWidth="1.0"/>
                 </box>
-                <textElement textAlignment="Center" verticalAlignment="Middle">
-                    <font size="12"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle">
+                    <font fontName="ArabicFont" size="12"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$F{name}]]></textFieldExpression>
             </textField>
@@ -112,8 +112,8 @@
                 <box>
                     <topPen lineWidth="1.0"/><leftPen lineWidth="1.0"/><bottomPen lineWidth="1.0"/><rightPen lineWidth="1.0"/>
                 </box>
-                <textElement textAlignment="Center" verticalAlignment="Middle">
-                    <font size="12"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle">
+                    <font fontName="ArabicFont" size="12"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$F{phone}]]></textFieldExpression>
             </textField>
@@ -125,8 +125,8 @@
         <band height="30" splitType="Stretch">
             <textField>
                 <reportElement x="0" y="0" width="555" height="30" uuid="8a9b0c1d-2e3f-4a5b-6c7e-8f9a0b1c2d"/>
-                <textElement textAlignment="Center" verticalAlignment="Middle">
-                    <font size="10"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle">
+                    <font fontName="ArabicFont" size="10"/>
                 </textElement>
                 <textFieldExpression><![CDATA["الصفحة " + $V{PAGE_NUMBER}]]></textFieldExpression>
             </textField>
