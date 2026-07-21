@@ -25,12 +25,12 @@ public class CenterApplication implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
         // التحقق من عدم وجود المستخدم لتجنب تكرار إنشائه
-        if (userRepository.findByUsername("Mohamed").isEmpty()) {
+        if (userRepository.findByUsername("admin").isEmpty()) {
             // تشفير كلمة المرور "123"
-            String hashedPassword = passwordEncoder.encode("123");
+            String hashedPassword = passwordEncoder.encode("admin");
 
             // حفظ المستخدم بالكلمة المشفرة وتحديد الصلاحية ADMIN
-            userRepository.save(new User(null, "Mohamed", hashedPassword, "ADMIN"));
+            userRepository.save(new User(null, "admin", hashedPassword, "ADMIN"));
         }
     }
 }

@@ -1,11 +1,13 @@
 package com.codejava.center.controller;
 
 import com.codejava.center.domain.Teacher;
+import com.codejava.center.service.ReportService;
 import com.codejava.center.service.TeacherService;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
@@ -16,6 +18,7 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor
 public class TeacherController {
 
+    private final ReportService reportService;
     private final TeacherService teacherService;
     private final ObservableList<Teacher> teachersList = FXCollections.observableArrayList();
     @FXML
@@ -26,8 +29,7 @@ public class TeacherController {
     private TableView<Teacher> teacherTable;
     @FXML
     private TableColumn<Teacher, String> colName, colSubject, colType, colValue;
-    @FXML
-    private Button updateButton, deleteButton;
+    @FXML private Button updateButton, deleteButton, printButton;
     private Teacher selectedTeacher = null;
 
     @FXML
@@ -55,8 +57,37 @@ public class TeacherController {
 
                 updateButton.setDisable(false);
                 deleteButton.setDisable(false);
+                printButton.setDisable(false); // تفعيل زر الطباعة
             }
         });
+    }
+
+    @FXML
+    public void handlePrintAction(javafx.event.ActionEvent event) {
+        if (selectedTeacher == null) return;
+
+        // جلب النافذة الحالية لربط حوار الطباعة بها
+        javafx.stage.Window window = ((Node) event.getSource()).getScene().getWindow();
+
+        try {
+            reportService.printTeacherStatement(selectedTeacher, window);
+        } catch (Exception e) {
+            new Alert(Alert.AlertType.ERROR, "حدث خطأ أثناء الطباعة: " + e.getMessage()).show();
+        }
+    }
+
+    @FXML
+    private void clearFields() {
+        nameField.clear();
+        subjectField.clear();
+        valueField.clear();
+        typeCombo.setValue(null);
+
+        selectedTeacher = null;
+        teacherTable.getSelectionModel().clearSelection();
+        updateButton.setDisable(true);
+        deleteButton.setDisable(true);
+        printButton.setDisable(true); // تعطيل زر الطباعة
     }
 
     private void loadTeachers() {
@@ -115,16 +146,4 @@ public class TeacherController {
         });
     }
 
-    @FXML
-    private void clearFields() {
-        nameField.clear();
-        subjectField.clear();
-        valueField.clear();
-        typeCombo.setValue(null);
-
-        selectedTeacher = null;
-        teacherTable.getSelectionModel().clearSelection();
-        updateButton.setDisable(true);
-        deleteButton.setDisable(true);
-    }
 }

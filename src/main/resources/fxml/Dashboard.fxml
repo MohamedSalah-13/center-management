@@ -33,7 +33,15 @@
             <Button text="⏱️ الحضور والانصراف" onAction="#showAttendance" maxWidth="Infinity"
                     style="-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 16px; -fx-padding: 10; -fx-alignment: center-right;"/>
 
+            <!-- الزر الجديد الذي سيستخدم الدالة غير المستخدمة -->
+            <Button text="📅 إدارة الحصص" onAction="#showSessionManagement" maxWidth="Infinity"
+                    style="-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 16px; -fx-padding: 10; -fx-alignment: center-right;"/>
+
             <Button fx:id="cashierButton" text="💰 الخزينة والاشتراكات" onAction="#showCashier" maxWidth="Infinity"
+                    style="-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 16px; -fx-padding: 10; -fx-alignment: center-right;"/>
+
+            <!-- إضافة زر إدارة المعلمين هنا -->
+            <Button fx:id="teachersButton" text="👨‍🏫 إدارة المعلمين" onAction="#showTeachers" maxWidth="Infinity"
                     style="-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 16px; -fx-padding: 10; -fx-alignment: center-right;"/>
 
             <Button fx:id="groupsButton" text="📚 إدارة المجموعات" onAction="#showGroups" maxWidth="Infinity"

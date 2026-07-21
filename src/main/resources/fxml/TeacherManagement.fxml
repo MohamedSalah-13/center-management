@@ -28,11 +28,12 @@
         <Label text="قيمة العمولة:" GridPane.columnIndex="2" GridPane.rowIndex="1" />
         <TextField fx:id="valueField" promptText="نسبة % أو مبلغ" GridPane.columnIndex="3" GridPane.rowIndex="1" />
 
-        <!-- استبدل زر الحفظ السابق بهذا الـ HBox -->
+        <!-- تم إضافة زر الطباعة هنا -->
         <HBox alignment="CENTER_LEFT" spacing="10.0" GridPane.columnIndex="1" GridPane.rowIndex="2" GridPane.columnSpan="3">
             <Button text="حفظ جديد" onAction="#handleSaveAction" style="-fx-background-color: #27ae60; -fx-text-fill: white;" />
             <Button fx:id="updateButton" text="تعديل" disable="true" onAction="#handleUpdateAction" style="-fx-background-color: #f39c12; -fx-text-fill: white;" />
             <Button fx:id="deleteButton" text="حذف" disable="true" onAction="#handleDeleteAction" style="-fx-background-color: #e74c3c; -fx-text-fill: white;" />
+            <Button fx:id="printButton" text="طباعة كشف الحساب" disable="true" onAction="#handlePrintAction" style="-fx-background-color: #8e44ad; -fx-text-fill: white;" />
             <Button text="إلغاء" onAction="#clearFields" style="-fx-background-color: #95a5a6; -fx-text-fill: white;" />
         </HBox>
     </GridPane>

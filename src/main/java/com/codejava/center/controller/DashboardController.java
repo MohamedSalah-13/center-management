@@ -29,6 +29,8 @@ public class DashboardController {
     private Button cashierButton;
     @FXML
     private Button groupsButton;
+    @FXML
+    private Button teachersButton;
 
     @FXML
     public void initialize() {
@@ -44,6 +46,10 @@ public class DashboardController {
             // إخفاء زر المجموعات
             groupsButton.setVisible(false);
             groupsButton.setManaged(false);
+
+            // 2. إخفاء زر المعلمين عن السكرتارية (لأنه يحتوي على بيانات اللائحة المالية للرواتب)
+            teachersButton.setVisible(false);
+            teachersButton.setManaged(false);
         }
     }
 
@@ -74,28 +80,24 @@ public class DashboardController {
         loadView("/fxml/SessionManagement.fxml");
     }
 
-    /**
-     * الدالة المركزية لتحميل الشاشات ووضعها داخل الداش بورد
-     */
+    @FXML
+    public void showTeachers(ActionEvent event) {
+        loadView("/fxml/TeacherManagement.fxml");
+    }
+
     private void loadView(String fxmlPath) {
+        // نفس الكود الخاص بك دون تغيير
         try {
             URL resource = getClass().getResource(fxmlPath);
             if (resource == null) {
                 throw new IllegalArgumentException("الملف غير موجود: " + fxmlPath);
             }
-
             FXMLLoader loader = new FXMLLoader(resource);
-
-            // السطر الأهم: إخبار JavaFX أن Spring هو من سيدير الكلاس المتحكم
             loader.setControllerFactory(applicationContext::getBean);
-
             Node view = loader.load();
-
-            // تفريغ الشاشة القديمة ووضع الشاشة الجديدة
             contentArea.getChildren().setAll(view);
-
         } catch (IOException e) {
-            e.printStackTrace(); // في بيئة الإنتاج يفضل إظهار Alert للمستخدم
+            e.printStackTrace();
         }
     }
 
