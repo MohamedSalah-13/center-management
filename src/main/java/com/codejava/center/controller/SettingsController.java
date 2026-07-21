@@ -2,11 +2,13 @@ package com.codejava.center.controller;
 
 import com.codejava.center.domain.CenterSettings;
 import com.codejava.center.repository.CenterSettingsRepository;
+import com.codejava.center.service.BackupService;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
 import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
@@ -25,14 +27,21 @@ import java.util.concurrent.CompletableFuture;
 public class SettingsController {
 
     private final CenterSettingsRepository settingsRepository;
+    private final BackupService backupService;
 
-    @FXML private TextField centerNameField;
-    @FXML private TextField centerPhoneField;
-    @FXML private TextField logoPathField;
-    @FXML private ImageView logoImageView;
+    @FXML
+    private TextField centerNameField;
+    @FXML
+    private TextField centerPhoneField;
+    @FXML
+    private TextField logoPathField;
+    @FXML
+    private ImageView logoImageView;
 
-    @FXML private TextField backupPathField;
-    @FXML private CheckBox autoBackupCheckBox;
+    @FXML
+    private TextField backupPathField;
+    @FXML
+    private CheckBox autoBackupCheckBox;
 
     @FXML
     public void initialize() {
@@ -123,8 +132,47 @@ public class SettingsController {
             return;
         }
 
-        // سيتم ربط هذا الزر لاحقاً بـ BackupService لتنفيذ أوامر mysqldump
-        showAlert(Alert.AlertType.INFORMATION, "جاري العمل", "سيتم إضافة كود النسخ الاحتياطي الفعلي لاحقاً.");
+        CompletableFuture.supplyAsync(() -> backupService.executeBackup(backupPath))
+                .thenAccept(success -> Platform.runLater(() -> {
+                    if (success) {
+                        showAlert(Alert.AlertType.INFORMATION, "نجاح", "تم أخذ النسخة الاحتياطية بنجاح.");
+                    } else {
+                        showAlert(Alert.AlertType.ERROR, "خطأ", "فشلت عملية النسخ الاحتياطي. يرجى التأكد من مسار MySQL (mysqldump) في النظام.");
+                    }
+                }));
+    }
+
+    @FXML
+    public void handleRestoreBackup(ActionEvent event) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("اختر ملف النسخة الاحتياطية (.sql)");
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("SQL Files", "*.sql"));
+
+        Window window = ((Node) event.getSource()).getScene().getWindow();
+        File selectedFile = fileChooser.showOpenDialog(window);
+
+        if (selectedFile != null) {
+            // رسالة تحذيرية قبل الاستعادة لأنها ستمسح البيانات الحالية
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                    "تحذير هام: استعادة النسخة الاحتياطية ستؤدي إلى حذف البيانات الحالية واستبدالها ببيانات النسخة المحددة. هل أنت متأكد من المتابعة؟",
+                    ButtonType.YES, ButtonType.NO);
+            confirm.setTitle("تأكيد الاستعادة");
+            confirm.setHeaderText("تأكيد الكتابة فوق البيانات الحالية");
+
+            confirm.showAndWait().ifPresent(response -> {
+                if (response == ButtonType.YES) {
+                    // تنفيذ الاستعادة في خلفية النظام
+                    CompletableFuture.supplyAsync(() -> backupService.restoreBackup(selectedFile.getAbsolutePath()))
+                            .thenAccept(success -> Platform.runLater(() -> {
+                                if (success) {
+                                    showAlert(Alert.AlertType.INFORMATION, "نجاح", "تم استعادة النسخة الاحتياطية بنجاح! يرجى إعادة تشغيل البرنامج لضمان تحديث البيانات.");
+                                } else {
+                                    showAlert(Alert.AlertType.ERROR, "خطأ", "فشلت عملية الاستعادة. يرجى التأكد من صحة الملف.");
+                                }
+                            }));
+                }
+            });
+        }
     }
 
     private void showAlert(Alert.AlertType type, String title, String content) {

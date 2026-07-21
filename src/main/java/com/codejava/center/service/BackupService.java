@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.io.File;
 import java.time.LocalDate;
 
 @Service
@@ -23,16 +24,16 @@ public class BackupService {
         }
     }
 
+    // دالة أخذ النسخة الاحتياطية
     public boolean executeBackup(String targetDirectory) {
         try {
             String fileName = "backup_" + LocalDate.now() + ".sql";
             String fullPath = targetDirectory + "/" + fileName;
 
-            // بناء أمر MySQL Dump
             ProcessBuilder processBuilder = new ProcessBuilder(
                     "mysqldump",
                     "-u", "root",
-                    "-pm13ido", // كلمة المرور الموجودة في application.properties
+                    "-pm13ido",
                     "center_db",
                     "-r", fullPath
             );
@@ -41,6 +42,29 @@ public class BackupService {
             int processComplete = process.waitFor();
 
             return processComplete == 0;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    // دالة استعادة النسخة الاحتياطية الجديدة
+    public boolean restoreBackup(String sqlFilePath) {
+        try {
+            ProcessBuilder processBuilder = new ProcessBuilder(
+                    "mysql",
+                    "-u", "root",
+                    "-pm13ido",
+                    "center_db"
+            );
+
+            // قراءة ملف الـ SQL وتمريره كمدخل لأمر mysql
+            processBuilder.redirectInput(new File(sqlFilePath));
+
+            Process process = processBuilder.start();
+            int processComplete = process.waitFor();
+
+            return processComplete == 0; // 0 تعني نجاح العملية
         } catch (Exception e) {
             e.printStackTrace();
             return false;

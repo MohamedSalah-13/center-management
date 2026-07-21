@@ -67,6 +67,7 @@
 
         <HBox spacing="15.0" style="-fx-padding: 10 0 0 0;">
             <Button text="أخذ نسخة احتياطية الآن 💽" onAction="#handleManualBackup" style="-fx-background-color: #8e44ad; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+            <Button text="استعادة نسخة احتياطية 🔄" onAction="#handleRestoreBackup" style="-fx-background-color: #f39c12; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
         </HBox>
     </VBox>
 
