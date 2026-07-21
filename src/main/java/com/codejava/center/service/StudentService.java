@@ -40,6 +40,10 @@ public class StudentService {
             }
         }
 
+        if (student.getId() == null && studentRepository.existsByName(student.getName())) {
+            throw new IllegalStateException("هذا الاسم مسجل بالفعل لطالب آخر.");
+        }
+
         // 3. الحفظ في قاعدة البيانات
         return studentRepository.save(student);
     }

@@ -6,6 +6,7 @@ import com.codejava.center.domain.StudentGroup;
 import com.codejava.center.repository.StudentGroupRepository;
 import com.codejava.center.service.StudentService;
 import com.codejava.center.service.TransactionService;
+import com.codejava.center.util.InputValidator;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -63,6 +64,8 @@ public class CashierController {
             }
         });
 
+        // تأمين خانة المبلغ
+        InputValidator.makeDecimalOnly(amountField);
         // إعطاء التركيز لحقل البحث عند فتح الشاشة
         Platform.runLater(() -> barcodeSearchField.requestFocus());
     }

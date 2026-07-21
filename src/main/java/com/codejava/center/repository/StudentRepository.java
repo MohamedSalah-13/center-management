@@ -15,4 +15,6 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
 
     // البحث عن الطلاب بالاسم (لشريط البحث السريع)
     List<Student> findByNameContainingIgnoreCase(String name);
+
+    boolean existsByName(String name);
 }

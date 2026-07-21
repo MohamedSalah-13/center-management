@@ -6,6 +6,7 @@ import com.codejava.center.domain.StudentGroup;
 import com.codejava.center.repository.StudentGroupRepository;
 import com.codejava.center.service.CourseGroupService;
 import com.codejava.center.service.StudentService;
+import com.codejava.center.util.InputValidator;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -62,6 +63,7 @@ public class StudentRegistrationController {
 
         loadStudents();
         loadGroups();
+        InputValidator.makeNumericOnly(phoneField, parentPhoneField);
     }
 
     private void setupGroupComboBox() {

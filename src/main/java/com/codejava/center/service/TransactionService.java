@@ -1,6 +1,7 @@
 package com.codejava.center.service;
 
 import com.codejava.center.domain.CourseGroup;
+import com.codejava.center.domain.Session;
 import com.codejava.center.domain.Student;
 import com.codejava.center.domain.Transaction;
 import com.codejava.center.domain.enums.TransactionType;
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -19,11 +21,19 @@ public class TransactionService {
     private final TransactionRepository transactionRepository;
 
     /**
-     * تسجيل دفع اشتراك طالب
+     * تسجيل دفع اشتراك طالب مخصص لحصة معينة (لتجنب الدفع المزدوج للحصة)
      */
     @Transactional
-    public Transaction recordStudentPayment(Student student, CourseGroup group, Double amount, String description) {
+    public Transaction recordStudentPayment(Student student, CourseGroup group, Session session, Double amount, String description) {
         validateAmount(amount);
+
+        // التحقق من عدم تكرار الدفع لنفس الحصة (إذا تم تمرير حصة)
+        if (session != null) {
+            boolean alreadyPaid = transactionRepository.existsByStudentAndSessionAndType(student, session, TransactionType.INCOME);
+            if (alreadyPaid) {
+                throw new IllegalStateException("تم دفع مصروفات هذه الحصة مسبقاً لهذا الطالب.");
+            }
+        }
 
         Transaction transaction = Transaction.builder()
                 .type(TransactionType.INCOME)
@@ -32,9 +42,18 @@ public class TransactionService {
                 .transactionDate(LocalDateTime.now())
                 .student(student)
                 .group(group)
+                .session(session) // ربط الحصة بالحركة المالية
                 .build();
 
         return transactionRepository.save(transaction);
+    }
+
+    /**
+     * الدالة القديمة لضمان عدم تعطل الأكواد والشاشات الأخرى التي لا تمرر "حصة"
+     */
+    @Transactional
+    public Transaction recordStudentPayment(Student student, CourseGroup group, Double amount, String description) {
+        return recordStudentPayment(student, group, null, amount, description);
     }
 
     /**
@@ -96,5 +115,13 @@ public class TransactionService {
 
         // 3. حفظ الحركة في قاعدة البيانات
         transactionRepository.save(transaction);
+    }
+
+    /**
+     * جلب سجل المدفوعات لطالب معين مرتبة من الأحدث للأقدم
+     */
+    @Transactional(readOnly = true)
+    public List<Transaction> getStudentTransactions(Long studentId) {
+        return transactionRepository.findByStudentIdOrderByTransactionDateDesc(studentId);
     }
 }

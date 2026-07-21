@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
+
+<VBox spacing="20.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.codejava.center.controller.PaymentHistoryController"
+      style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
+
+    <Label text="سجل المدفوعات السابقة" textFill="#2c3e50">
+        <font><Font name="System Bold" size="26.0" /></font>
+    </Label>
+
+    <!-- منطقة البحث بالباركود -->
+    <HBox spacing="15.0" alignment="CENTER_LEFT" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0;">
+        <Label text="بحث بباركود الطالب:">
+            <font><Font name="System Bold" size="16.0" /></font>
+        </Label>
+        <TextField fx:id="barcodeSearchField" onAction="#handleSearchAction" promptText="مرر الكارنيه هنا..." prefWidth="250.0" style="-fx-font-size: 16px;" />
+        <Button text="بحث" onAction="#handleSearchAction" style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+    </HBox>
+
+    <!-- بيانات الطالب -->
+    <HBox spacing="40.0" style="-fx-background-color: white; -fx-padding: 15; -fx-background-radius: 8; -fx-border-color: #e0e0e0;">
+        <Label fx:id="studentNameLabel" text="اسم الطالب: ---" textFill="#27ae60">
+            <font><Font name="System Bold" size="18.0" /></font>
+        </Label>
+        <Label fx:id="totalPaidLabel" text="إجمالي المدفوعات: 0 ج.م" textFill="#e74c3c">
+            <font><Font name="System Bold" size="18.0" /></font>
+        </Label>
+    </HBox>
+
+    <!-- جدول السجل -->
+    <TableView fx:id="historyTable" VBox.vgrow="ALWAYS" style="-fx-font-size: 14px;">
+        <columns>
+            <TableColumn fx:id="colDate" text="تاريخ ووقت الدفع" prefWidth="180.0" />
+            <TableColumn fx:id="colAmount" text="المبلغ (ج.م)" prefWidth="100.0" />
+            <TableColumn fx:id="colGroup" text="المجموعة" prefWidth="180.0" />
+            <TableColumn fx:id="colSession" text="حصة يوم" prefWidth="120.0" />
+            <TableColumn fx:id="colDescription" text="البيان (الوصف)" prefWidth="250.0" />
+        </columns>
+    </TableView>
+
+</VBox>

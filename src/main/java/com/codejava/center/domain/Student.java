@@ -23,7 +23,7 @@ public class Student {
     @Column(nullable = false, unique = true, length = 50)
     private String barcode;
 
-    @Column(nullable = false, length = 100)
+    @Column(nullable = false, unique = true, length = 100)
     private String name;
 
     @Column(length = 15)

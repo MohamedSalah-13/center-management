@@ -3,6 +3,7 @@ package com.codejava.center.controller;
 import com.codejava.center.domain.Teacher;
 import com.codejava.center.service.ReportService;
 import com.codejava.center.service.TeacherService;
+import com.codejava.center.util.InputValidator;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -44,6 +45,9 @@ public class TeacherController {
         teacherTable.setItems(teachersList);
         setupTableSelectionListener();
         loadTeachers();
+
+        // تأمين خانة المبلغ
+        InputValidator.makeDecimalOnly(valueField);
     }
 
     private void setupTableSelectionListener() {

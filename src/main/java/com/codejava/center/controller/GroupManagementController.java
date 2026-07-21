@@ -5,6 +5,7 @@ import com.codejava.center.domain.Teacher;
 import com.codejava.center.service.CourseGroupService;
 import com.codejava.center.service.ReportService;
 import com.codejava.center.service.TeacherService;
+import com.codejava.center.util.InputValidator;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -54,6 +55,12 @@ public class GroupManagementController {
         setupTeacherComboBox();
         loadData();
         setupTableSelectionListener();
+
+        // تأمين خانة السعة (أرقام صحيحة فقط)
+        InputValidator.makeNumericOnly(capacityField);
+
+        // تأمين خانة السعر (أرقام وكسور عشرية للمبالغ)
+        InputValidator.makeDecimalOnly(priceField);
     }
 
     private void setupTableColumns() {

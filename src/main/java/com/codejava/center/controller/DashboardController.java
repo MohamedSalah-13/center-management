@@ -31,6 +31,8 @@ public class DashboardController {
     private Button groupsButton;
     @FXML
     private Button teachersButton;
+    @FXML
+    private Button paymentHistoryButton;
 
     @FXML
     public void initialize() {
@@ -85,6 +87,16 @@ public class DashboardController {
         loadView("/fxml/TeacherManagement.fxml");
     }
 
+    @FXML
+    public void showPaymentHistory(ActionEvent event) {
+        loadView("/fxml/PaymentHistory.fxml");
+    }
+
+    @FXML
+    public void showGroups(ActionEvent actionEvent) {
+        loadView("/fxml/GroupManagement.fxml");
+    }
+
     private void loadView(String fxmlPath) {
         // نفس الكود الخاص بك دون تغيير
         try {
@@ -99,9 +111,5 @@ public class DashboardController {
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    public void showGroups(ActionEvent actionEvent) {
-        loadView("/fxml/GroupManagement.fxml");
     }
 }
