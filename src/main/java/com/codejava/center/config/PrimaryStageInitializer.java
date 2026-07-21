@@ -33,8 +33,10 @@ public class PrimaryStageInitializer implements ApplicationListener<StageReadyEv
 
             Parent root = fxmlLoader.load();
             Stage stage = event.getStage();
-            // تصغير أبعاد النافذة لتناسب شاشة تسجيل الدخول
-            stage.setScene(new Scene(root, 500, 400));
+            Scene scene = new Scene(root, 500, 400);
+            // إضافة ملف التصميم
+            scene.getStylesheets().add(getClass().getResource("/css/style.css").toExternalForm());
+            stage.setScene(scene);
             stage.setTitle("تسجيل الدخول - نظام إدارة السنتر");
             stage.centerOnScreen();
             stage.show();

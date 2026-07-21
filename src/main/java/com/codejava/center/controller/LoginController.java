@@ -70,7 +70,10 @@ public class LoginController {
 
             // الحصول على الـ Stage الحالية واستبدال الـ Scene
             Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
-            stage.setScene(new Scene(root, 1024, 768));
+            Scene scene = new Scene(root, 1024, 768);
+             // إضافة ملف التصميم ليطبق على لوحة القيادة وجميع الشاشات الفرعية داخلها
+            scene.getStylesheets().add(getClass().getResource("/css/style.css").toExternalForm());
+            stage.setScene(scene);
             stage.centerOnScreen();
 
             // يمكن هنا حفظ بيانات المستخدم الجلسة (Session) لاستخدامها في باقي النظام
