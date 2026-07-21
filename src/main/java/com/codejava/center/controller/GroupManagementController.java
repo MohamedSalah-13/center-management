@@ -3,6 +3,7 @@ package com.codejava.center.controller;
 import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Teacher;
 import com.codejava.center.service.CourseGroupService;
+import com.codejava.center.service.ReportService;
 import com.codejava.center.service.TeacherService;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
@@ -15,6 +16,8 @@ import javafx.util.StringConverter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @Controller
@@ -23,6 +26,7 @@ public class GroupManagementController {
 
     private final CourseGroupService courseGroupService;
     private final TeacherService teacherService;
+    private final ReportService reportService;
 
     @FXML private TextField groupNameField;
     @FXML private ComboBox<Teacher> teacherComboBox;
@@ -37,6 +41,7 @@ public class GroupManagementController {
     @FXML private TableColumn<CourseGroup, String> colPrice;
     @FXML private Button updateButton;
     @FXML private Button deleteButton;
+    @FXML private Button printButton;
 
     // متغير للاحتفاظ بالمجموعة المحددة حالياً
     private CourseGroup selectedGroup = null;
@@ -134,6 +139,7 @@ public class GroupManagementController {
                 // تفعيل أزرار التعديل والحذف
                 updateButton.setDisable(false);
                 deleteButton.setDisable(false);
+                printButton.setDisable(false);
             }
         });
     }
@@ -207,6 +213,35 @@ public class GroupManagementController {
         groupsTable.getSelectionModel().clearSelection();
         updateButton.setDisable(true);
         deleteButton.setDisable(true);
+        printButton.setDisable(true);
+    }
+
+    public void printGroupReport(Long groupId) {
+        // تجهيز المعاملات (Parameters) التي سيستقبلها التقرير
+        Map<String, Object> params = new HashMap<>();
+        params.put("GROUP_ID", groupId);
+
+        // تحديد مسار الحفظ (مثلاً سطح المكتب)
+        String userHome = System.getProperty("user.home");
+        String outputPath = userHome + "/Desktop/Group_" + groupId + "_Report.pdf";
+
+        // تنفيذ المهمة في الخلفية
+        CompletableFuture.runAsync(() -> {
+            try {
+                reportService.generatePdfReport("GroupStudents", params, outputPath);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }).thenRun(() -> {
+            Platform.runLater(() -> {
+                showAlert(Alert.AlertType.INFORMATION, "نجاح", "تم استخراج التقرير وحفظه على سطح المكتب.");
+            });
+        }).exceptionally(ex -> {
+            Platform.runLater(() -> {
+                showAlert(Alert.AlertType.ERROR, "خطأ", "فشل استخراج التقرير: " + ex.getCause().getMessage());
+            });
+            return null;
+        });
     }
 
     private void showAlert(Alert.AlertType type, String title, String content) {
@@ -215,5 +250,17 @@ public class GroupManagementController {
         alert.setHeaderText(null);
         alert.setContentText(content);
         alert.showAndWait();
+    }
+
+    @FXML
+    public void handlePrintAction(ActionEvent event) {
+        // التأكد من أنه تم تحديد مجموعة بالفعل
+        if (selectedGroup == null) {
+            showAlert(Alert.AlertType.WARNING, "تنبيه", "يرجى تحديد مجموعة من الجدول أولاً للطباعة.");
+            return;
+        }
+
+        // استدعاء دالة الطباعة وتمرير رقم المجموعة المحددة
+        printGroupReport(selectedGroup.getId());
     }
 }

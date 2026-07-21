@@ -40,6 +40,25 @@
         <Button text="إلغاء التحديد" onAction="#handleClearAction" style="-fx-background-color: #95a5a6; -fx-text-fill: white;" />
     </HBox>
 
+    <!-- القسم الجديد: إدارة الاشتراك في المجموعات -->
+    <VBox spacing="10.0" style="-fx-padding: 15; -fx-background-color: white; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
+        <Label text="إدارة اشتراكات الطالب المحدد" textFill="#2c3e50">
+            <font><Font name="System Bold" size="16.0" /></font>
+        </Label>
+
+        <HBox spacing="15.0" alignment="CENTER_LEFT">
+            <ComboBox fx:id="groupComboBox" promptText="اختر مجموعة للاشتراك..." prefWidth="250.0" />
+            <Label fx:id="groupCapacityLabel" text="السعة: ---" textFill="#7f8c8d">
+                <font><Font name="System Bold" size="14.0" /></font>
+            </Label>
+            <Button fx:id="subscribeButton" text="اشتراك في المجموعة ➕" disable="true" onAction="#handleSubscribeAction" style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold;" />
+        </HBox>
+
+        <Label fx:id="subscribedGroupsLabel" text="المجموعات المشترك بها: لم يتم تحديد طالب" textFill="#27ae60" wrapText="true">
+            <font><Font name="System Bold" size="14.0" /></font>
+        </Label>
+    </VBox>
+
     <TableView fx:id="studentTable" VBox.vgrow="ALWAYS">
         <columns>
             <TableColumn fx:id="colBarcode" text="الباركود" prefWidth="120.0" />

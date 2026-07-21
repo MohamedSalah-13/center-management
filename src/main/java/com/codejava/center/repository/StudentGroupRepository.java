@@ -16,4 +16,7 @@ public interface StudentGroupRepository extends JpaRepository<StudentGroup, Long
 
     // داخل StudentGroupRepository.java
     List<StudentGroup> findByStudentAndIsActiveTrue(Student student);
+
+    // الدالة الجديدة لحساب عدد الطلاب في المجموعة
+    long countByGroup(CourseGroup group);
 }

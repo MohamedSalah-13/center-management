@@ -41,6 +41,8 @@
             <Button text="حفظ جديد" onAction="#handleSaveAction" style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
             <Button fx:id="updateButton" text="تعديل" disable="true" onAction="#handleUpdateAction" style="-fx-background-color: #f39c12; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
             <Button fx:id="deleteButton" text="حذف" disable="true" onAction="#handleDeleteAction" style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+            <!-- الزر الجديد للطباعة -->
+            <Button fx:id="printButton" text="طباعة الكشف" disable="true" onAction="#handlePrintAction" style="-fx-background-color: #8e44ad; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
             <Button text="إلغاء التحديد" onAction="#clearForm" style="-fx-background-color: #95a5a6; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
         </HBox>
     </GridPane>
