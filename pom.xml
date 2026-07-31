@@ -60,6 +60,13 @@
             <version>${javafx.version}</version>
         </dependency>
 
+        <!-- مكتبة أدوات JavaFX المشتركة بين المشاريع (فاليديشن، رسائل، مساعدات فورم) -->
+        <dependency>
+            <groupId>com.codejava.commons</groupId>
+            <artifactId>fx-commons</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>

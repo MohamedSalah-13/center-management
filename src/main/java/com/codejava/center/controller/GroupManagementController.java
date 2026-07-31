@@ -5,7 +5,9 @@ import com.codejava.center.domain.Teacher;
 import com.codejava.center.service.CourseGroupService;
 import com.codejava.center.service.ReportService;
 import com.codejava.center.service.TeacherService;
-import com.codejava.center.util.InputValidator;
+import com.codejava.commons.fx.dialog.AlertUtils;
+import com.codejava.commons.fx.form.FormUtils;
+import com.codejava.commons.fx.validation.InputValidator;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -64,6 +66,7 @@ public class GroupManagementController {
 
         // تأمين خانة السعر (أرقام وكسور عشرية للمبالغ)
         InputValidator.makeDecimalOnly(priceField);
+        FormUtils.focusNextOnEnter(capacityField, priceField);
 
         FilteredList<CourseGroup> filteredData = new FilteredList<>(groupsList, b -> true);
 
@@ -131,7 +134,7 @@ public class GroupManagementController {
         String priceStr = priceField.getText().trim();
 
         if (name.isEmpty() || selectedTeacher == null || capacityStr.isEmpty() || priceStr.isEmpty()) {
-            showAlert(Alert.AlertType.WARNING, "بيانات ناقصة", "يرجى تعبئة جميع الحقول.");
+            AlertUtils.showWarning("بيانات ناقصة", "يرجى تعبئة جميع الحقول.");
             return;
         }
 
@@ -147,12 +150,12 @@ public class GroupManagementController {
 
             groupsList.add(savedGroup); // إضافة فورية للجدول
             clearForm();
-            showAlert(Alert.AlertType.INFORMATION, "نجاح", "تمت إضافة المجموعة بنجاح.");
+            AlertUtils.showSuccess("نجاح", "تمت إضافة المجموعة بنجاح.");
 
         } catch (NumberFormatException e) {
-            showAlert(Alert.AlertType.ERROR, "خطأ في الأرقام", "السعة والسعر يجب أن تكون أرقاماً صحيحة.");
+            AlertUtils.showError("خطأ في الأرقام", "السعة والسعر يجب أن تكون أرقاماً صحيحة.");
         } catch (Exception e) {
-            showAlert(Alert.AlertType.ERROR, "خطأ", e.getMessage());
+            AlertUtils.showError("خطأ", e.getMessage());
         }
     }
 
@@ -186,7 +189,7 @@ public class GroupManagementController {
         String priceStr = priceField.getText().trim();
 
         if (name.isEmpty() || selectedTeacher == null || capacityStr.isEmpty() || priceStr.isEmpty()) {
-            showAlert(Alert.AlertType.WARNING, "تنبيه", "يرجى تعبئة جميع الحقول.");
+            AlertUtils.showWarning("تنبيه", "يرجى تعبئة جميع الحقول.");
             return;
         }
 
@@ -204,9 +207,9 @@ public class GroupManagementController {
             groupsList.set(selectedIndex, updatedGroup);
 
             clearForm();
-            showAlert(Alert.AlertType.INFORMATION, "نجاح", "تم التعديل بنجاح.");
+            AlertUtils.showSuccess("نجاح", "تم التعديل بنجاح.");
         } catch (Exception e) {
-            showAlert(Alert.AlertType.ERROR, "خطأ", e.getMessage());
+            AlertUtils.showError("خطأ", e.getMessage());
         }
     }
 
@@ -214,23 +217,16 @@ public class GroupManagementController {
     public void handleDeleteAction(ActionEvent event) {
         if (selectedGroup == null) return;
 
-        // نافذة تأكيد قبل الحذف
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "هل أنت متأكد من حذف المجموعة: " + selectedGroup.getName() + "؟", ButtonType.YES, ButtonType.NO);
-        confirm.setTitle("تأكيد الحذف");
-        confirm.setHeaderText(null);
-
-        confirm.showAndWait().ifPresent(response -> {
-            if (response == ButtonType.YES) {
-                try {
-                    courseGroupService.deleteGroup(selectedGroup.getId());
-                    groupsList.remove(selectedGroup); // الإزالة من الجدول
-                    clearForm();
-                    showAlert(Alert.AlertType.INFORMATION, "نجاح", "تم الحذف بنجاح.");
-                } catch (Exception e) {
-                    showAlert(Alert.AlertType.ERROR, "خطأ", "لا يمكن حذف المجموعة لارتباطها بسجلات أخرى (حصص أو طلاب).");
-                }
+        if (AlertUtils.showConfirm("تأكيد الحذف", "هل أنت متأكد من حذف المجموعة: " + selectedGroup.getName() + "؟")) {
+            try {
+                courseGroupService.deleteGroup(selectedGroup.getId());
+                groupsList.remove(selectedGroup); // الإزالة من الجدول
+                clearForm();
+                AlertUtils.showSuccess("نجاح", "تم الحذف بنجاح.");
+            } catch (Exception e) {
+                AlertUtils.showError("خطأ", "لا يمكن حذف المجموعة لارتباطها بسجلات أخرى (حصص أو طلاب).");
             }
-        });
+        }
     }
 
     @FXML
@@ -267,12 +263,12 @@ public class GroupManagementController {
             }
         }).thenRun(() -> {
             Platform.runLater(() -> {
-                showAlert(Alert.AlertType.INFORMATION, "نجاح", "تم استخراج التقرير وحفظه على سطح المكتب.");
+                AlertUtils.showSuccess("نجاح", "تم استخراج التقرير وحفظه على سطح المكتب.");
             });
         }).exceptionally(ex -> {
             Platform.runLater(() -> {
                 ex.printStackTrace();
-                showAlert(Alert.AlertType.ERROR, "خطأ", "فشل استخراج التقرير: " + ex.getCause().getMessage());
+                AlertUtils.showError("خطأ", "فشل استخراج التقرير: " + ex.getCause().getMessage());
             });
             return null;
         });
@@ -294,7 +290,7 @@ public class GroupManagementController {
             }
         }).exceptionally(ex -> {
             Platform.runLater(() -> {
-                showAlert(Alert.AlertType.ERROR, "خطأ", "فشل عرض التقرير: " + ex.getCause().getMessage());
+                AlertUtils.showError("خطأ", "فشل عرض التقرير: " + ex.getCause().getMessage());
             });
             return null;
         });
@@ -304,20 +300,12 @@ public class GroupManagementController {
     public void handlePrintAction(ActionEvent event) {
         // التأكد من أنه تم تحديد مجموعة بالفعل
         if (selectedGroup == null) {
-            showAlert(Alert.AlertType.WARNING, "تنبيه", "يرجى تحديد مجموعة من الجدول أولاً للعرض.");
+            AlertUtils.showWarning("تنبيه", "يرجى تحديد مجموعة من الجدول أولاً للعرض.");
             return;
         }
 
         // استدعاء دالة المعاينة للمجموعة المحددة
         printGroupReport(selectedGroup.getId());
-    }
-
-    private void showAlert(Alert.AlertType type, String title, String content) {
-        Alert alert = new Alert(type);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(content);
-        alert.showAndWait();
     }
 
 }

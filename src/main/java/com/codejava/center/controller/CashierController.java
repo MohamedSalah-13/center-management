@@ -6,7 +6,9 @@ import com.codejava.center.domain.StudentGroup;
 import com.codejava.center.repository.StudentGroupRepository;
 import com.codejava.center.service.StudentService;
 import com.codejava.center.service.TransactionService;
-import com.codejava.center.util.InputValidator;
+import com.codejava.commons.fx.dialog.AlertUtils;
+import com.codejava.commons.fx.form.FormUtils;
+import com.codejava.commons.fx.validation.InputValidator;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -66,6 +68,7 @@ public class CashierController {
 
         // تأمين خانة المبلغ
         InputValidator.makeDecimalOnly(amountField);
+        FormUtils.focusNextOnEnter(amountField, descriptionField);
         // إعطاء التركيز لحقل البحث عند فتح الشاشة
         Platform.runLater(() -> barcodeSearchField.requestFocus());
     }
@@ -103,13 +106,13 @@ public class CashierController {
             paymentSection.setDisable(false);
 
             if (groupsComboBox.getItems().isEmpty()) {
-                showAlert(Alert.AlertType.WARNING, "تنبيه", "هذا الطالب غير مشترك في أي مجموعة حالياً.");
+                AlertUtils.showWarning("تنبيه", "هذا الطالب غير مشترك في أي مجموعة حالياً.");
             }
 
         })).exceptionally(ex -> {
             Platform.runLater(() -> {
                 resetUI();
-                showAlert(Alert.AlertType.ERROR, "خطأ في البحث", "لم يتم العثور على طالب بهذا الباركود.");
+                AlertUtils.showError("خطأ في البحث", "لم يتم العثور على طالب بهذا الباركود.");
                 barcodeSearchField.selectAll();
             });
             return null;
@@ -122,7 +125,7 @@ public class CashierController {
 
         CourseGroup selectedGroup = groupsComboBox.getValue();
         if (selectedGroup == null) {
-            showAlert(Alert.AlertType.WARNING, "بيانات ناقصة", "يرجى اختيار المجموعة أولاً.");
+            AlertUtils.showWarning("بيانات ناقصة", "يرجى اختيار المجموعة أولاً.");
             return;
         }
 
@@ -130,7 +133,7 @@ public class CashierController {
         String description = descriptionField.getText().trim();
 
         if (amountStr.isEmpty() || description.isEmpty()) {
-            showAlert(Alert.AlertType.WARNING, "بيانات ناقصة", "يرجى التأكد من إدخال المبلغ والبيان.");
+            AlertUtils.showWarning("بيانات ناقصة", "يرجى التأكد من إدخال المبلغ والبيان.");
             return;
         }
 
@@ -143,13 +146,13 @@ public class CashierController {
             // -- إضافة استدعاء الطباعة هنا --
             printReceipt(currentStudent, selectedGroup, amount, description);
 
-            showAlert(Alert.AlertType.INFORMATION, "نجاح العملية", "تم تسجيل مبلغ " + amount + " ج.م بنجاح لخزينة السنتر.");
+            AlertUtils.showSuccess("نجاح العملية", "تم تسجيل مبلغ " + amount + " ج.م بنجاح لخزينة السنتر.");
             handleCancelAction(null); // إعادة تعيين الشاشة لاستقبال الطالب التالي
 
         } catch (NumberFormatException e) {
-            showAlert(Alert.AlertType.ERROR, "إدخال خاطئ", "يرجى إدخال المبلغ كأرقام صحيحة فقط.");
+            AlertUtils.showError("إدخال خاطئ", "يرجى إدخال المبلغ كأرقام صحيحة فقط.");
         } catch (Exception e) {
-            showAlert(Alert.AlertType.ERROR, "خطأ في النظام", e.getMessage());
+            AlertUtils.showError("خطأ في النظام", e.getMessage());
         }
     }
 
@@ -197,14 +200,6 @@ public class CashierController {
         descriptionField.clear();
         paymentSection.setDisable(true);
         barcodeSearchField.requestFocus();
-    }
-
-    private void showAlert(Alert.AlertType type, String title, String content) {
-        Alert alert = new Alert(type);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(content);
-        alert.showAndWait();
     }
 
     // Record مساعد لنقل البيانات بين الـ Threads

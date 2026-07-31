@@ -7,7 +7,9 @@ import com.codejava.center.repository.StudentGroupRepository;
 import com.codejava.center.service.CourseGroupService;
 import com.codejava.center.service.ReportService;
 import com.codejava.center.service.StudentService;
-import com.codejava.center.util.InputValidator;
+import com.codejava.commons.fx.dialog.AlertUtils;
+import com.codejava.commons.fx.form.FormUtils;
+import com.codejava.commons.fx.validation.InputValidator;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -70,6 +72,7 @@ public class StudentRegistrationController {
         loadStudents();
         loadGroups();
         InputValidator.makeNumericOnly(phoneField, parentPhoneField);
+        FormUtils.focusNextOnEnter(nameField, phoneField, parentPhoneField);
 
 
         FilteredList<Student> filteredData = new FilteredList<>(studentsList, b -> true);
@@ -184,7 +187,7 @@ public class StudentRegistrationController {
     @FXML
     public void handleSubscribeAction(ActionEvent event) {
         if (selectedStudent == null || groupComboBox.getValue() == null) {
-            showAlert(Alert.AlertType.WARNING, "تنبيه", "يرجى تحديد طالب من الجدول واختيار مجموعة للاشتراك.");
+            AlertUtils.showWarning("تنبيه", "يرجى تحديد طالب من الجدول واختيار مجموعة للاشتراك.");
             return;
         }
 
@@ -212,14 +215,14 @@ public class StudentRegistrationController {
             studentGroupRepository.save(newSubscription);
 
         }).thenRun(() -> Platform.runLater(() -> {
-            showAlert(Alert.AlertType.INFORMATION, "نجاح", "تم تسجيل الطالب في المجموعة بنجاح.");
+            AlertUtils.showSuccess("نجاح", "تم تسجيل الطالب في المجموعة بنجاح.");
             updateStudentGroupsLabel(selectedStudent); // تحديث نص المجموعات
 
             // تحديث رقم السعة الظاهر بجانب القائمة
             long currentStudents = studentGroupRepository.countByGroup(selectedGroup);
             groupCapacityLabel.setText(String.format("السعة: %d / %d", currentStudents, selectedGroup.getMaxCapacity()));
         })).exceptionally(ex -> {
-            Platform.runLater(() -> showAlert(Alert.AlertType.ERROR, "خطأ", ex.getCause().getMessage()));
+            Platform.runLater(() -> AlertUtils.showError("خطأ", ex.getCause().getMessage()));
             return null;
         });
     }
@@ -249,15 +252,15 @@ public class StudentRegistrationController {
 
             if (student.getId() == null) {
                 studentsList.add(saved);
-                showAlert(Alert.AlertType.INFORMATION, "نجاح", "تم الحفظ. الباركود: " + saved.getBarcode());
+                AlertUtils.showSuccess("نجاح", "تم الحفظ. الباركود: " + saved.getBarcode());
             } else {
                 int idx = studentTable.getSelectionModel().getSelectedIndex();
                 studentsList.set(idx, saved);
-                showAlert(Alert.AlertType.INFORMATION, "نجاح", "تم التعديل بنجاح.");
+                AlertUtils.showSuccess("نجاح", "تم التعديل بنجاح.");
             }
             handleClearAction(null);
         } catch (Exception e) {
-            showAlert(Alert.AlertType.ERROR, "خطأ", e.getMessage());
+            AlertUtils.showError("خطأ", e.getMessage());
         }
     }
 
@@ -265,18 +268,15 @@ public class StudentRegistrationController {
     public void handleDeleteAction(ActionEvent event) {
         if (selectedStudent == null) return;
 
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "حذف الطالب: " + selectedStudent.getName() + "؟", ButtonType.YES, ButtonType.NO);
-        confirm.showAndWait().ifPresent(response -> {
-            if (response == ButtonType.YES) {
-                try {
-                    studentService.deleteStudent(selectedStudent.getId());
-                    studentsList.remove(selectedStudent);
-                    handleClearAction(null);
-                } catch (Exception e) {
-                    showAlert(Alert.AlertType.ERROR, "خطأ", "لا يمكن حذف الطالب بسبب وجود حركات مالية أو حضور مسجلة له.");
-                }
+        if (AlertUtils.showConfirm("تأكيد الحذف", "حذف الطالب: " + selectedStudent.getName() + "؟")) {
+            try {
+                studentService.deleteStudent(selectedStudent.getId());
+                studentsList.remove(selectedStudent);
+                handleClearAction(null);
+            } catch (Exception e) {
+                AlertUtils.showError("خطأ", "لا يمكن حذف الطالب بسبب وجود حركات مالية أو حضور مسجلة له.");
             }
-        });
+        }
     }
 
     @FXML
@@ -300,7 +300,7 @@ public class StudentRegistrationController {
     @FXML
     public void handleExportIdCards(ActionEvent event) {
         if (studentsList.isEmpty()) {
-            showAlert(Alert.AlertType.WARNING, "تنبيه", "لا يوجد طلاب في الجدول لتصدير كارنيهاتهم.");
+            AlertUtils.showWarning("تنبيه", "لا يوجد طلاب في الجدول لتصدير كارنيهاتهم.");
             return;
         }
 
@@ -321,7 +321,7 @@ public class StudentRegistrationController {
                 throw new RuntimeException(e);
             }
         }).thenAccept(outputPath -> Platform.runLater(() -> {
-            showAlert(Alert.AlertType.INFORMATION, "نجاح العملية", "تم تصدير الكارنيهات بنجاح إلى:\n" + outputPath);
+            AlertUtils.showSuccess("نجاح العملية", "تم تصدير الكارنيهات بنجاح إلى:\n" + outputPath);
 
             // (اختياري) فتح الملف تلقائياً بعد إنشائه
             try {
@@ -332,16 +332,9 @@ public class StudentRegistrationController {
         })).exceptionally(ex -> {
             Platform.runLater(() -> {
                 ex.printStackTrace();
-                showAlert(Alert.AlertType.ERROR, "خطأ في التصدير", "فشلت عملية إنشاء الكارنيهات:\n" + ex.getCause().getMessage());
+                AlertUtils.showError("خطأ في التصدير", "فشلت عملية إنشاء الكارنيهات:\n" + ex.getCause().getMessage());
             });
             return null;
         });
-    }
-    private void showAlert(Alert.AlertType type, String title, String message) {
-        Alert alert = new Alert(type);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(message);
-        alert.showAndWait();
     }
 }

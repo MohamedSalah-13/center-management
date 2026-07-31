@@ -3,7 +3,9 @@ package com.codejava.center.controller;
 import com.codejava.center.domain.Teacher;
 import com.codejava.center.service.ReportService;
 import com.codejava.center.service.TeacherService;
-import com.codejava.center.util.InputValidator;
+import com.codejava.commons.fx.dialog.AlertUtils;
+import com.codejava.commons.fx.form.FormUtils;
+import com.codejava.commons.fx.validation.InputValidator;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -51,6 +53,7 @@ public class TeacherController {
 
         // تأمين خانة المبلغ
         InputValidator.makeDecimalOnly(valueField);
+        FormUtils.focusNextOnEnter(nameField, subjectField);
 
 
         FilteredList<Teacher> filteredData = new FilteredList<>(teachersList, b -> true);
@@ -102,7 +105,7 @@ public class TeacherController {
         try {
             reportService.printTeacherStatement(selectedTeacher, window);
         } catch (Exception e) {
-            new Alert(Alert.AlertType.ERROR, "حدث خطأ أثناء الطباعة: " + e.getMessage()).show();
+            AlertUtils.showError("خطأ", "حدث خطأ أثناء الطباعة: " + e.getMessage());
         }
     }
 
@@ -154,7 +157,7 @@ public class TeacherController {
             }
             clearFields();
         } catch (Exception e) {
-            new Alert(Alert.AlertType.ERROR, "خطأ: " + e.getMessage()).show();
+            AlertUtils.showError("خطأ", e.getMessage());
         }
     }
 
@@ -162,18 +165,15 @@ public class TeacherController {
     public void handleDeleteAction() {
         if (selectedTeacher == null) return;
 
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "حذف المعلم: " + selectedTeacher.getName() + "؟", ButtonType.YES, ButtonType.NO);
-        confirm.showAndWait().ifPresent(response -> {
-            if (response == ButtonType.YES) {
-                try {
-                    teacherService.deleteTeacher(selectedTeacher.getId());
-                    teachersList.remove(selectedTeacher);
-                    clearFields();
-                } catch (Exception e) {
-                    new Alert(Alert.AlertType.ERROR, "لا يمكن الحذف لارتباط المعلم بمجموعات دراسية.").show();
-                }
+        if (AlertUtils.showConfirm("تأكيد الحذف", "حذف المعلم: " + selectedTeacher.getName() + "؟")) {
+            try {
+                teacherService.deleteTeacher(selectedTeacher.getId());
+                teachersList.remove(selectedTeacher);
+                clearFields();
+            } catch (Exception e) {
+                AlertUtils.showError("خطأ", "لا يمكن الحذف لارتباط المعلم بمجموعات دراسية.");
             }
-        });
+        }
     }
 
 }
