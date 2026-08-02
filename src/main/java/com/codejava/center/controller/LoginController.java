@@ -75,10 +75,17 @@ public class LoginController {
 
             // الحصول على الـ Stage الحالية واستبدال الـ Scene
             Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
-            Scene scene = new Scene(root, 1024, 768);
+            Scene scene = new Scene(root, 1280, 800);
              // إضافة ملف التصميم ليطبق على لوحة القيادة وجميع الشاشات الفرعية داخلها
             scene.getStylesheets().add(getClass().getResource("/css/style.css").toExternalForm());
             stage.setScene(scene);
+            stage.setTitle("نظام إدارة السنتر");
+
+            // حد أدنى للنافذة: الجداول والمخططات تصبح غير قابلة للقراءة تحته،
+            // ولوحة القيادة تحتوي ثلاث بطاقات ومخططين جنباً إلى جنب
+            stage.setMinWidth(1100);
+            stage.setMinHeight(700);
+            stage.setMaximized(true);
             stage.centerOnScreen();
 
             // يمكن هنا حفظ بيانات المستخدم الجلسة (Session) لاستخدامها في باقي النظام

@@ -22,7 +22,7 @@ import java.util.UUID;
 public class StudentService {
 
     private final StudentRepository studentRepository;
-    private final CenterSettingsRepository centerSettingsRepository;
+    private final SettingsService settingsService;
 
     /**
      * حفظ طالب جديد أو تحديث بيانات طالب حالي
@@ -94,8 +94,7 @@ public class StudentService {
     @Transactional(readOnly = true)
     @RequiresRole(Role.ADMIN)
     public List<StudentBalance> getStudentsInArrears() {
-        LocalDateTime ledgerStart = centerSettingsRepository.findById(1L)
-                .map(CenterSettings::getLedgerStartDate)
+        LocalDateTime ledgerStart = java.util.Optional.ofNullable(settingsService.getSettings().getLedgerStartDate())
                 .map(LocalDate::atStartOfDay)
                 .orElse(null);
 

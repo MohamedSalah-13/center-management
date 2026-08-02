@@ -1,41 +1,55 @@
 /* =========================================
    المتغيرات الأساسية (لوحة الألوان)
-   يمكنك تغيير ألوان التطبيق بالكامل من هنا
+   يمكن تغيير مظهر التطبيق بالكامل من هنا
    ========================================= */
 * {
-    -primary-color: #2c3e50;   /* الكحلي الداكن - للشرائط والعناوين */
-    -secondary-color: #3498db; /* الأزرق الفاتح - للأزرار الأساسية والتحديد */
-    -success-color: #27ae60;   /* الأخضر - لعمليات الحفظ والنجاح */
-    -danger-color: #e74c3c;    /* الأحمر - للحذف وتسجيل الخروج */
-    -warning-color: #f39c12;   /* البرتقالي - للتعديل */
-    -bg-color: #f8f9fa;        /* لون الخلفية العام */
-    -text-dark: #2c3e50;       /* لون النصوص الأساسية */
-    -text-muted: #7f8c8d;      /* لون النصوص الفرعية */
+    -primary-color: #22303f;   /* الكحلي الداكن - للشرائط والعناوين */
+    -primary-deep: #16202b;    /* أغمق - لتدرّج القائمة الجانبية */
+    -secondary-color: #3498db; /* الأزرق - للأزرار الأساسية والتحديد */
+    -success-color: #27ae60;   /* الأخضر - للحفظ والنجاح */
+    -danger-color: #e74c3c;    /* الأحمر - للحذف والخروج */
+    -warning-color: #f39c12;   /* البرتقالي - للتعديل والتنبيه */
+    -bg-color: #f2f5f9;        /* خلفية منطقة المحتوى */
+    -text-dark: #22303f;
+    -text-muted: #7b8a9a;
+    -border-soft: #e3e8ef;
     -fx-font-family: 'Segoe UI', 'Tajawal', 'Arial';
 }
 
-/* الخلفية العامة للتطبيق */
 .root {
     -fx-background-color: -bg-color;
 }
 
 /* =========================================
-   البطاقات والحاويات (Cards)
+   البطاقات والحاويات
    ========================================= */
 .card {
     -fx-background-color: white;
     -fx-padding: 20;
-    -fx-background-radius: 10;
-    -fx-border-color: #e0e0e0;
-    -fx-border-radius: 10;
-    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.05), 10, 0, 0, 0);
+    -fx-background-radius: 12;
+    -fx-border-color: -border-soft;
+    -fx-border-radius: 12;
+    -fx-effect: dropshadow(gaussian, rgba(34, 48, 63, 0.06), 12, 0, 0, 3);
+}
+
+/* منطقة المحتوى المتغيّرة ومساحات التمرير داخلها */
+.content-area {
+    -fx-background-color: -bg-color;
+}
+.content-scroll,
+.content-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+.content-scroll {
+    -fx-padding: 0;
+    -fx-background-insets: 0;
 }
 
 /* =========================================
-   النصوص والعناوين (Typography)
+   النصوص والعناوين
    ========================================= */
 .header-label {
-    -fx-font-size: 26px;
+    -fx-font-size: 25px;
     -fx-font-weight: bold;
     -fx-text-fill: -primary-color;
 }
@@ -44,180 +58,261 @@
     -fx-font-weight: bold;
     -fx-text-fill: -primary-color;
 }
-.muted-text {
-    -fx-text-fill: -text-muted;
-}
-.success-text {
-    -fx-text-fill: -success-color;
-}
-.danger-text {
-    -fx-text-fill: -danger-color;
-}
+.muted-text { -fx-text-fill: -text-muted; }
+.success-text { -fx-text-fill: -success-color; }
+.danger-text { -fx-text-fill: -danger-color; }
 
 /* =========================================
-   الأزرار (Buttons)
+   الأزرار
    ========================================= */
 .button {
     -fx-background-color: -secondary-color;
     -fx-text-fill: white;
     -fx-font-weight: bold;
     -fx-font-size: 14px;
-    -fx-padding: 8 20;
-    -fx-background-radius: 6;
+    -fx-padding: 9 22;
+    -fx-background-radius: 7;
     -fx-cursor: hand;
 }
-.button:hover {
-    -fx-opacity: 0.85;
-    -fx-effect: dropshadow(three-pass-box, rgba(52, 152, 219, 0.4), 8, 0, 0, 2);
-}
+.button:hover { -fx-opacity: 0.88; }
+.button:pressed { -fx-opacity: 0.75; }
+.button:disabled { -fx-opacity: 0.45; }
+
 .btn-success { -fx-background-color: -success-color; }
 .btn-danger { -fx-background-color: -danger-color; }
 .btn-warning { -fx-background-color: -warning-color; }
-.btn-secondary { -fx-background-color: #95a5a6; }
+.btn-secondary { -fx-background-color: #8a97a5; }
 .btn-purple { -fx-background-color: #8e44ad; }
 
 /* =========================================
-   حقول الإدخال والقوائم المنسدلة
+   حقول الإدخال
    ========================================= */
-.text-field, .combo-box, .date-picker {
+.text-field, .password-field, .combo-box, .date-picker, .text-area {
     -fx-font-size: 14px;
     -fx-padding: 8;
-    -fx-background-radius: 6;
-    -fx-border-color: #bdc3c7;
-    -fx-border-radius: 6;
+    -fx-background-radius: 7;
+    -fx-border-color: #c7d0da;
+    -fx-border-radius: 7;
     -fx-background-color: white;
 }
-.text-field:focused, .combo-box:focused, .date-picker:focused {
+.text-field:focused, .password-field:focused, .combo-box:focused,
+.date-picker:focused, .text-area:focused {
     -fx-border-color: -secondary-color;
     -fx-border-width: 2;
-    -fx-background-color: #ffffff;
+}
+.check-box { -fx-font-size: 14px; }
+.check-box .box {
+    -fx-background-radius: 4;
+    -fx-border-radius: 4;
+    -fx-border-color: #c7d0da;
 }
 
 /* =========================================
-   القائمة الجانبية (Sidebar)
+   القائمة الجانبية
    ========================================= */
 .sidebar {
-    -fx-background-color: -primary-color;
-    -fx-padding: 20;
+    -fx-background-color: linear-gradient(to bottom, -primary-deep, -primary-color);
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 14, 0, 3, 0);
 }
+
+.sidebar-title {
+    -fx-text-fill: white;
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+}
+.sidebar-user {
+    -fx-text-fill: #cfd8e3;
+    -fx-font-size: 13px;
+}
+.sidebar-role {
+    -fx-text-fill: #8fa3b8;
+    -fx-font-size: 12px;
+}
+.sidebar-separator .line {
+    -fx-border-color: rgba(255,255,255,0.10);
+    -fx-border-width: 1 0 0 0;
+}
+
+/* عنوان كل مجموعة شاشات */
+.sidebar-section {
+    -fx-text-fill: #7f93a8;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-padding: 12 12 4 12;
+}
+
 .sidebar-btn {
     -fx-background-color: transparent;
-    -fx-text-fill: white;
-    -fx-font-size: 16px;
-    -fx-padding: 12;
+    -fx-text-fill: #e6ecf3;
+    -fx-font-size: 14px;
+    -fx-font-weight: normal;
+    -fx-padding: 10 14;
     -fx-alignment: center-right;
     -fx-background-radius: 8;
+    -fx-cursor: hand;
 }
 .sidebar-btn:hover {
-    -fx-background-color: rgba(255,255,255,0.1);
+    -fx-background-color: rgba(255,255,255,0.10);
 }
 .sidebar-btn-active {
-    -fx-background-color: #34495e;
+    -fx-background-color: -secondary-color;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+.sidebar-btn-active:hover {
+    -fx-background-color: -secondary-color;
 }
 .sidebar-btn-logout {
-    -fx-background-color: -danger-color;
+    -fx-background-color: rgba(231, 76, 60, 0.9);
+    -fx-font-weight: bold;
 }
 .sidebar-btn-logout:hover {
     -fx-background-color: #c0392b;
 }
 
+/* منطقة التنقّل القابلة للتمرير: شفافة تماماً حتى لا تكسر تدرّج القائمة */
+.sidebar-scroll,
+.sidebar-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+.sidebar-scroll {
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+.sidebar-scroll > .scroll-bar:vertical {
+    -fx-background-color: transparent;
+    -fx-pref-width: 8;
+}
+.sidebar-scroll > .scroll-bar:vertical .thumb {
+    -fx-background-color: rgba(255,255,255,0.18);
+    -fx-background-radius: 4;
+}
+.sidebar-scroll > .scroll-bar:vertical .thumb:hover {
+    -fx-background-color: rgba(255,255,255,0.32);
+}
+.sidebar-scroll > .scroll-bar .increment-button,
+.sidebar-scroll > .scroll-bar .decrement-button,
+.sidebar-scroll > .scroll-bar .increment-arrow,
+.sidebar-scroll > .scroll-bar .decrement-arrow {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+    -fx-shape: null;
+}
+
 /* =========================================
-   الجداول (TableView)
+   الجداول
    ========================================= */
 .table-view {
     -fx-background-color: white;
-    -fx-background-radius: 8;
-    -fx-border-color: #e0e0e0;
-    -fx-border-radius: 8;
-    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.03), 5, 0, 0, 0);
+    -fx-background-radius: 10;
+    -fx-border-color: -border-soft;
+    -fx-border-radius: 10;
 }
 .table-view .column-header-background {
     -fx-background-color: -primary-color;
-    -fx-background-radius: 7 7 0 0;
+    -fx-background-radius: 9 9 0 0;
 }
 .table-view .column-header, .table-view .filler {
     -fx-background-color: transparent;
-    -fx-size: 45px;
+    -fx-size: 44px;
 }
 .table-view .column-header .label {
     -fx-text-fill: white;
     -fx-font-weight: bold;
+    -fx-font-size: 13px;
+}
+.table-row-cell { -fx-cell-size: 38px; }
+.table-row-cell:odd { -fx-background-color: #fafbfd; }
+.table-row-cell:selected { -fx-background-color: -secondary-color; }
+.table-row-cell:selected .text { -fx-fill: white; }
+.table-view .placeholder .label { -fx-text-fill: -text-muted; }
+
+/* =========================================
+   التبويبات (شاشة الإعدادات)
+   ========================================= */
+.tab-pane > .tab-header-area > .tab-header-background {
+    -fx-background-color: transparent;
+}
+.tab-pane > .tab-header-area {
+    -fx-padding: 0 0 4 0;
+}
+.tab-pane .tab {
+    -fx-background-color: #e6ecf3;
+    -fx-background-radius: 8 8 0 0;
+    -fx-padding: 9 20;
+}
+.tab-pane .tab:selected {
+    -fx-background-color: white;
+}
+.tab-pane .tab .tab-label {
+    -fx-text-fill: -text-muted;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+.tab-pane .tab:selected .tab-label {
+    -fx-text-fill: -secondary-color;
+}
+.tab-pane > .tab-content-area {
+    -fx-background-color: white;
+    -fx-background-radius: 0 10 10 10;
+}
+/* إخفاء الخط الافتراضي الذي يرسمه JavaFX أسفل التبويبات */
+.tab-pane:top > .tab-header-area > .headers-region > .tab:selected .focus-indicator {
+    -fx-border-color: transparent;
+}
+
+/* =========================================
+   بطاقات الإحصائيات
+   ========================================= */
+.stat-card {
+    -fx-padding: 22 24;
+    -fx-background-radius: 12;
+    -fx-spacing: 6;
+    -fx-effect: dropshadow(gaussian, rgba(34,48,63,0.14), 10, 0, 0, 4);
+}
+.stat-caption {
+    -fx-text-fill: rgba(255,255,255,0.92);
     -fx-font-size: 14px;
 }
-.table-row-cell:odd {
-    -fx-background-color: #fbfbfc;
-}
-.table-row-cell:selected {
-    -fx-background-color: -secondary-color;
+.stat-value {
     -fx-text-fill: white;
-}
-.table-row-cell:selected .text {
-    -fx-fill: white; /* لجعل النص أبيض عند التحديد */
-}
-
-/* تنسيق القائمة الجانبية */
-.sidebar {
-    -fx-background-color: linear-gradient(to bottom, #1a252f, #2c3e50);
-    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 15, 0, 5, 0);
+    -fx-font-size: 30px;
+    -fx-font-weight: bold;
 }
 
-.sidebar-btn {
-    -fx-background-color: transparent;
-    -fx-text-fill: #ecf0f1;
-    -fx-font-size: 16px;
-    -fx-font-weight: 600;
-    -fx-padding: 15 20;
-    -fx-alignment: center-right;
-    -fx-background-radius: 8;
-    -fx-cursor: hand;
-    -fx-transition: -fx-background-color 0.3s ease; /* تفاعل سلس */
-}
+.card-blue { -fx-background-color: linear-gradient(to bottom right, #4aa3df, #2980b9); }
+.card-green { -fx-background-color: linear-gradient(to bottom right, #2ecc71, #229954); }
+.card-orange { -fx-background-color: linear-gradient(to bottom right, #f5b041, #e67e22); }
 
-.sidebar-btn:hover {
-    -fx-background-color: rgba(255, 255, 255, 0.15);
-    -fx-translate-x: -5px; /* حركة بسيطة لليسار عند التحويم */
-}
-
-.sidebar-btn-active {
-    -fx-background-color: #3498db;
-    -fx-text-fill: white;
-}
-
-/* تنسيق بطاقات الإحصائيات (Stat Cards) */
-.stat-card {
-    -fx-padding: 25;
-    -fx-background-radius: 12;
-    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 5);
-    -fx-cursor: hand;
-}
-
-.stat-card:hover {
-    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.2), 15, 0, 0, 8);
-    -fx-translate-y: -3px; /* تأثير الارتفاع عند التحويم */
-}
-
-.card-blue { -fx-background-color: linear-gradient(to bottom right, #3498db, #2980b9); }
-.card-green { -fx-background-color: linear-gradient(to bottom right, #2ecc71, #27ae60); }
-.card-orange { -fx-background-color: linear-gradient(to bottom right, #f1c40f, #f39c12); }
-
-/* تنسيقات الرسوم البيانية */
+/* =========================================
+   الرسوم البيانية
+   ========================================= */
+.chart { -fx-padding: 6; }
 .chart-title {
-    -fx-font-size: 16px;
+    -fx-font-size: 15px;
     -fx-font-weight: bold;
     -fx-text-fill: -primary-color;
 }
+.chart-plot-background { -fx-background-color: transparent; }
+.chart-vertical-grid-lines { -fx-stroke: transparent; }
+.chart-horizontal-grid-lines { -fx-stroke: #eef2f6; }
+.axis { -fx-tick-label-fill: -text-muted; }
+.axis-label { -fx-text-fill: -text-muted; -fx-font-size: 12px; }
 
 .chart-pie-label {
-    -fx-fill: -primary-color;
+    -fx-fill: -text-dark;
     -fx-font-size: 12px;
-    -fx-font-weight: bold;
+}
+.chart-legend {
+    -fx-background-color: transparent;
+    -fx-padding: 6;
 }
 
 .default-color0.chart-pie { -fx-pie-color: #3498db; }
 .default-color1.chart-pie { -fx-pie-color: #2ecc71; }
 .default-color2.chart-pie { -fx-pie-color: #f1c40f; }
 .default-color3.chart-pie { -fx-pie-color: #e74c3c; }
+.default-color4.chart-pie { -fx-pie-color: #9b59b6; }
+.default-color5.chart-pie { -fx-pie-color: #1abc9c; }
 
-.chart-bar {
-    -fx-bar-fill: -secondary-color;
-}
+.chart-bar { -fx-bar-fill: -secondary-color; }

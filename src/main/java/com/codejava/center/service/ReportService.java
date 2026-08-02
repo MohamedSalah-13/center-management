@@ -52,11 +52,11 @@ public class ReportService {
      */
     private final Map<String, JasperReport> compiledReports = new ConcurrentHashMap<>();
 
-    private final CenterSettingsRepository centerSettingsRepository;
+    private final SettingsService settingsService;
 
-    public ReportService(DataSource dataSource, CenterSettingsRepository centerSettingsRepository) {
+    public ReportService(DataSource dataSource, SettingsService settingsService) {
         this.dataSource = dataSource;
-        this.centerSettingsRepository = centerSettingsRepository;
+        this.settingsService = settingsService;
     }
 
     /**
@@ -64,12 +64,12 @@ public class ReportService {
      * هذه البيانات كانت تُجمع في شاشة الإعدادات ولا تظهر في أي مستند.
      */
     private VBox buildHeader(String documentTitle) {
-        CenterSettings settings = centerSettingsRepository.findById(1L).orElse(null);
+        CenterSettings settings = settingsService.getSettings();
 
         VBox header = new VBox(6);
         header.setAlignment(Pos.CENTER);
 
-        if (settings != null && settings.getLogoPath() != null && !settings.getLogoPath().isBlank()) {
+        if (settings.getLogoPath() != null && !settings.getLogoPath().isBlank()) {
             File logoFile = new File(settings.getLogoPath());
             if (logoFile.exists()) {
                 ImageView logo = new ImageView(new Image(logoFile.toURI().toString()));
@@ -86,7 +86,7 @@ public class ReportService {
         nameLabel.setFont(Font.font("System", FontWeight.BOLD, 22));
         header.getChildren().add(nameLabel);
 
-        if (settings != null && settings.getCenterPhone() != null && !settings.getCenterPhone().isBlank()) {
+        if (settings.getCenterPhone() != null && !settings.getCenterPhone().isBlank()) {
             Label phone = new Label("هاتف: " + settings.getCenterPhone());
             phone.setFont(Font.font("System", 12));
             header.getChildren().add(phone);

@@ -32,7 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * أو تسجيل إرسال لم يحدث فيمتنع النظام عن إعادة المحاولة.
  */
 @DataJpaTest
-@Import({NotificationService.class, SecurityConfig.class, UserSession.class,
+@Import({NotificationService.class, SettingsService.class, SecurityConfig.class, UserSession.class,
         NotificationServiceTest.RecordingSender.class})
 @EnableAspectJAutoProxy
 class NotificationServiceTest {

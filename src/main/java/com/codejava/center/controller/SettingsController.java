@@ -1,66 +1,107 @@
 package com.codejava.center.controller;
 
 import com.codejava.center.domain.CenterSettings;
-import com.codejava.center.repository.CenterSettingsRepository;
 import com.codejava.center.service.BackupService;
-import javafx.application.Platform;
+import com.codejava.center.service.NotificationService;
+import com.codejava.center.service.SettingsService;
+import com.codejava.center.util.FxAsync;
+import com.codejava.commons.fx.dialog.AlertUtils;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
-import javafx.scene.control.Alert;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.CheckBox;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Window;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 
 import java.io.File;
-import java.util.concurrent.CompletableFuture;
+import java.time.LocalDate;
 
+/**
+ * كل إعدادات النظام في شاشة واحدة مقسّمة إلى تبويبات.
+ *
+ * <p>كانت الشاشة تعرض بيانات السنتر والنسخ الاحتياطي فقط، بينما
+ * {@code ledgerStartDate} — وهو أخطر إعداد في النظام لأنه يعيد حساب أرصدة كل
+ * الطلاب — لم تكن له واجهة إطلاقاً ولا يمكن تعديله إلا بـ SQL مباشر.</p>
+ */
 @Controller
-@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE) // نسخة جديدة لكل فتح للشاشة - يمنع تراكم الـ listeners والحالة القديمة
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 @RequiredArgsConstructor
 public class SettingsController {
 
-    private final CenterSettingsRepository settingsRepository;
+    private final SettingsService settingsService;
     private final BackupService backupService;
+    private final NotificationService notificationService;
 
-    @FXML
-    private TextField centerNameField;
-    @FXML
-    private TextField centerPhoneField;
-    @FXML
-    private TextField logoPathField;
-    @FXML
-    private ImageView logoImageView;
+    @Value("${spring.datasource.url}")
+    private String datasourceUrl;
 
-    @FXML
-    private TextField backupPathField;
-    @FXML
-    private CheckBox autoBackupCheckBox;
+    @Value("${spring.datasource.username}")
+    private String datasourceUsername;
+
+    @Value("${center.notifications.channel:whatsapp-link}")
+    private String notificationChannel;
+
+    @FXML private TextField centerNameField;
+    @FXML private TextField centerPhoneField;
+    @FXML private TextField logoPathField;
+    @FXML private ImageView logoImageView;
+
+    @FXML private TextField backupPathField;
+    @FXML private CheckBox autoBackupCheckBox;
+
+    @FXML private DatePicker ledgerStartDatePicker;
+
+    @FXML private Label notificationChannelLabel;
+    @FXML private Label databaseLabel;
+    @FXML private Label dbUserLabel;
+    @FXML private Label statusLabel;
 
     @FXML
     public void initialize() {
-        // تحميل الإعدادات عند فتح الشاشة
-        CompletableFuture.supplyAsync(() -> settingsRepository.findById(1L).orElse(new CenterSettings()))
-                .thenAccept(settings -> Platform.runLater(() -> {
-                    centerNameField.setText(settings.getCenterName());
-                    centerPhoneField.setText(settings.getCenterPhone());
-                    backupPathField.setText(settings.getBackupPath());
-                    autoBackupCheckBox.setSelected(settings.isAutoBackupEnabled());
+        showSystemInfo();
+        loadSettings();
+    }
 
-                    if (settings.getLogoPath() != null && !settings.getLogoPath().isEmpty()) {
-                        logoPathField.setText(settings.getLogoPath());
-                        loadLogoImage(settings.getLogoPath());
-                    }
-                }));
+    private void showSystemInfo() {
+        notificationChannelLabel.setText(describeChannel());
+        databaseLabel.setText(datasourceUrl);
+        dbUserLabel.setText(datasourceUsername);
+    }
+
+    private String describeChannel() {
+        String mode = notificationService.channelRequiresManualConfirmation()
+                ? " — يفتح المحادثة ويضغط الموظف \"إرسال\""
+                : " — إرسال مباشر";
+        return notificationChannel + mode;
+    }
+
+    private void loadSettings() {
+        FxAsync.supply(settingsService::getSettings, settings -> {
+            centerNameField.setText(settings.getCenterName());
+            centerPhoneField.setText(settings.getCenterPhone());
+            backupPathField.setText(settings.getBackupPath());
+            autoBackupCheckBox.setSelected(settings.isAutoBackupEnabled());
+            ledgerStartDatePicker.setValue(settings.getLedgerStartDate());
+
+            if (settings.getLogoPath() != null && !settings.getLogoPath().isBlank()) {
+                logoPathField.setText(settings.getLogoPath());
+                loadLogoImage(settings.getLogoPath());
+            }
+            statusLabel.setText("");
+        }, error -> AlertUtils.showError("خطأ", "تعذر تحميل الإعدادات: " + FxAsync.messageOf(error)));
+    }
+
+    @FXML
+    public void handleReload(ActionEvent event) {
+        loadSettings();
     }
 
     @FXML
@@ -68,28 +109,29 @@ public class SettingsController {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("اختر شعار السنتر");
         fileChooser.getExtensionFilters().add(
-                new FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.jpeg")
-        );
+                new FileChooser.ExtensionFilter("ملفات الصور", "*.png", "*.jpg", "*.jpeg"));
 
-        Window window = ((Node) event.getSource()).getScene().getWindow();
-        File selectedFile = fileChooser.showOpenDialog(window);
-
+        File selectedFile = fileChooser.showOpenDialog(windowOf(event));
         if (selectedFile != null) {
-            String path = selectedFile.getAbsolutePath();
-            logoPathField.setText(path);
-            loadLogoImage(path);
+            logoPathField.setText(selectedFile.getAbsolutePath());
+            loadLogoImage(selectedFile.getAbsolutePath());
         }
     }
 
     private void loadLogoImage(String path) {
+        File file = new File(path);
+        if (!file.exists()) {
+            // المسار محفوظ لكن الملف نُقل أو حُذف: المطبوعات ستخرج بلا شعار بصمت
+            logoImageView.setImage(null);
+            statusLabel.setText("تنبيه: ملف الشعار غير موجود في مساره المحفوظ.");
+            return;
+        }
+
         try {
-            File file = new File(path);
-            if (file.exists()) {
-                Image image = new Image(file.toURI().toString());
-                logoImageView.setImage(image);
-            }
+            logoImageView.setImage(new Image(file.toURI().toString()));
         } catch (Exception e) {
-            System.err.println("فشل تحميل الصورة: " + e.getMessage());
+            logoImageView.setImage(null);
+            statusLabel.setText("تعذر عرض الشعار: " + e.getMessage());
         }
     }
 
@@ -98,91 +140,109 @@ public class SettingsController {
         DirectoryChooser directoryChooser = new DirectoryChooser();
         directoryChooser.setTitle("اختر مجلد حفظ النسخ الاحتياطية");
 
-        Window window = ((Node) event.getSource()).getScene().getWindow();
-        File selectedDirectory = directoryChooser.showDialog(window);
-
+        File selectedDirectory = directoryChooser.showDialog(windowOf(event));
         if (selectedDirectory != null) {
             backupPathField.setText(selectedDirectory.getAbsolutePath());
         }
     }
 
     @FXML
+    public void handleClearLedgerDate(ActionEvent event) {
+        ledgerStartDatePicker.setValue(null);
+        statusLabel.setText("سيُحتسب كل الحركات بعد الحفظ.");
+    }
+
+    @FXML
     public void handleSaveSettings(ActionEvent event) {
+        LocalDate ledgerStart = ledgerStartDatePicker.getValue();
+
+        // تغيير تاريخ بداية الدفتر يعيد حساب أرصدة كل الطلاب وقد يمنع دخولهم فوراً
+        if (ledgerStart != null && !AlertUtils.showConfirm("تأكيد",
+                "تاريخ بداية الدفتر: " + ledgerStart + "\n\n"
+                        + "ستُستبعد كل الحركات الأقدم من هذا التاريخ من حساب أرصدة الطلاب، "
+                        + "وقد يُمنع من أصبح رصيده غير كافٍ من الدخول عبر البوابة.\n\nهل تريد المتابعة؟")) {
+            return;
+        }
+
         CenterSettings settings = CenterSettings.builder()
-                .id(1L) // ثابت لتحديث نفس الصف
-                .centerName(centerNameField.getText().trim())
-                .centerPhone(centerPhoneField.getText().trim())
-                .logoPath(logoPathField.getText().trim())
-                .backupPath(backupPathField.getText().trim())
+                .centerName(trimmed(centerNameField))
+                .centerPhone(trimmed(centerPhoneField))
+                .logoPath(trimmed(logoPathField))
+                .backupPath(trimmed(backupPathField))
                 .autoBackupEnabled(autoBackupCheckBox.isSelected())
+                .ledgerStartDate(ledgerStart)
                 .build();
 
-        CompletableFuture.runAsync(() -> settingsRepository.save(settings))
-                .thenRun(() -> Platform.runLater(() ->
-                        showAlert(Alert.AlertType.INFORMATION, "نجاح", "تم حفظ الإعدادات بنجاح.")
-                ))
-                .exceptionally(ex -> {
-                    Platform.runLater(() -> showAlert(Alert.AlertType.ERROR, "خطأ", "فشل حفظ الإعدادات: " + ex.getMessage()));
-                    return null;
-                });
+        FxAsync.supply(() -> settingsService.save(settings), saved -> {
+            statusLabel.setText("تم الحفظ.");
+            AlertUtils.showSuccess("نجاح",
+                    "تم حفظ الإعدادات.\nاسم السنتر وشعاره سيظهران في المطبوعات الجديدة.");
+        }, error -> AlertUtils.showError("خطأ", "فشل حفظ الإعدادات: " + FxAsync.messageOf(error)));
+    }
+
+    private String trimmed(TextField field) {
+        String text = field.getText();
+        return text == null ? null : text.trim();
     }
 
     @FXML
     public void handleManualBackup(ActionEvent event) {
         String backupPath = backupPathField.getText();
-        if (backupPath == null || backupPath.trim().isEmpty()) {
-            showAlert(Alert.AlertType.WARNING, "تنبيه", "يرجى اختيار مسار الحفظ أولاً.");
+        if (backupPath == null || backupPath.isBlank()) {
+            AlertUtils.showWarning("تنبيه", "يرجى اختيار مجلد الحفظ أولاً.");
             return;
         }
 
-        CompletableFuture.supplyAsync(() -> backupService.executeBackup(backupPath))
-                .thenAccept(success -> Platform.runLater(() -> {
-                    if (success) {
-                        showAlert(Alert.AlertType.INFORMATION, "نجاح", "تم أخذ النسخة الاحتياطية بنجاح.");
-                    } else {
-                        showAlert(Alert.AlertType.ERROR, "خطأ", "فشلت عملية النسخ الاحتياطي. يرجى التأكد من مسار MySQL (mysqldump) في النظام.");
-                    }
-                }));
+        statusLabel.setText("جارٍ أخذ النسخة الاحتياطية...");
+        FxAsync.supply(() -> backupService.executeBackup(backupPath), success -> {
+            statusLabel.setText("");
+            if (success) {
+                AlertUtils.showSuccess("نجاح", "تم أخذ النسخة الاحتياطية في:\n" + backupPath);
+            } else {
+                AlertUtils.showError("خطأ", "فشلت عملية النسخ الاحتياطي.\n"
+                        + "تأكد من وجود mysqldump ضمن مسار النظام ومن صلاحية الكتابة في المجلد.");
+            }
+        }, error -> {
+            statusLabel.setText("");
+            AlertUtils.showError("خطأ", FxAsync.messageOf(error));
+        });
     }
 
     @FXML
     public void handleRestoreBackup(ActionEvent event) {
         FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("اختر ملف النسخة الاحتياطية (.sql)");
-        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("SQL Files", "*.sql"));
+        fileChooser.setTitle("اختر ملف النسخة الاحتياطية");
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("ملفات SQL", "*.sql"));
 
-        Window window = ((Node) event.getSource()).getScene().getWindow();
-        File selectedFile = fileChooser.showOpenDialog(window);
-
-        if (selectedFile != null) {
-            // رسالة تحذيرية قبل الاستعادة لأنها ستمسح البيانات الحالية
-            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
-                    "تحذير هام: استعادة النسخة الاحتياطية ستؤدي إلى حذف البيانات الحالية واستبدالها ببيانات النسخة المحددة. هل أنت متأكد من المتابعة؟",
-                    ButtonType.YES, ButtonType.NO);
-            confirm.setTitle("تأكيد الاستعادة");
-            confirm.setHeaderText("تأكيد الكتابة فوق البيانات الحالية");
-
-            confirm.showAndWait().ifPresent(response -> {
-                if (response == ButtonType.YES) {
-                    // تنفيذ الاستعادة في خلفية النظام
-                    CompletableFuture.supplyAsync(() -> backupService.restoreBackup(selectedFile.getAbsolutePath()))
-                            .thenAccept(success -> Platform.runLater(() -> {
-                                if (success) {
-                                    showAlert(Alert.AlertType.INFORMATION, "نجاح", "تم استعادة النسخة الاحتياطية بنجاح! يرجى إعادة تشغيل البرنامج لضمان تحديث البيانات.");
-                                } else {
-                                    showAlert(Alert.AlertType.ERROR, "خطأ", "فشلت عملية الاستعادة. يرجى التأكد من صحة الملف.");
-                                }
-                            }));
-                }
-            });
+        File selectedFile = fileChooser.showOpenDialog(windowOf(event));
+        if (selectedFile == null) {
+            return;
         }
+
+        // عملية مدمّرة لا رجعة فيها: التأكيد يذكر اسم الملف صراحةً
+        if (!AlertUtils.showConfirm("تأكيد الاستعادة",
+                "سيتم حذف كل البيانات الحالية واستبدالها بمحتوى:\n" + selectedFile.getName()
+                        + "\n\nلا يمكن التراجع عن هذه العملية. هل أنت متأكد؟")) {
+            return;
+        }
+
+        statusLabel.setText("جارٍ الاستعادة...");
+        FxAsync.supply(() -> backupService.restoreBackup(selectedFile.getAbsolutePath()), success -> {
+            statusLabel.setText("");
+            if (success) {
+                AlertUtils.showSuccess("نجاح",
+                        "تمت الاستعادة.\nأعد تشغيل البرنامج حتى تُحمَّل البيانات الجديدة بالكامل.");
+            } else {
+                AlertUtils.showError("خطأ",
+                        "فشلت الاستعادة. تأكد من صحة الملف ومن أن البرنامج مغلق على الأجهزة الأخرى.");
+            }
+        }, error -> {
+            statusLabel.setText("");
+            AlertUtils.showError("خطأ", FxAsync.messageOf(error));
+        });
     }
 
-    private void showAlert(Alert.AlertType type, String title, String content) {
-        Alert alert = new Alert(type);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(content);
-        alert.showAndWait();
+    private Window windowOf(ActionEvent event) {
+        return ((Node) event.getSource()).getScene().getWindow();
     }
 }
