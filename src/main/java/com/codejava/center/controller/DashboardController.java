@@ -82,6 +82,8 @@ public class DashboardController {
     @FXML
     private Button teacherPayoutButton;
     @FXML
+    private Button arrearsButton;
+    @FXML
     private VBox homeView;
     @FXML
     private Label totalStudentsLabel;
@@ -127,7 +129,7 @@ public class DashboardController {
 
             // الشاشات المالية الثلاث: جرد الخزينة والمصروفات وصرف المستحقات
             // خدماتها محمية بـ @RequiresRole(ADMIN)، والإخفاء هنا لتفادي رسالة رفض للمستخدم
-            for (Button financialButton : new Button[]{shiftClosingButton, expensesButton, teacherPayoutButton}) {
+            for (Button financialButton : new Button[]{shiftClosingButton, expensesButton, teacherPayoutButton, arrearsButton}) {
                 financialButton.setVisible(false);
                 financialButton.setManaged(false);
             }
@@ -195,6 +197,11 @@ public class DashboardController {
     @FXML
     public void showTeacherPayout(ActionEvent event) {
         loadView("/fxml/TeacherPayout.fxml");
+    }
+
+    @FXML
+    public void showArrears(ActionEvent event) {
+        loadView("/fxml/Arrears.fxml");
     }
     private void loadDashboardStats() {
         // البيانات المالية متاحة للمدير فقط؛ استدعاؤها بصلاحية سكرتارية

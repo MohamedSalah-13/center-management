@@ -5,6 +5,7 @@ import com.codejava.center.domain.Student;
 import com.codejava.center.domain.StudentGroup;
 import com.codejava.center.repository.StudentGroupRepository;
 import com.codejava.center.service.EnrollmentService;
+import com.codejava.center.service.ReportService;
 import com.codejava.center.service.StudentService;
 import com.codejava.center.service.TransactionService;
 import com.codejava.center.util.FxAsync;
@@ -35,6 +36,7 @@ public class CashierController {
     private final StudentService studentService;
     private final TransactionService transactionService;
     private final EnrollmentService enrollmentService;
+    private final ReportService reportService;
 
     // عناصر البحث
     @FXML private TextField barcodeSearchField;
@@ -156,7 +158,7 @@ public class CashierController {
             transactionService.recordStudentPayment(student, selectedGroup, amount, description);
             return transactionService.getStudentBalance(student.getId());
         }, newBalance -> {
-            printReceipt(student, selectedGroup, amount, description);
+            printReceipt(student, selectedGroup, amount, newBalance, description);
             AlertUtils.showSuccess("نجاح العملية",
                     "تم تسجيل مبلغ " + MoneyUtils.formatWithCurrency(amount) + " بنجاح لخزينة السنتر.\n"
                             + "رصيد الطالب الآن: " + MoneyUtils.formatWithCurrency(newBalance));
@@ -169,35 +171,17 @@ public class CashierController {
         resetUI();
     }
 
-    // أضف هذه الدالة داخل CashierController
-    private void printReceipt(Student student, CourseGroup group, BigDecimal amount, String description) {
-        javafx.print.PrinterJob job = javafx.print.PrinterJob.createPrinterJob();
-        if (job != null) {
-            // يمكنك تخطي إظهار حوار الطباعة للطباعة المباشرة السريعة (Point of Sale)
-            // إذا أردت الطباعة المباشرة على الطابعة الافتراضية، احذف شرط showPrintDialog
-            boolean doPrint = job.showPrintDialog(paymentSection.getScene().getWindow());
-
-            if (doPrint) {
-                VBox receipt = new VBox(10);
-                receipt.setStyle("-fx-padding: 20; -fx-background-color: white; -fx-border-color: black; -fx-border-width: 1;");
-
-                Label title = new Label("إيصال استلام نقدية");
-                title.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
-
-                Label date = new Label("التاريخ: " + java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
-                Label studentName = new Label("الطالب: " + student.getName());
-                Label groupName = new Label("المجموعة: " + group.getName());
-                Label paidAmount = new Label("المبلغ المدفوع: " + MoneyUtils.formatWithCurrency(amount));
-                Label desc = new Label("البيان: " + description);
-
-                receipt.getChildren().addAll(title, new javafx.scene.control.Separator(), date, studentName, groupName, paidAmount, desc);
-
-                if (job.printPage(receipt)) {
-                    job.endJob();
-                }
-            }
+    /** الإيصال يُبنى في ReportService ليحمل ترويسة السنتر (الاسم والشعار والهاتف) */
+    private void printReceipt(Student student, CourseGroup group, BigDecimal amount,
+                              BigDecimal newBalance, String description) {
+        try {
+            reportService.printPaymentReceipt(student.getName(), group.getName(), amount,
+                    newBalance, description, paymentSection.getScene().getWindow());
+        } catch (Exception e) {
+            AlertUtils.showError("خطأ في الطباعة", FxAsync.messageOf(e));
         }
     }
+
     /** رصيد سالب يعني متأخرات على الطالب، فيُعرض بالأحمر */
     private void showBalance(BigDecimal balance) {
         balanceLabel.setText(MoneyUtils.formatWithCurrency(balance));

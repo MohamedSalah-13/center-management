@@ -6,6 +6,7 @@ import com.codejava.center.domain.Transaction;
 import com.codejava.center.repository.CenterSettingsRepository;
 import com.codejava.center.service.dto.SessionPayout;
 import com.codejava.center.service.dto.ShiftSummary;
+import com.codejava.center.service.dto.StudentBalance;
 import com.codejava.center.util.MoneyUtils;
 import javafx.geometry.Pos;
 import javafx.print.PrinterJob;
@@ -131,6 +132,68 @@ public class ReportService {
         page.getChildren().add(printedAt);
 
         printNode(page, ownerWindow);
+    }
+
+    /**
+     * تقرير المتأخرات: قائمة المدينين ومبالغهم مع بيانات التواصل.
+     */
+    public void printArrearsReport(List<StudentBalance> arrears, java.math.BigDecimal totalDue, Window ownerWindow) {
+        VBox page = new VBox(8);
+        page.setStyle("-fx-padding: 30; -fx-background-color: white;");
+
+        page.getChildren().add(buildHeader("تقرير المتأخرات"));
+
+        for (StudentBalance row : arrears) {
+            page.getChildren().add(new Label(String.format(
+                    "%s   |   باركود: %s   |   ولي الأمر: %s   |   المستحق: %s",
+                    row.studentName(),
+                    row.barcode() != null ? row.barcode() : "---",
+                    row.parentPhone() != null ? row.parentPhone() : "---",
+                    MoneyUtils.format(row.amountDue()))));
+        }
+
+        page.getChildren().add(new Separator());
+        Label total = new Label(String.format("عدد المدينين: %d   -   إجمالي المتأخرات: %s",
+                arrears.size(), MoneyUtils.formatWithCurrency(totalDue)));
+        total.setFont(Font.font("System", FontWeight.BOLD, 16));
+        page.getChildren().add(total);
+
+        Label printedAt = new Label("\nتاريخ الإصدار: "
+                + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+        printedAt.setFont(Font.font("System", 11));
+        page.getChildren().add(printedAt);
+
+        printNode(page, ownerWindow);
+    }
+
+    /**
+     * إيصال استلام نقدية.
+     * كان يُبنى داخل شاشة الخزينة بترويسة نصية ثابتة لا تحمل اسم السنتر ولا شعاره
+     * رغم أن الإعدادات تجمعهما.
+     */
+    public void printPaymentReceipt(String studentName, String groupName, java.math.BigDecimal amount,
+                                    java.math.BigDecimal newBalance, String description, Window ownerWindow) {
+        VBox receipt = new VBox(10);
+        receipt.setStyle("-fx-padding: 25; -fx-background-color: white; -fx-border-color: black; -fx-border-width: 1;");
+
+        receipt.getChildren().add(buildHeader("إيصال استلام نقدية"));
+
+        receipt.getChildren().addAll(
+                new Label("التاريخ: " + LocalDateTime.now()
+                        .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))),
+                new Label("الطالب: " + studentName),
+                new Label("المجموعة: " + groupName),
+                new Label("البيان: " + description));
+
+        Label paid = new Label("المبلغ المدفوع: " + MoneyUtils.formatWithCurrency(amount));
+        paid.setFont(Font.font("System", FontWeight.BOLD, 18));
+
+        Label balance = new Label("الرصيد بعد الدفع: " + MoneyUtils.formatWithCurrency(newBalance));
+        balance.setFont(Font.font("System", 14));
+
+        receipt.getChildren().addAll(new Separator(), paid, balance);
+
+        printNode(receipt, ownerWindow);
     }
 
     private Label summaryLine(String label, java.math.BigDecimal value) {
