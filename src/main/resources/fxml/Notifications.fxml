@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
+
+<VBox spacing="20.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.codejava.center.controller.NotificationsController"
+      style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
+
+    <Label text="إشعارات أولياء الأمور" textFill="#2c3e50">
+        <font><Font name="System Bold" size="26.0" /></font>
+    </Label>
+
+    <Label fx:id="channelNoteLabel" text="" textFill="#7f8c8d" wrapText="true" />
+
+    <GridPane hgap="15.0" vgap="15.0"
+              style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
+        <Label text="نوع الإشعار:" GridPane.columnIndex="0" GridPane.rowIndex="0">
+            <font><Font name="System Bold" size="14.0" /></font>
+        </Label>
+        <ComboBox fx:id="typeComboBox" prefWidth="200.0" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+
+        <Label fx:id="groupLabel" text="المجموعة:" GridPane.columnIndex="2" GridPane.rowIndex="0">
+            <font><Font name="System Bold" size="14.0" /></font>
+        </Label>
+        <ComboBox fx:id="groupComboBox" promptText="اختر المجموعة..." prefWidth="220.0"
+                  GridPane.columnIndex="3" GridPane.rowIndex="0" />
+
+        <Label fx:id="fromLabel" text="من:" GridPane.columnIndex="4" GridPane.rowIndex="0">
+            <font><Font name="System Bold" size="14.0" /></font>
+        </Label>
+        <DatePicker fx:id="fromPicker" editable="false" GridPane.columnIndex="5" GridPane.rowIndex="0" />
+
+        <Label fx:id="toLabel" text="إلى:" GridPane.columnIndex="6" GridPane.rowIndex="0">
+            <font><Font name="System Bold" size="14.0" /></font>
+        </Label>
+        <DatePicker fx:id="toPicker" editable="false" GridPane.columnIndex="7" GridPane.rowIndex="0" />
+
+        <HBox spacing="10.0" GridPane.columnIndex="1" GridPane.rowIndex="1" GridPane.columnSpan="7"
+              alignment="CENTER_RIGHT">
+            <Button text="تجهيز القائمة" onAction="#handleBuild"
+                    style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+        </HBox>
+    </GridPane>
+
+    <HBox spacing="15.0" alignment="CENTER_LEFT">
+        <CheckBox fx:id="sendableOnlyCheck" text="عرض الجاهزين للإرسال فقط" selected="true" />
+        <Region HBox.hgrow="ALWAYS" />
+        <Label fx:id="summaryLabel" text="" textFill="#2c3e50">
+            <font><Font name="System Bold" size="14.0" /></font>
+        </Label>
+    </HBox>
+
+    <TableView fx:id="candidatesTable" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="colName" text="الطالب" prefWidth="180.0" />
+            <TableColumn fx:id="colPhone" text="رقم ولي الأمر" prefWidth="140.0" />
+            <TableColumn fx:id="colStatus" text="الحالة" prefWidth="110.0" />
+            <TableColumn fx:id="colMessage" text="نص الرسالة" prefWidth="520.0" />
+        </columns>
+    </TableView>
+
+    <HBox spacing="15.0" alignment="CENTER_RIGHT"
+          style="-fx-background-color: white; -fx-padding: 15; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
+        <Button fx:id="sendSelectedButton" text="إرسال للمحدد" onAction="#handleSendSelected" disable="true"
+                style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+        <Button fx:id="sendAllButton" text="إرسال للجميع" onAction="#handleSendAll" disable="true"
+                style="-fx-background-color: #e67e22; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+    </HBox>
+</VBox>
