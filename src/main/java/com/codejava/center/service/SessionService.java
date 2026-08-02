@@ -16,12 +16,18 @@ import java.util.Optional;
 public class SessionService {
     private final SessionRepository sessionRepository;
 
+    /**
+     * فتح حصة جديدة لمجموعة.
+     * يُسمح بعدة حصص مفتوحة في نفس الوقت (قاعات متوازية)،
+     * والقيد الوحيد أن المجموعة الواحدة لا يكون لها حصتان مفتوحتان معاً.
+     */
     @Transactional
     public Session openSession(CourseGroup group, LocalDate date) {
-        // التحقق من عدم وجود حصة نشطة حالياً لتجنب التعارض
-        Optional<Session> activeSession = sessionRepository.findActiveSessionForToday();
-        if (activeSession.isPresent()) {
-            throw new IllegalStateException("يوجد حصة نشطة بالفعل. يرجى إغلاقها أولاً.");
+        Optional<Session> alreadyOpen = sessionRepository.findByGroupAndIsActiveTrue(group);
+        if (alreadyOpen.isPresent()) {
+            throw new IllegalStateException(String.format(
+                    "المجموعة \"%s\" لديها حصة مفتوحة بالفعل بتاريخ %s. يرجى إغلاقها أولاً.",
+                    group.getName(), alreadyOpen.get().getSessionDate()));
         }
 
         Session session = Session.builder()
@@ -34,13 +40,27 @@ public class SessionService {
         return sessionRepository.save(session);
     }
 
+    /**
+     * إغلاق حصة محددة بالاسم بدلاً من "الحصة النشطة"،
+     * لأن أكثر من حصة قد تكون مفتوحة في نفس اللحظة.
+     */
     @Transactional
-    public void closeActiveSession() {
-        Session activeSession = sessionRepository.findActiveSessionForToday()
-                .orElseThrow(() -> new IllegalStateException("لا توجد حصة نشطة لإغلاقها."));
+    public void closeSession(Long sessionId) {
+        Session session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("الحصة غير موجودة."));
 
-        activeSession.setActive(false);
-        sessionRepository.save(activeSession);
+        if (!session.isActive()) {
+            throw new IllegalStateException("هذه الحصة مغلقة بالفعل.");
+        }
+
+        session.setActive(false);
+        sessionRepository.save(session);
+    }
+
+    /** كل الحصص المفتوحة حالياً */
+    @Transactional(readOnly = true)
+    public List<Session> getActiveSessions() {
+        return sessionRepository.findAllActive();
     }
 
     @Transactional(readOnly = true)
