@@ -1,6 +1,6 @@
 package com.codejava.center.service.notification;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.awt.Desktop;
@@ -17,13 +17,20 @@ import java.nio.charset.StandardCharsets;
  *
  * <p>هذا يعني أنها <b>يدوية بطبيعتها</b> ولا تصلح لإرسال مئات الرسائل. عند الوصول
  * لهذا الحجم يُضاف صنف آخر يطبّق {@link MessageSender} فوق WhatsApp Business API
- * أو بوابة SMS، ويحل محل هذا تلقائياً بفضل {@code @ConditionalOnMissingBean}.</p>
+ * أو بوابة SMS، ويُفعَّل بضبط {@code center.notifications.channel} على قيمته.</p>
+ *
+ * <p>الاختيار بخاصية صريحة لا بـ {@code @ConditionalOnMissingBean}: ذلك التعليق
+ * على صنف يُلتقط بمسح المكوّنات يُقيَّم مقابل تعريف الصنف نفسه فيستبعد نفسه،
+ * فلا يُسجَّل أي bean ويفشل إقلاع التطبيق. هو مخصص لأصناف التهيئة التلقائية.</p>
  *
  * <p>كون المستخدم هو من يضغط "إرسال" ميزة لا قيد: لا يمكن للنظام أن يرسل رسائل
  * لأولياء الأمور دون رؤية بشرية للنص والرقم.</p>
  */
 @Component
-@ConditionalOnMissingBean(MessageSender.class)
+@ConditionalOnProperty(
+        name = "center.notifications.channel",
+        havingValue = "whatsapp-link",
+        matchIfMissing = true)
 public class WhatsAppLinkSender implements MessageSender {
 
     @Override
