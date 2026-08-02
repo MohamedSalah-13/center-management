@@ -55,6 +55,16 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Flyway: إدارة تطوّر مخطط قاعدة البيانات بملفات ترحيل مُرقّمة -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
+        </dependency>
+
         <!-- SQLite (للاستخدام المحلي الفردي) -->
         <dependency>
             <groupId>org.xerial</groupId>

@@ -1,11 +1,18 @@
 package com.codejava.center.service;
 
+import com.codejava.center.domain.CenterSettings;
 import com.codejava.center.domain.Student;
+import com.codejava.center.domain.enums.Role;
+import com.codejava.center.repository.CenterSettingsRepository;
+import com.codejava.center.security.RequiresRole;
+import com.codejava.center.service.dto.StudentBalance;
 import com.codejava.center.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,6 +22,7 @@ import java.util.UUID;
 public class StudentService {
 
     private final StudentRepository studentRepository;
+    private final CenterSettingsRepository centerSettingsRepository;
 
     /**
      * حفظ طالب جديد أو تحديث بيانات طالب حالي
@@ -77,5 +85,20 @@ public class StudentService {
     @Transactional
     public void deleteStudent(Long studentId) {
         studentRepository.deleteById(studentId);
+    }
+
+    /**
+     * الطلاب الذين عليهم متأخرات، مرتّبين من الأكثر مديونية.
+     * يستبعد ما قبل تاريخ بداية دفتر الحسابات تماماً كحساب رصيد الطالب الفردي.
+     */
+    @Transactional(readOnly = true)
+    @RequiresRole(Role.ADMIN)
+    public List<StudentBalance> getStudentsInArrears() {
+        LocalDateTime ledgerStart = centerSettingsRepository.findById(1L)
+                .map(CenterSettings::getLedgerStartDate)
+                .map(LocalDate::atStartOfDay)
+                .orElse(null);
+
+        return studentRepository.findStudentsInArrears(ledgerStart);
     }
 }

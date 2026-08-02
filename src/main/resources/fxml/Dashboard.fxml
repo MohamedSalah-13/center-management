@@ -31,6 +31,12 @@
             <Button text="📅 إدارة الحصص" onAction="#showSessionManagement" maxWidth="Infinity" styleClass="sidebar-btn"/>
             <Button fx:id="cashierButton" text="💰 الخزينة والاشتراكات" onAction="#showCashier" maxWidth="Infinity" styleClass="sidebar-btn"/>
             <Button fx:id="paymentHistoryButton" text="🧾 سجل المدفوعات" onAction="#showPaymentHistory" maxWidth="Infinity" styleClass="sidebar-btn"/>
+            <Button fx:id="shiftClosingButton" text="🧮 تقفيل الوردية" onAction="#showShiftClosing" maxWidth="Infinity" styleClass="sidebar-btn"/>
+            <Button fx:id="expensesButton" text="🧾 المصروفات" onAction="#showExpenses" maxWidth="Infinity" styleClass="sidebar-btn"/>
+            <Button fx:id="notificationsButton" text="📨 إشعارات أولياء الأمور" onAction="#showNotifications" maxWidth="Infinity" styleClass="sidebar-btn"/>
+            <Button text="📊 تقرير الحضور والغياب" onAction="#showAttendanceReport" maxWidth="Infinity" styleClass="sidebar-btn"/>
+            <Button fx:id="arrearsButton" text="⚠️ تقرير المتأخرات" onAction="#showArrears" maxWidth="Infinity" styleClass="sidebar-btn"/>
+            <Button fx:id="teacherPayoutButton" text="💵 صرف مستحقات المعلمين" onAction="#showTeacherPayout" maxWidth="Infinity" styleClass="sidebar-btn"/>
             <Button fx:id="teachersButton" text="👨‍🏫 إدارة المعلمين" onAction="#showTeachers" maxWidth="Infinity" styleClass="sidebar-btn"/>
             <Button fx:id="groupsButton" text="📚 إدارة المجموعات" onAction="#showGroups" maxWidth="Infinity" styleClass="sidebar-btn"/>
             <Button fx:id="usersManagementButton" text="🔐 إدارة المستخدمين" onAction="#showUsers" maxWidth="Infinity" styleClass="sidebar-btn"/>
