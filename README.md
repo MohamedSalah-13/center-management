@@ -6,13 +6,50 @@
 
 ## 🛠️ التقنيات المستخدمة (Tech Stack)
 
-- **اللغة:** Java 17+
-- **إطار عمل خلفي (Backend):** Spring Boot 3.x (Spring Data JPA / Hibernate)
-- **الأمان والتشفير (Security):** Spring Security (BCryptPasswordEncoder)
-- **واجهة المستخدم (UI):** JavaFX 17 + FXML
+- **اللغة:** Java 21
+- **إطار عمل خلفي (Backend):** Spring Boot 3.2 (Spring Data JPA / Hibernate)
+- **الأمان والتشفير (Security):** Spring Security (BCryptPasswordEncoder) + صلاحيات على طبقة الخدمات عبر AOP
+- **واجهة المستخدم (UI):** JavaFX 21 + FXML
 - **قاعدة البيانات (Database):** MySQL 8+ (مُعدّلة لتجاوز مشكلة Public Key Retrieval)
 - **إدارة التبعيات والمكتبات:** Lombok, Maven
 - **معالجة الواجهات المتزامنة (Asynchronous UI):** `CompletableFuture` & `Platform.runLater()`
+
+---
+
+## ⚙️ الإعداد قبل التشغيل (Setup)
+
+بيانات الاتصال بقاعدة البيانات **لم تعد مكتوبة داخل الكود**. يجب ضبط متغيرات البيئة التالية قبل التشغيل:
+
+| المتغير | الوصف | مثال |
+|---|---|---|
+| `DB_URL` | رابط JDBC (اختياري، له قيمة افتراضية) | `jdbc:mysql://localhost:3306/center_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true` |
+| `DB_USERNAME` | اسم مستخدم قاعدة البيانات | `center_app` |
+| `DB_PASSWORD` | كلمة المرور | — |
+
+**PowerShell:**
+
+```bash
+$env:DB_USERNAME = "center_app"; $env:DB_PASSWORD = "your-password"; mvn spring-boot:run
+```
+
+بدلاً من ذلك يمكن إنشاء ملف `src/main/resources/application-local.properties` (مستثنى من git تلقائياً) وتشغيل التطبيق بالبروفايل `local`.
+
+> يُنصح بإنشاء مستخدم MySQL مخصّص بصلاحيات محدودة على `center_db` بدلاً من استخدام `root`.
+
+### حساب المدير الأول
+
+عند أول تشغيل يُنشأ حساب `admin`. كلمة المرور **لم تعد ثابتة**:
+
+- إن ضبطت `ADMIN_INITIAL_PASSWORD` تُستخدم قيمتها.
+- وإلا تُولَّد كلمة عشوائية وتُطبع في الطرفية **مرة واحدة فقط** عند الإنشاء. سجّلها فوراً وغيّرها من شاشة إدارة المستخدمين.
+
+### ترحيل قاعدة بيانات قائمة
+
+إذا كانت لديك قاعدة بيانات تحتوي بيانات سابقة، نفّذ سكربت الترحيل مرة واحدة بعد أخذ نسخة احتياطية:
+
+```bash
+mysql -u center_app -p center_db < db/migration/2026-08-02_money_to_decimal.sql
+```
 
 ---
 

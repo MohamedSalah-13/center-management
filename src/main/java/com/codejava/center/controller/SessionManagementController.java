@@ -4,6 +4,7 @@ import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Session;
 import com.codejava.center.service.CourseGroupService;
 import com.codejava.center.service.SessionService;
+import com.codejava.center.util.FxAsync;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -13,11 +14,14 @@ import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.util.StringConverter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 
 import java.util.concurrent.CompletableFuture;
 
 @Controller
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE) // نسخة جديدة لكل فتح للشاشة - يمنع تراكم الـ listeners والحالة القديمة
 @RequiredArgsConstructor
 public class SessionManagementController {
 
@@ -63,14 +67,15 @@ public class SessionManagementController {
     }
 
     private void loadData() {
-        CompletableFuture.runAsync(() -> {
-            var groups = courseGroupService.getAllGroups();
-            var sessions = sessionService.getAllSessions();
-            Platform.runLater(() -> {
-                groupComboBox.getItems().setAll(groups);
-                sessionsList.setAll(sessions);
-            });
-        });
+        FxAsync.supply(() -> new LoadedData(courseGroupService.getAllGroups(), sessionService.getAllSessions()),
+                data -> {
+                    groupComboBox.getItems().setAll(data.groups());
+                    sessionsList.setAll(data.sessions());
+                },
+                error -> showAlert(Alert.AlertType.ERROR, "خطأ", "تعذر تحميل البيانات: " + FxAsync.messageOf(error)));
+    }
+
+    private record LoadedData(java.util.List<CourseGroup> groups, java.util.List<Session> sessions) {
     }
 
     @FXML
@@ -81,24 +86,28 @@ public class SessionManagementController {
             return;
         }
 
-        try {
-            Session newSession = sessionService.openSession(selectedGroup, sessionDatePicker.getValue());
-            sessionsList.add(newSession);
-            showAlert(Alert.AlertType.INFORMATION, "نجاح", "تم فتح الحصة بنجاح.");
-        } catch (Exception e) {
-            showAlert(Alert.AlertType.ERROR, "خطأ", e.getMessage());
-        }
+        FxAsync.supply(() -> sessionService.openSession(selectedGroup, sessionDatePicker.getValue()),
+                newSession -> {
+                    sessionsList.add(newSession);
+                    showAlert(Alert.AlertType.INFORMATION, "نجاح", "تم فتح الحصة بنجاح.");
+                },
+                error -> showAlert(Alert.AlertType.ERROR, "خطأ", FxAsync.messageOf(error)));
     }
 
     @FXML
     public void handleCloseSession(ActionEvent event) {
-        try {
-            sessionService.closeActiveSession();
-            loadData(); // إعادة تحميل البيانات لتحديث حالة الجدول
-            showAlert(Alert.AlertType.INFORMATION, "نجاح", "تم إغلاق الحصة النشطة.");
-        } catch (Exception e) {
-            showAlert(Alert.AlertType.ERROR, "خطأ", e.getMessage());
+        // أكثر من حصة قد تكون مفتوحة في نفس الوقت (قاعات متوازية)،
+        // لذلك يجب تحديد أي حصة تُغلق بدلاً من افتراض وجود حصة واحدة
+        Session selected = sessionsTable.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            showAlert(Alert.AlertType.WARNING, "تنبيه", "يرجى تحديد الحصة المراد إنهاؤها من الجدول.");
+            return;
         }
+
+        FxAsync.run(() -> sessionService.closeSession(selected.getId()), () -> {
+            loadData(); // إعادة تحميل البيانات لتحديث حالة الجدول
+            showAlert(Alert.AlertType.INFORMATION, "نجاح", "تم إغلاق حصة: " + selected.getGroup().getName());
+        }, error -> showAlert(Alert.AlertType.ERROR, "خطأ", FxAsync.messageOf(error)));
     }
 
     private void showAlert(Alert.AlertType type, String title, String content) {

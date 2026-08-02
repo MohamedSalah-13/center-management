@@ -1,7 +1,9 @@
 package com.codejava.center.service;
 
 import com.codejava.center.domain.User;
+import com.codejava.center.domain.enums.Role;
 import com.codejava.center.repository.UserRepository;
+import com.codejava.center.security.RequiresRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -18,6 +20,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
+    @RequiresRole(Role.ADMIN)
     public User saveUser(User user, String rawPassword) {
         // التحقق من أن اسم المستخدم غير مكرر عند إضافة مستخدم جديد
         if (user.getId() == null) {
@@ -39,11 +42,13 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    @RequiresRole(Role.ADMIN)
     public List<User> getAllUsers() {
         return userRepository.findAll();
     }
 
     @Transactional
+    @RequiresRole(Role.ADMIN)
     public void deleteUser(Long userId) {
         userRepository.deleteById(userId);
     }

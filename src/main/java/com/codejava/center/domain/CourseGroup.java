@@ -8,6 +8,8 @@ import lombok.Setter;
 import lombok.NoArgsConstructor;
 import lombok.EqualsAndHashCode;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(name = "course_groups")
 @Getter // استبدال Data
@@ -32,6 +34,7 @@ public class CourseGroup {
 
     private Integer maxCapacity;
 
-    @Column(nullable = false)
-    private Double sessionPrice;
+    // BigDecimal وليس Double: سعر الحصة يدخل في كل حسابات الإيراد والعمولات
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal sessionPrice;
 }

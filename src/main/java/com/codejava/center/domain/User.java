@@ -1,5 +1,6 @@
 package com.codejava.center.domain;
 
+import com.codejava.center.domain.enums.Role;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -24,6 +25,9 @@ public class User {
     @Column(nullable = false)
     private String password;
 
+    // EnumType.STRING يخزّن نفس القيم النصية السابقة ("ADMIN"/"SECRETARY")
+    // فلا يحتاج العمود في قاعدة البيانات أي تغيير
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private String role;
+    private Role role;
 }

@@ -3,6 +3,8 @@ package com.codejava.center.controller;
 import com.codejava.center.domain.Teacher;
 import com.codejava.center.service.ReportService;
 import com.codejava.center.service.TeacherService;
+import com.codejava.center.util.FxAsync;
+import com.codejava.center.util.MoneyUtils;
 import com.codejava.commons.fx.dialog.AlertUtils;
 import com.codejava.commons.fx.form.FormUtils;
 import com.codejava.commons.fx.validation.InputValidator;
@@ -15,11 +17,15 @@ import javafx.fxml.FXML;
 import javafx.scene.Node;
 import javafx.scene.control.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 
+import java.math.BigDecimal;
 import java.util.concurrent.CompletableFuture;
 
 @Controller
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE) // نسخة جديدة لكل فتح للشاشة - يمنع تراكم الـ listeners والحالة القديمة
 @RequiredArgsConstructor
 public class TeacherController {
 
@@ -45,7 +51,7 @@ public class TeacherController {
         colName.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue().getName()));
         colSubject.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue().getSubject()));
         colType.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue().getCommissionType()));
-        colValue.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(String.valueOf(d.getValue().getCommissionValue())));
+        colValue.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(MoneyUtils.format(d.getValue().getCommissionValue())));
 
         teacherTable.setItems(teachersList);
         setupTableSelectionListener();
@@ -86,7 +92,7 @@ public class TeacherController {
                 nameField.setText(selectedTeacher.getName());
                 subjectField.setText(selectedTeacher.getSubject());
                 typeCombo.setValue(selectedTeacher.getCommissionType());
-                valueField.setText(String.valueOf(selectedTeacher.getCommissionValue()));
+                valueField.setText(MoneyUtils.format(selectedTeacher.getCommissionValue()));
 
                 updateButton.setDisable(false);
                 deleteButton.setDisable(false);
@@ -124,8 +130,9 @@ public class TeacherController {
     }
 
     private void loadTeachers() {
-        CompletableFuture.supplyAsync(teacherService::getAllTeachers)
-                .thenAccept(teachers -> Platform.runLater(() -> teachersList.setAll(teachers)));
+        FxAsync.supply(teacherService::getAllTeachers,
+                teachers -> teachersList.setAll(teachers),
+                error -> AlertUtils.showError("خطأ", "تعذر تحميل المعلمين: " + FxAsync.messageOf(error)));
     }
 
     @FXML
@@ -145,20 +152,27 @@ public class TeacherController {
             teacher.setName(nameField.getText());
             teacher.setSubject(subjectField.getText());
             teacher.setCommissionType(typeCombo.getValue());
-            teacher.setCommissionValue(Double.parseDouble(valueField.getText()));
+            teacher.setCommissionValue(new BigDecimal(valueField.getText().trim()));
+        } catch (NumberFormatException e) {
+            AlertUtils.showError("إدخال خاطئ", "قيمة العمولة يجب أن تكون رقماً.");
+            return;
+        }
 
-            Teacher saved = teacherService.saveTeacher(teacher);
+        boolean isNew = teacher.getId() == null;
 
-            if (teacher.getId() == null) {
+        FxAsync.supply(() -> teacherService.saveTeacher(teacher), saved -> {
+            if (isNew) {
                 teachersList.add(saved); // إضافة جديد
             } else {
-                int idx = teacherTable.getSelectionModel().getSelectedIndex();
-                teachersList.set(idx, saved); // تحديث صف موجود
+                // البحث عن الموضع في القائمة المصدر وليس في العرض (الجدول مربوط بـ SortedList/FilteredList
+                // ولذلك يختلف ترتيب صفوفه عن teachersList عند الفرز أو البحث)
+                int idx = teachersList.indexOf(teacher);
+                if (idx >= 0) {
+                    teachersList.set(idx, saved); // تحديث صف موجود
+                }
             }
             clearFields();
-        } catch (Exception e) {
-            AlertUtils.showError("خطأ", e.getMessage());
-        }
+        }, error -> AlertUtils.showError("خطأ", FxAsync.messageOf(error)));
     }
 
     @FXML
@@ -166,13 +180,11 @@ public class TeacherController {
         if (selectedTeacher == null) return;
 
         if (AlertUtils.showConfirm("تأكيد الحذف", "حذف المعلم: " + selectedTeacher.getName() + "؟")) {
-            try {
-                teacherService.deleteTeacher(selectedTeacher.getId());
-                teachersList.remove(selectedTeacher);
+            Teacher target = selectedTeacher;
+            FxAsync.run(() -> teacherService.deleteTeacher(target.getId()), () -> {
+                teachersList.remove(target);
                 clearFields();
-            } catch (Exception e) {
-                AlertUtils.showError("خطأ", "لا يمكن الحذف لارتباط المعلم بمجموعات دراسية.");
-            }
+            }, error -> AlertUtils.showError("خطأ", "لا يمكن الحذف لارتباط المعلم بمجموعات دراسية."));
         }
     }
 

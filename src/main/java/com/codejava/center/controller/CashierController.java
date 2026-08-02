@@ -4,8 +4,11 @@ import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Student;
 import com.codejava.center.domain.StudentGroup;
 import com.codejava.center.repository.StudentGroupRepository;
+import com.codejava.center.service.EnrollmentService;
 import com.codejava.center.service.StudentService;
 import com.codejava.center.service.TransactionService;
+import com.codejava.center.util.FxAsync;
+import com.codejava.center.util.MoneyUtils;
 import com.codejava.commons.fx.dialog.AlertUtils;
 import com.codejava.commons.fx.form.FormUtils;
 import com.codejava.commons.fx.validation.InputValidator;
@@ -16,23 +19,28 @@ import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
 import javafx.util.StringConverter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Controller
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE) // نسخة جديدة لكل فتح للشاشة - يمنع تراكم الـ listeners والحالة القديمة
 @RequiredArgsConstructor
 public class CashierController {
 
     private final StudentService studentService;
     private final TransactionService transactionService;
-    private final StudentGroupRepository studentGroupRepository;
+    private final EnrollmentService enrollmentService;
 
     // عناصر البحث
     @FXML private TextField barcodeSearchField;
     @FXML private Label studentNameLabel;
     @FXML private Label schoolLevelLabel;
+    @FXML private Label balanceLabel;
 
     // عناصر الدفع
     @FXML private VBox paymentSection;
@@ -61,7 +69,7 @@ public class CashierController {
         // مستمع (Listener) لتغيير المبلغ التلقائي عند اختيار مجموعة
         groupsComboBox.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
-                amountField.setText(String.valueOf(newVal.getSessionPrice()));
+                amountField.setText(MoneyUtils.format(newVal.getSessionPrice()));
                 descriptionField.setText("اشتراك مجموعة: " + newVal.getName());
             }
         });
@@ -83,22 +91,20 @@ public class CashierController {
         groupsComboBox.getItems().clear();
         currentStudent = null;
 
-        CompletableFuture.supplyAsync(() -> {
-            try {
-                Student student = studentService.findByBarcode(barcode);
-                List<StudentGroup> activeGroups = studentGroupRepository.findByStudentAndIsActiveTrue(student);
-                return new SearchResult(student, activeGroups);
-            } catch (Exception e) {
-                throw new RuntimeException(e.getMessage());
-            }
-        }).thenAccept(result -> Platform.runLater(() -> {
+        FxAsync.supply(() -> {
+            Student student = studentService.findByBarcode(barcode);
+            List<StudentGroup> activeGroups = enrollmentService.getActiveGroupsOf(student);
+            BigDecimal balance = transactionService.getStudentBalance(student.getId());
+            return new SearchResult(student, activeGroups, balance);
+        }, result -> {
             // تحديث الواجهة عند النجاح
-            currentStudent = result.student;
+            currentStudent = result.student();
             studentNameLabel.setText(currentStudent.getName());
             schoolLevelLabel.setText(currentStudent.getSchoolLevel());
+            showBalance(result.balance());
 
             // تعبئة المجموعات المشترك بها
-            for (StudentGroup sg : result.activeGroups) {
+            for (StudentGroup sg : result.activeGroups()) {
                 groupsComboBox.getItems().add(sg.getGroup());
             }
 
@@ -109,13 +115,10 @@ public class CashierController {
                 AlertUtils.showWarning("تنبيه", "هذا الطالب غير مشترك في أي مجموعة حالياً.");
             }
 
-        })).exceptionally(ex -> {
-            Platform.runLater(() -> {
-                resetUI();
-                AlertUtils.showError("خطأ في البحث", "لم يتم العثور على طالب بهذا الباركود.");
-                barcodeSearchField.selectAll();
-            });
-            return null;
+        }, error -> {
+            resetUI();
+            AlertUtils.showError("خطأ في البحث", FxAsync.messageOf(error));
+            barcodeSearchField.selectAll();
         });
     }
 
@@ -137,23 +140,28 @@ public class CashierController {
             return;
         }
 
+        BigDecimal amount;
         try {
-            Double amount = Double.parseDouble(amountStr);
-
-            // استدعاء السيرفيس المالي لحفظ العملية كـ INCOME
-            transactionService.recordStudentPayment(currentStudent, selectedGroup, amount, description);
-
-            // -- إضافة استدعاء الطباعة هنا --
-            printReceipt(currentStudent, selectedGroup, amount, description);
-
-            AlertUtils.showSuccess("نجاح العملية", "تم تسجيل مبلغ " + amount + " ج.م بنجاح لخزينة السنتر.");
-            handleCancelAction(null); // إعادة تعيين الشاشة لاستقبال الطالب التالي
-
+            amount = MoneyUtils.normalize(new BigDecimal(amountStr));
         } catch (NumberFormatException e) {
             AlertUtils.showError("إدخال خاطئ", "يرجى إدخال المبلغ كأرقام صحيحة فقط.");
-        } catch (Exception e) {
-            AlertUtils.showError("خطأ في النظام", e.getMessage());
+            return;
         }
+
+        Student student = currentStudent;
+
+        // الحفظ وقراءة الرصيد في الخلفية؛ الطباعة تبقى على خيط الواجهة
+        // لأن PrinterJob وحوار الطباعة في JavaFX يجب أن يعملا عليه
+        FxAsync.supply(() -> {
+            transactionService.recordStudentPayment(student, selectedGroup, amount, description);
+            return transactionService.getStudentBalance(student.getId());
+        }, newBalance -> {
+            printReceipt(student, selectedGroup, amount, description);
+            AlertUtils.showSuccess("نجاح العملية",
+                    "تم تسجيل مبلغ " + MoneyUtils.formatWithCurrency(amount) + " بنجاح لخزينة السنتر.\n"
+                            + "رصيد الطالب الآن: " + MoneyUtils.formatWithCurrency(newBalance));
+            handleCancelAction(null); // إعادة تعيين الشاشة لاستقبال الطالب التالي
+        }, error -> AlertUtils.showError("خطأ في النظام", FxAsync.messageOf(error)));
     }
 
     @FXML
@@ -162,7 +170,7 @@ public class CashierController {
     }
 
     // أضف هذه الدالة داخل CashierController
-    private void printReceipt(Student student, CourseGroup group, Double amount, String description) {
+    private void printReceipt(Student student, CourseGroup group, BigDecimal amount, String description) {
         javafx.print.PrinterJob job = javafx.print.PrinterJob.createPrinterJob();
         if (job != null) {
             // يمكنك تخطي إظهار حوار الطباعة للطباعة المباشرة السريعة (Point of Sale)
@@ -179,7 +187,7 @@ public class CashierController {
                 Label date = new Label("التاريخ: " + java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
                 Label studentName = new Label("الطالب: " + student.getName());
                 Label groupName = new Label("المجموعة: " + group.getName());
-                Label paidAmount = new Label("المبلغ المدفوع: " + amount + " ج.م");
+                Label paidAmount = new Label("المبلغ المدفوع: " + MoneyUtils.formatWithCurrency(amount));
                 Label desc = new Label("البيان: " + description);
 
                 receipt.getChildren().addAll(title, new javafx.scene.control.Separator(), date, studentName, groupName, paidAmount, desc);
@@ -190,11 +198,21 @@ public class CashierController {
             }
         }
     }
+    /** رصيد سالب يعني متأخرات على الطالب، فيُعرض بالأحمر */
+    private void showBalance(BigDecimal balance) {
+        balanceLabel.setText(MoneyUtils.formatWithCurrency(balance));
+        balanceLabel.setStyle(balance.signum() < 0
+                ? "-fx-text-fill: #e74c3c;"
+                : "-fx-text-fill: #27ae60;");
+    }
+
     private void resetUI() {
         currentStudent = null;
         barcodeSearchField.clear();
         studentNameLabel.setText("---");
         schoolLevelLabel.setText("---");
+        balanceLabel.setText("---");
+        balanceLabel.setStyle("");
         groupsComboBox.getItems().clear();
         amountField.clear();
         descriptionField.clear();
@@ -203,5 +221,5 @@ public class CashierController {
     }
 
     // Record مساعد لنقل البيانات بين الـ Threads
-    private record SearchResult(Student student, List<StudentGroup> activeGroups) {}
+    private record SearchResult(Student student, List<StudentGroup> activeGroups, BigDecimal balance) {}
 }

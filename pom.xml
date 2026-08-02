@@ -23,6 +23,24 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
+    <!--
+        مستودع محلي داخل المشروع لمكتبة fx-commons غير المنشورة على Maven Central.
+        بدونه يفشل البناء على أي جهاز آخر أو على CI لأن المكتبة مثبتة يدوياً في ~/.m2 فقط.
+        عند نشر المكتبة على مستودع حقيقي (GitHub Packages / Nexus) يمكن حذف هذا القسم ومجلد lib.
+    -->
+    <repositories>
+        <repository>
+            <id>project-local-libs</id>
+            <url>file://${project.basedir}/lib</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+
     <dependencies>
         <!-- Spring Boot JPA -->
         <dependency>
@@ -77,6 +95,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
+        <!-- مطلوبة لفرض صلاحيات @RequiresRole على طبقة الخدمات عبر AOP -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
         <!-- مكتبة JasperReports الأساسية -->
         <dependency>
             <groupId>net.sf.jasperreports</groupId>
@@ -108,6 +131,18 @@
             <groupId>org.apache.xmlgraphics</groupId>
             <artifactId>batik-util</artifactId>
             <version>1.17</version>
+        </dependency>
+
+        <!-- الاختبارات: التحقق من صحة استعلامات JPQL وربط الكيانات دون الحاجة لقاعدة MySQL حقيقية -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
