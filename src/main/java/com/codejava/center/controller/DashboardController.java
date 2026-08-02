@@ -4,10 +4,12 @@ import com.codejava.center.domain.User;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.service.AttendanceService;
 import com.codejava.center.service.SessionService;
+import com.codejava.center.service.SettingsService;
 import com.codejava.center.service.StudentService;
 import com.codejava.center.service.TransactionService;
 import com.codejava.center.service.dto.DailyAttendance;
 import com.codejava.center.service.dto.GroupRevenue;
+import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.MoneyUtils;
 import com.codejava.center.util.UserSession;
 import javafx.application.Platform;
@@ -25,6 +27,7 @@ import javafx.scene.chart.XYChart;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -59,8 +62,10 @@ public class DashboardController {
     private final SessionService sessionService;
     private final AttendanceService attendanceService;
     private final UserSession userSession;
+    private final SettingsService settingsService;
 
     private static final Locale ARABIC_LOCALE = Locale.forLanguageTag("ar");
+    private static final String ACTIVE_STYLE_CLASS = "sidebar-btn-active";
     @FXML
     private StackPane contentArea;
     @FXML
@@ -86,6 +91,34 @@ public class DashboardController {
     @FXML
     private Button notificationsButton;
     @FXML
+    private Button homeButton;
+    @FXML
+    private Button studentsButton;
+    @FXML
+    private Button attendanceButton;
+    @FXML
+    private Button sessionsButton;
+    @FXML
+    private Button attendanceReportButton;
+    @FXML
+    private VBox navDailyBox;
+    @FXML
+    private VBox navFinanceBox;
+    @FXML
+    private VBox navReportsBox;
+    @FXML
+    private VBox navAdminBox;
+    @FXML
+    private VBox revenueCard;
+    @FXML
+    private VBox revenueChartCard;
+    @FXML
+    private Label centerNameLabel;
+    @FXML
+    private Label userRoleLabel;
+    @FXML
+    private ScrollPane homeScroll;
+    @FXML
     private VBox homeView;
     @FXML
     private Label totalStudentsLabel;
@@ -100,120 +133,140 @@ public class DashboardController {
 
     @FXML
     public void initialize() {
-        // جلب المستخدم المسجل حالياً من الجلسة
         User currentUser = userSession.getCurrentUser();
 
-        // اسم المستخدم يُعرض لكل الصلاحيات وليس للسكرتارية فقط
         if (currentUser != null) {
             userNameLabel.setText(currentUser.getUsername());
+            userRoleLabel.setText("(" + currentUser.getRole().getArabicName() + ")");
         }
 
-        // تطبيق الصلاحيات - إخفاء الأزرار فقط؛ الفرض الحقيقي في طبقة الخدمات عبر @RequiresRole
-        if (currentUser != null && currentUser.getRole() == Role.SECRETARY) {
-            // إخفاء زر الخزينة
-            cashierButton.setVisible(false);
-            cashierButton.setManaged(false); // setManaged(false) تجعل الزر لا يأخذ مساحة فارغة في القائمة
-
-            // إخفاء زر المجموعات
-            groupsButton.setVisible(false);
-            groupsButton.setManaged(false);
-
-            // 2. إخفاء زر المعلمين عن السكرتارية (لأنه يحتوي على بيانات اللائحة المالية للرواتب)
-            teachersButton.setVisible(false);
-            teachersButton.setManaged(false);
-
-            usersManagementButton.setVisible(false);
-            usersManagementButton.setManaged(false);
-
-            // إخفاء زر الإعدادات عن السكرتارية (متاح للمدير فقط)
-            settingsButton.setVisible(false);
-            settingsButton.setManaged(false);
-
-            // الشاشات المالية الثلاث: جرد الخزينة والمصروفات وصرف المستحقات
-            // خدماتها محمية بـ @RequiresRole(ADMIN)، والإخفاء هنا لتفادي رسالة رفض للمستخدم
-            for (Button financialButton : new Button[]{shiftClosingButton, expensesButton, teacherPayoutButton, arrearsButton, notificationsButton}) {
-                financialButton.setVisible(false);
-                financialButton.setManaged(false);
-            }
-        }
+        applyRolePermissions(currentUser);
+        loadCenterName();
 
         loadDashboardStats();
         loadChartsData();
     }
 
+    /**
+     * إخفاء ما لا يخص صلاحية المستخدم.
+     * الإخفاء للعرض فقط؛ الفرض الحقيقي في طبقة الخدمات عبر @RequiresRole،
+     * والغرض منه تفادي فتح شاشة لا تنتج للمستخدم إلا رسالة رفض.
+     */
+    private void applyRolePermissions(User currentUser) {
+        boolean isAdmin = currentUser != null && currentUser.getRole() == Role.ADMIN;
+
+        if (!isAdmin) {
+            for (Button restricted : new Button[]{
+                    cashierButton, groupsButton, teachersButton, usersManagementButton, settingsButton,
+                    shiftClosingButton, expensesButton, teacherPayoutButton, arrearsButton, notificationsButton}) {
+                hide(restricted);
+            }
+            // بطاقة صافي الدرج ومخطط الإيرادات بيانات مالية أيضاً
+            hide(revenueCard);
+            hide(revenueChartCard);
+        }
+
+        // القسم الذي أُخفيت كل أزراره يترك عنوانه معلّقاً بلا محتوى
+        for (VBox section : new VBox[]{navDailyBox, navFinanceBox, navReportsBox, navAdminBox}) {
+            hideSectionIfEmpty(section);
+        }
+    }
+
+    /** setManaged(false) حتى لا يترك العنصر المخفي مساحة فارغة مكانه */
+    private void hide(Node node) {
+        node.setVisible(false);
+        node.setManaged(false);
+    }
+
+    private void hideSectionIfEmpty(VBox section) {
+        boolean hasVisibleButton = section.getChildren().stream()
+                .anyMatch(child -> child instanceof Button && child.isManaged());
+
+        if (!hasVisibleButton) {
+            hide(section);
+        }
+    }
+
+    /** اسم السنتر من الإعدادات بدل نص ثابت في الواجهة */
+    private void loadCenterName() {
+        FxAsync.supply(settingsService::getCenterName,
+                name -> centerNameLabel.setText(name),
+                error -> { /* الاسم الافتراضي المكتوب في FXML يكفي */ });
+    }
+
 
     @FXML
     public void showStudentRegistration(ActionEvent event) {
-        loadView("/fxml/StudentRegistration.fxml");
+        loadView("/fxml/StudentRegistration.fxml", studentsButton);
     }
 
     @FXML
     public void showAttendance(ActionEvent event) {
-        loadView("/fxml/AttendanceScreen.fxml");
+        loadView("/fxml/AttendanceScreen.fxml", attendanceButton);
     }
 
     @FXML
     public void showCashier(ActionEvent event) {
-        loadView("/fxml/CashierScreen.fxml");
+        loadView("/fxml/CashierScreen.fxml", cashierButton);
     }
 
     @FXML
     public void showSessionManagement(ActionEvent event) {
-        loadView("/fxml/SessionManagement.fxml");
+        loadView("/fxml/SessionManagement.fxml", sessionsButton);
     }
 
     @FXML
     public void showTeachers(ActionEvent event) {
-        loadView("/fxml/TeacherManagement.fxml");
+        loadView("/fxml/TeacherManagement.fxml", teachersButton);
     }
 
     @FXML
     public void showPaymentHistory(ActionEvent event) {
-        loadView("/fxml/PaymentHistory.fxml");
+        loadView("/fxml/PaymentHistory.fxml", paymentHistoryButton);
     }
 
     @FXML
     public void showGroups(ActionEvent actionEvent) {
-        loadView("/fxml/GroupManagement.fxml");
+        loadView("/fxml/GroupManagement.fxml", groupsButton);
     }
     @FXML
     public void showUsers(ActionEvent event) {
-        loadView("/fxml/UserManagement.fxml");
+        loadView("/fxml/UserManagement.fxml", usersManagementButton);
     }
 
     @FXML
     public void showSettings(ActionEvent event) {
-        loadView("/fxml/Settings.fxml");
+        loadView("/fxml/Settings.fxml", settingsButton);
     }
 
     @FXML
     public void showShiftClosing(ActionEvent event) {
-        loadView("/fxml/ShiftClosing.fxml");
+        loadView("/fxml/ShiftClosing.fxml", shiftClosingButton);
     }
 
     @FXML
     public void showExpenses(ActionEvent event) {
-        loadView("/fxml/Expenses.fxml");
+        loadView("/fxml/Expenses.fxml", expensesButton);
     }
 
     @FXML
     public void showTeacherPayout(ActionEvent event) {
-        loadView("/fxml/TeacherPayout.fxml");
+        loadView("/fxml/TeacherPayout.fxml", teacherPayoutButton);
     }
 
     @FXML
     public void showArrears(ActionEvent event) {
-        loadView("/fxml/Arrears.fxml");
+        loadView("/fxml/Arrears.fxml", arrearsButton);
     }
 
     @FXML
     public void showAttendanceReport(ActionEvent event) {
-        loadView("/fxml/AttendanceReport.fxml");
+        loadView("/fxml/AttendanceReport.fxml", attendanceReportButton);
     }
 
     @FXML
     public void showNotifications(ActionEvent event) {
-        loadView("/fxml/Notifications.fxml");
+        loadView("/fxml/Notifications.fxml", notificationsButton);
     }
     private void loadDashboardStats() {
         // البيانات المالية متاحة للمدير فقط؛ استدعاؤها بصلاحية سكرتارية
@@ -239,12 +292,16 @@ public class DashboardController {
 
     @FXML
     public void showHome(ActionEvent event) {
-        contentArea.getChildren().setAll(homeView);
+        // homeScroll هو الغلاف القابل للتمرير حول homeView؛ إعادة homeView وحده
+        // تُفقد التمرير فتُقصّ المخططات على الشاشات القصيرة
+        contentArea.getChildren().setAll(homeScroll);
+        markActive(homeButton);
+
         loadDashboardStats(); // تحديث الأرقام عند العودة للرئيسية
+        loadChartsData();
     }
 
-    private void loadView(String fxmlPath) {
-        // نفس الكود الخاص بك دون تغيير
+    private void loadView(String fxmlPath, Button sourceButton) {
         try {
             URL resource = getClass().getResource(fxmlPath);
             if (resource == null) {
@@ -254,8 +311,28 @@ public class DashboardController {
             loader.setControllerFactory(applicationContext::getBean);
             Node view = loader.load();
             contentArea.getChildren().setAll(view);
+            markActive(sourceButton);
         } catch (IOException e) {
+            // الفشل الصامت كان يترك الشاشة كما هي فيظن المستخدم أن الزر لا يعمل
             e.printStackTrace();
+            showError("تعذر فتح الشاشة: " + e.getMessage());
+        }
+    }
+
+    /**
+     * إبراز الزر المفتوح حالياً.
+     * كان التمييز مكتوباً ثابتاً على "الرئيسية" في FXML ولا ينتقل أبداً،
+     * فيبقى يشير إلى الرئيسية مهما تنقّل المستخدم.
+     */
+    private void markActive(Button activeButton) {
+        for (VBox section : new VBox[]{navDailyBox, navFinanceBox, navReportsBox, navAdminBox}) {
+            section.getChildren().stream()
+                    .filter(Button.class::isInstance)
+                    .forEach(button -> button.getStyleClass().remove(ACTIVE_STYLE_CLASS));
+        }
+
+        if (activeButton != null && !activeButton.getStyleClass().contains(ACTIVE_STYLE_CLASS)) {
+            activeButton.getStyleClass().add(ACTIVE_STYLE_CLASS);
         }
     }
 
@@ -331,8 +408,17 @@ public class DashboardController {
             Stage stage = (Stage) ((Node) actionEvent.getSource()).getScene().getWindow();
             Scene scene = new Scene(loginRoot, 500, 400);
             scene.getStylesheets().add(getClass().getResource("/css/style.css").toExternalForm());
+
+            // رفع قيود نافذة لوحة القيادة قبل عرض شاشة الدخول الصغيرة،
+            // وإلا بقيت النافذة مكبّرة وبحد أدنى 1100×700 حول واجهة 500×400
+            stage.setMaximized(false);
+            stage.setMinWidth(0);
+            stage.setMinHeight(0);
+
             stage.setScene(scene);
             stage.setTitle("تسجيل الدخول - نظام إدارة السنتر");
+            stage.setWidth(500);
+            stage.setHeight(400);
             stage.centerOnScreen();
         } catch (IOException e) {
             e.printStackTrace();

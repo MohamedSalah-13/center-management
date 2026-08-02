@@ -1,79 +1,163 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
-<?import javafx.scene.layout.*?>
-<?import javafx.scene.text.Font?>
 <?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.*?>
 
-<VBox spacing="20.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+<VBox spacing="18.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.codejava.center.controller.SettingsController"
-      style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
+      styleClass="content-area">
+    <padding><Insets top="28.0" bottom="24.0" left="30.0" right="30.0"/></padding>
 
-    <Label text="إعدادات النظام" textFill="#2c3e50">
-        <font><Font name="System Bold" size="26.0" /></font>
-    </Label>
+    <Label text="إعدادات النظام" styleClass="header-label"/>
 
-    <!-- قسم بيانات السنتر -->
-    <VBox spacing="15.0" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0;">
-        <Label text="بيانات السنتر الأساسية" textFill="#34495e">
-            <font><Font name="System Bold" size="18.0" /></font>
-        </Label>
+    <TabPane VBox.vgrow="ALWAYS" tabClosingPolicy="UNAVAILABLE">
 
-        <GridPane hgap="15.0" vgap="15.0">
-            <columnConstraints>
-                <ColumnConstraints halignment="RIGHT" minWidth="120.0" />
-                <ColumnConstraints hgrow="ALWAYS" minWidth="300.0" />
-            </columnConstraints>
+        <!-- ============ بيانات السنتر ============ -->
+        <Tab text="بيانات السنتر">
+            <VBox spacing="18.0">
+                <padding><Insets top="24.0" bottom="24.0" left="26.0" right="26.0"/></padding>
 
-            <Label text="اسم السنتر:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
-            <TextField fx:id="centerNameField" promptText="يظهر في ترويسة التقارير والفواتير" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+                <Label text="تظهر هذه البيانات في ترويسة كل إيصال وتقرير يطبعه النظام."
+                       styleClass="muted-text" wrapText="true"/>
 
-            <Label text="رقم الهاتف:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
-            <TextField fx:id="centerPhoneField" promptText="أرقام التواصل للطباعة" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                <GridPane hgap="16.0" vgap="16.0">
+                    <columnConstraints>
+                        <ColumnConstraints minWidth="130.0" halignment="RIGHT"/>
+                        <ColumnConstraints minWidth="320.0" hgrow="ALWAYS"/>
+                        <ColumnConstraints minWidth="120.0"/>
+                    </columnConstraints>
 
-            <Label text="شعار السنتر (لوجو):" GridPane.columnIndex="0" GridPane.rowIndex="2" />
-            <HBox spacing="10" GridPane.columnIndex="1" GridPane.rowIndex="2" alignment="CENTER_LEFT">
-                <TextField fx:id="logoPathField" editable="false" promptText="مسار الصورة..." HBox.hgrow="ALWAYS" />
-                <Button text="استعراض..." onAction="#handleBrowseLogo" style="-fx-background-color: #3498db; -fx-text-fill: white;" />
-            </HBox>
+                    <Label text="اسم السنتر:" styleClass="sub-label"
+                           GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                    <TextField fx:id="centerNameField" promptText="مثال: سنتر النجاح التعليمي"
+                               GridPane.columnIndex="1" GridPane.rowIndex="0"/>
 
-            <!-- معاينة الشعار -->
-            <ImageView fx:id="logoImageView" fitWidth="120" fitHeight="120" preserveRatio="true" GridPane.columnIndex="1" GridPane.rowIndex="3" />
-        </GridPane>
-    </VBox>
+                    <Label text="رقم الهاتف:" styleClass="sub-label"
+                           GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                    <TextField fx:id="centerPhoneField" promptText="مثال: 01012345678"
+                               GridPane.columnIndex="1" GridPane.rowIndex="1"/>
 
-    <!-- قسم النسخ الاحتياطي -->
-    <VBox spacing="15.0" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0;">
-        <Label text="إعدادات النسخ الاحتياطي (Backup)" textFill="#34495e">
-            <font><Font name="System Bold" size="18.0" /></font>
-        </Label>
+                    <Label text="الشعار:" styleClass="sub-label"
+                           GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                    <TextField fx:id="logoPathField" promptText="لم يُحدَّد شعار" editable="false"
+                               GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+                    <Button text="اختيار..." onAction="#handleBrowseLogo" styleClass="btn-secondary"
+                            GridPane.columnIndex="2" GridPane.rowIndex="2"/>
+                </GridPane>
 
-        <GridPane hgap="15.0" vgap="15.0">
-            <columnConstraints>
-                <ColumnConstraints halignment="RIGHT" minWidth="150.0" />
-                <ColumnConstraints hgrow="ALWAYS" minWidth="300.0" />
-            </columnConstraints>
+                <HBox spacing="14.0" alignment="CENTER_RIGHT" styleClass="card">
+                    <Label text="معاينة الشعار:" styleClass="sub-label"/>
+                    <ImageView fx:id="logoImageView" fitHeight="90.0" preserveRatio="true"/>
+                </HBox>
+            </VBox>
+        </Tab>
 
-            <Label text="مسار الحفظ الافتراضي:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
-            <HBox spacing="10" GridPane.columnIndex="1" GridPane.rowIndex="0" alignment="CENTER_LEFT">
-                <TextField fx:id="backupPathField" editable="false" promptText="اختر مجلد حفظ النسخ الاحتياطية..." HBox.hgrow="ALWAYS" />
-                <Button text="تغيير المجلد..." onAction="#handleBrowseBackupPath" style="-fx-background-color: #3498db; -fx-text-fill: white;" />
-            </HBox>
+        <!-- ============ النسخ الاحتياطي ============ -->
+        <Tab text="النسخ الاحتياطي">
+            <VBox spacing="18.0">
+                <padding><Insets top="24.0" bottom="24.0" left="26.0" right="26.0"/></padding>
 
-            <Label text="النسخ التلقائي:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
-            <CheckBox fx:id="autoBackupCheckBox" text="تفعيل أخذ نسخة احتياطية تلقائياً كل يوم" GridPane.columnIndex="1" GridPane.rowIndex="1">
-                <font><Font name="System Bold" size="14.0" /></font>
-            </CheckBox>
-        </GridPane>
+                <GridPane hgap="16.0" vgap="16.0">
+                    <columnConstraints>
+                        <ColumnConstraints minWidth="130.0" halignment="RIGHT"/>
+                        <ColumnConstraints minWidth="320.0" hgrow="ALWAYS"/>
+                        <ColumnConstraints minWidth="120.0"/>
+                    </columnConstraints>
 
-        <HBox spacing="15.0" style="-fx-padding: 10 0 0 0;">
-            <Button text="أخذ نسخة احتياطية الآن 💽" onAction="#handleManualBackup" style="-fx-background-color: #8e44ad; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
-            <Button text="استعادة نسخة احتياطية 🔄" onAction="#handleRestoreBackup" style="-fx-background-color: #f39c12; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
-        </HBox>
-    </VBox>
+                    <Label text="مجلد الحفظ:" styleClass="sub-label"
+                           GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                    <TextField fx:id="backupPathField" promptText="لم يُحدَّد مجلد" editable="false"
+                               GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                    <Button text="اختيار..." onAction="#handleBrowseBackupPath" styleClass="btn-secondary"
+                            GridPane.columnIndex="2" GridPane.rowIndex="0"/>
 
-    <!-- زر الحفظ النهائي -->
-    <HBox alignment="CENTER_LEFT" spacing="15.0">
-        <Button text="حفظ الإعدادات" onAction="#handleSaveSettings" style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 30; -fx-font-size: 16px;" />
+                    <CheckBox fx:id="autoBackupCheckBox" text="نسخة احتياطية تلقائية يومياً الساعة 2 صباحاً"
+                              GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                </GridPane>
+
+                <Label text="النسخ التلقائي يتطلب أن يكون الجهاز شغّالاً في ذلك الوقت، وأن يكون mysqldump ضمن مسار النظام. لا يوجد تعويض عن موعد فائت."
+                       styleClass="muted-text" wrapText="true"/>
+
+                <Separator/>
+
+                <HBox spacing="14.0">
+                    <Button text="أخذ نسخة احتياطية الآن" onAction="#handleManualBackup" styleClass="btn-success"/>
+                    <Button text="استعادة من نسخة..." onAction="#handleRestoreBackup" styleClass="btn-danger"/>
+                </HBox>
+
+                <Label text="⚠ الاستعادة تستبدل كل البيانات الحالية ببيانات الملف المختار ولا يمكن التراجع عنها."
+                       styleClass="danger-text" wrapText="true"/>
+            </VBox>
+        </Tab>
+
+        <!-- ============ دفتر الحسابات ============ -->
+        <Tab text="دفتر الحسابات">
+            <VBox spacing="18.0">
+                <padding><Insets top="24.0" bottom="24.0" left="26.0" right="26.0"/></padding>
+
+                <GridPane hgap="16.0" vgap="16.0">
+                    <columnConstraints>
+                        <ColumnConstraints minWidth="170.0" halignment="RIGHT"/>
+                        <ColumnConstraints minWidth="220.0"/>
+                    </columnConstraints>
+
+                    <Label text="تاريخ بداية الدفتر:" styleClass="sub-label"
+                           GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                    <DatePicker fx:id="ledgerStartDatePicker" editable="false"
+                                GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                </GridPane>
+
+                <Label text="رصيد الطالب يُحسب من الحركات المسجَّلة في هذا التاريخ فما بعده، وتُستبعد الحركات الأقدم تماماً."
+                       styleClass="muted-text" wrapText="true"/>
+
+                <Label text="⚠ تغيير هذا التاريخ يعيد حساب أرصدة كل الطلاب فوراً، وقد يمنع دخولهم من البوابة إن أصبحت أرصدتهم غير كافية. اتركه فارغاً لاحتساب كل الحركات، وهو الصحيح للتركيب الجديد."
+                       styleClass="danger-text" wrapText="true"/>
+
+                <Separator/>
+
+                <Button text="مسح التاريخ (احتساب كل الحركات)" onAction="#handleClearLedgerDate"
+                        styleClass="btn-secondary"/>
+            </VBox>
+        </Tab>
+
+        <!-- ============ معلومات النظام ============ -->
+        <Tab text="معلومات النظام">
+            <VBox spacing="14.0">
+                <padding><Insets top="24.0" bottom="24.0" left="26.0" right="26.0"/></padding>
+
+                <GridPane hgap="16.0" vgap="12.0">
+                    <columnConstraints>
+                        <ColumnConstraints minWidth="180.0" halignment="RIGHT"/>
+                        <ColumnConstraints minWidth="320.0" hgrow="ALWAYS"/>
+                    </columnConstraints>
+
+                    <Label text="قناة إرسال الإشعارات:" styleClass="sub-label"
+                           GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                    <Label fx:id="notificationChannelLabel" text="—"
+                           GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+
+                    <Label text="قاعدة البيانات:" styleClass="sub-label"
+                           GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                    <Label fx:id="databaseLabel" text="—"
+                           GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+
+                    <Label text="مستخدم قاعدة البيانات:" styleClass="sub-label"
+                           GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                    <Label fx:id="dbUserLabel" text="—"
+                           GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+                </GridPane>
+
+                <Label text="تُضبط قناة الإشعارات وبيانات الاتصال بقاعدة البيانات من إعدادات التشغيل لا من هذه الشاشة، لأنها تخص التركيب لا التشغيل اليومي. راجع docs/first-install.md."
+                       styleClass="muted-text" wrapText="true"/>
+            </VBox>
+        </Tab>
+    </TabPane>
+
+    <HBox spacing="14.0" alignment="CENTER_LEFT">
+        <Button text="حفظ الإعدادات" onAction="#handleSaveSettings" styleClass="btn-success"/>
+        <Button text="إعادة تحميل" onAction="#handleReload" styleClass="btn-secondary"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Label fx:id="statusLabel" text=""/>
     </HBox>
-
 </VBox>

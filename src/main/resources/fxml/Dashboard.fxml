@@ -3,93 +3,139 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.shape.Circle?>
-<?import javafx.scene.text.Font?>
 
 <?import javafx.scene.chart.BarChart?>
 <?import javafx.scene.chart.CategoryAxis?>
 <?import javafx.scene.chart.NumberAxis?>
 <?import javafx.scene.chart.PieChart?>
-<BorderPane nodeOrientation="RIGHT_TO_LEFT" prefHeight="768.0" prefWidth="1024.0"
+<BorderPane nodeOrientation="RIGHT_TO_LEFT" prefHeight="768.0" prefWidth="1280.0"
             xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.codejava.center.controller.DashboardController"
             stylesheets="@../css/style.css">
 
-    <!-- القائمة الجانبية -->
+    <!-- القائمة الجانبية: ترويسة ثابتة + تنقّل قابل للتمرير + خروج ثابت أسفل.
+         التمرير ضروري لأن عدد الشاشات تجاوز ارتفاع النافذة فكانت الأزرار الأخيرة تُقصّ. -->
     <left>
-        <VBox spacing="10.0" styleClass="sidebar" prefWidth="260.0" BorderPane.alignment="CENTER">
-            <VBox alignment="CENTER" spacing="10">
-                <VBox.margin><Insets top="20.0" bottom="30.0"/></VBox.margin>
-                <!-- يمكن استبدال الدائرة بصورة الشعار -->
-                <Circle radius="40" fill="#ecf0f1" />
-                <Label text="كود جافا للتعليم" textFill="WHITE" style="-fx-font-size: 22px; -fx-font-weight: bold;"/>
-                <Label fx:id="userNameLabel" text="مدير النظام" textFill="#bdc3c7" style="-fx-font-size: 14px;"/>
+        <VBox styleClass="sidebar" prefWidth="272.0" BorderPane.alignment="CENTER">
+
+            <VBox alignment="CENTER" spacing="8" styleClass="sidebar-header">
+                <padding><Insets top="22.0" bottom="16.0" left="12.0" right="12.0"/></padding>
+                <Circle radius="28" fill="#ecf0f1" />
+                <Label fx:id="centerNameLabel" text="نظام إدارة السنتر" styleClass="sidebar-title"
+                       wrapText="true" textAlignment="CENTER" maxWidth="230"/>
+                <HBox alignment="CENTER" spacing="6">
+                    <Label fx:id="userNameLabel" text="—" styleClass="sidebar-user"/>
+                    <Label fx:id="userRoleLabel" text="" styleClass="sidebar-role"/>
+                </HBox>
             </VBox>
 
-            <Button text="🏠 الرئيسية" onAction="#showHome" maxWidth="Infinity" styleClass="sidebar-btn, sidebar-btn-active"/>
-            <Button text="👥 تسجيل الطلاب" onAction="#showStudentRegistration" maxWidth="Infinity" styleClass="sidebar-btn"/>
-            <Button text="⏱️ الحضور والانصراف" onAction="#showAttendance" maxWidth="Infinity" styleClass="sidebar-btn"/>
-            <Button text="📅 إدارة الحصص" onAction="#showSessionManagement" maxWidth="Infinity" styleClass="sidebar-btn"/>
-            <Button fx:id="cashierButton" text="💰 الخزينة والاشتراكات" onAction="#showCashier" maxWidth="Infinity" styleClass="sidebar-btn"/>
-            <Button fx:id="paymentHistoryButton" text="🧾 سجل المدفوعات" onAction="#showPaymentHistory" maxWidth="Infinity" styleClass="sidebar-btn"/>
-            <Button fx:id="shiftClosingButton" text="🧮 تقفيل الوردية" onAction="#showShiftClosing" maxWidth="Infinity" styleClass="sidebar-btn"/>
-            <Button fx:id="expensesButton" text="🧾 المصروفات" onAction="#showExpenses" maxWidth="Infinity" styleClass="sidebar-btn"/>
-            <Button fx:id="notificationsButton" text="📨 إشعارات أولياء الأمور" onAction="#showNotifications" maxWidth="Infinity" styleClass="sidebar-btn"/>
-            <Button text="📊 تقرير الحضور والغياب" onAction="#showAttendanceReport" maxWidth="Infinity" styleClass="sidebar-btn"/>
-            <Button fx:id="arrearsButton" text="⚠️ تقرير المتأخرات" onAction="#showArrears" maxWidth="Infinity" styleClass="sidebar-btn"/>
-            <Button fx:id="teacherPayoutButton" text="💵 صرف مستحقات المعلمين" onAction="#showTeacherPayout" maxWidth="Infinity" styleClass="sidebar-btn"/>
-            <Button fx:id="teachersButton" text="👨‍🏫 إدارة المعلمين" onAction="#showTeachers" maxWidth="Infinity" styleClass="sidebar-btn"/>
-            <Button fx:id="groupsButton" text="📚 إدارة المجموعات" onAction="#showGroups" maxWidth="Infinity" styleClass="sidebar-btn"/>
-            <Button fx:id="usersManagementButton" text="🔐 إدارة المستخدمين" onAction="#showUsers" maxWidth="Infinity" styleClass="sidebar-btn"/>
-            <Button fx:id="settingsButton" text="⚙️ الإعدادات" onAction="#showSettings" maxWidth="Infinity" styleClass="sidebar-btn"/>
-            <Region VBox.vgrow="ALWAYS" />
-            <Button text="🚪 تسجيل الخروج" onAction="#handleLogout" maxWidth="Infinity" styleClass="sidebar-btn, sidebar-btn-logout"/>
+            <Separator styleClass="sidebar-separator"/>
+
+            <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" styleClass="sidebar-scroll"
+                        hbarPolicy="NEVER" vbarPolicy="AS_NEEDED">
+                <VBox spacing="4.0">
+                    <padding><Insets top="10.0" bottom="10.0" left="10.0" right="10.0"/></padding>
+
+                    <VBox fx:id="navDailyBox" spacing="3.0">
+                        <Label text="التشغيل اليومي" styleClass="sidebar-section"/>
+                        <Button fx:id="homeButton" text="🏠   الرئيسية" onAction="#showHome"
+                                maxWidth="Infinity" styleClass="sidebar-btn, sidebar-btn-active"/>
+                        <Button fx:id="studentsButton" text="👥   تسجيل الطلاب" onAction="#showStudentRegistration"
+                                maxWidth="Infinity" styleClass="sidebar-btn"/>
+                        <Button fx:id="attendanceButton" text="⏱   الحضور والانصراف" onAction="#showAttendance"
+                                maxWidth="Infinity" styleClass="sidebar-btn"/>
+                        <Button fx:id="sessionsButton" text="📅   إدارة الحصص" onAction="#showSessionManagement"
+                                maxWidth="Infinity" styleClass="sidebar-btn"/>
+                    </VBox>
+
+                    <VBox fx:id="navFinanceBox" spacing="3.0">
+                        <Label text="المالية" styleClass="sidebar-section"/>
+                        <Button fx:id="cashierButton" text="💰   الخزينة والاشتراكات" onAction="#showCashier"
+                                maxWidth="Infinity" styleClass="sidebar-btn"/>
+                        <Button fx:id="paymentHistoryButton" text="🧾   سجل المدفوعات" onAction="#showPaymentHistory"
+                                maxWidth="Infinity" styleClass="sidebar-btn"/>
+                        <Button fx:id="expensesButton" text="📉   المصروفات" onAction="#showExpenses"
+                                maxWidth="Infinity" styleClass="sidebar-btn"/>
+                        <Button fx:id="shiftClosingButton" text="🧮   تقفيل الوردية" onAction="#showShiftClosing"
+                                maxWidth="Infinity" styleClass="sidebar-btn"/>
+                        <Button fx:id="teacherPayoutButton" text="💵   صرف مستحقات المعلمين"
+                                onAction="#showTeacherPayout" maxWidth="Infinity" styleClass="sidebar-btn"/>
+                    </VBox>
+
+                    <VBox fx:id="navReportsBox" spacing="3.0">
+                        <Label text="التقارير والمتابعة" styleClass="sidebar-section"/>
+                        <Button fx:id="attendanceReportButton" text="📊   تقرير الحضور والغياب"
+                                onAction="#showAttendanceReport" maxWidth="Infinity" styleClass="sidebar-btn"/>
+                        <Button fx:id="arrearsButton" text="⚠   تقرير المتأخرات" onAction="#showArrears"
+                                maxWidth="Infinity" styleClass="sidebar-btn"/>
+                        <Button fx:id="notificationsButton" text="📨   إشعارات أولياء الأمور"
+                                onAction="#showNotifications" maxWidth="Infinity" styleClass="sidebar-btn"/>
+                    </VBox>
+
+                    <VBox fx:id="navAdminBox" spacing="3.0">
+                        <Label text="الإدارة" styleClass="sidebar-section"/>
+                        <Button fx:id="teachersButton" text="👨‍🏫   إدارة المعلمين" onAction="#showTeachers"
+                                maxWidth="Infinity" styleClass="sidebar-btn"/>
+                        <Button fx:id="groupsButton" text="📚   إدارة المجموعات" onAction="#showGroups"
+                                maxWidth="Infinity" styleClass="sidebar-btn"/>
+                        <Button fx:id="usersManagementButton" text="🔐   إدارة المستخدمين" onAction="#showUsers"
+                                maxWidth="Infinity" styleClass="sidebar-btn"/>
+                        <Button fx:id="settingsButton" text="⚙   الإعدادات" onAction="#showSettings"
+                                maxWidth="Infinity" styleClass="sidebar-btn"/>
+                    </VBox>
+                </VBox>
+            </ScrollPane>
+
+            <Separator styleClass="sidebar-separator"/>
+
+            <VBox>
+                <padding><Insets top="10.0" bottom="14.0" left="12.0" right="12.0"/></padding>
+                <Button text="🚪   تسجيل الخروج" onAction="#handleLogout"
+                        maxWidth="Infinity" styleClass="sidebar-btn, sidebar-btn-logout"/>
+            </VBox>
         </VBox>
     </left>
 
-    <!-- المنطقة المركزية (المتغيرة) -->
     <center>
-        <StackPane fx:id="contentArea" BorderPane.alignment="CENTER" style="-fx-background-color: #f4f6f9;">
-            <!-- واجهة "الرئيسية" الافتراضية -->
-            <VBox fx:id="homeView" spacing="30.0" style="-fx-padding: 40;">
-                <Label text="نظرة عامة على النظام" styleClass="header-label" />
+        <StackPane fx:id="contentArea" BorderPane.alignment="CENTER" styleClass="content-area">
+            <ScrollPane fx:id="homeScroll" fitToWidth="true" styleClass="content-scroll" hbarPolicy="NEVER">
+                <VBox fx:id="homeView" spacing="24.0">
+                    <padding><Insets top="30.0" bottom="30.0" left="32.0" right="32.0"/></padding>
 
-                <!-- بطاقات الإحصائيات (Cards) -->
-                <HBox spacing="20.0" alignment="CENTER_LEFT">
-                    <VBox styleClass="stat-card, card-blue" HBox.hgrow="ALWAYS">
-                        <Label text="إجمالي الطلاب" textFill="WHITE" style="-fx-font-size: 16px;"/>
-                        <Label fx:id="totalStudentsLabel" text="0" textFill="WHITE" style="-fx-font-size: 32px; -fx-font-weight: bold;"/>
-                    </VBox>
-                    <VBox styleClass="stat-card, card-green" HBox.hgrow="ALWAYS">
-                        <Label text="إيرادات اليوم" textFill="WHITE" style="-fx-font-size: 16px;"/>
-                        <Label fx:id="dailyRevenueLabel" text="0 ج.م" textFill="WHITE" style="-fx-font-size: 32px; -fx-font-weight: bold;"/>
-                    </VBox>
-                    <VBox styleClass="stat-card, card-orange" HBox.hgrow="ALWAYS">
-                        <Label text="الحصص النشطة" textFill="WHITE" style="-fx-font-size: 16px;"/>
-                        <Label fx:id="activeSessionsLabel" text="0" textFill="WHITE" style="-fx-font-size: 32px; -fx-font-weight: bold;"/>
-                    </VBox>
-                </HBox>
+                    <Label text="نظرة عامة على النظام" styleClass="header-label" />
 
-                <HBox spacing="20.0" VBox.vgrow="ALWAYS" alignment="CENTER">
+                    <HBox spacing="20.0" alignment="CENTER_LEFT">
+                        <VBox styleClass="stat-card, card-blue" HBox.hgrow="ALWAYS">
+                            <Label text="إجمالي الطلاب" styleClass="stat-caption"/>
+                            <Label fx:id="totalStudentsLabel" text="0" styleClass="stat-value"/>
+                        </VBox>
+                        <VBox fx:id="revenueCard" styleClass="stat-card, card-green" HBox.hgrow="ALWAYS">
+                            <Label text="صافي درج اليوم" styleClass="stat-caption"/>
+                            <Label fx:id="dailyRevenueLabel" text="—" styleClass="stat-value"/>
+                        </VBox>
+                        <VBox styleClass="stat-card, card-orange" HBox.hgrow="ALWAYS">
+                            <Label text="الحصص المفتوحة الآن" styleClass="stat-caption"/>
+                            <Label fx:id="activeSessionsLabel" text="0" styleClass="stat-value"/>
+                        </VBox>
+                    </HBox>
 
-                    <!-- مخطط الإيرادات الدائري -->
-                    <VBox styleClass="card" HBox.hgrow="ALWAYS" prefWidth="400">
-                        <PieChart fx:id="revenuePieChart" title="توزيع الإيرادات للمجموعات" legendSide="BOTTOM" animated="true"/>
-                    </VBox>
+                    <HBox spacing="20.0" VBox.vgrow="ALWAYS" alignment="CENTER">
+                        <VBox fx:id="revenueChartCard" styleClass="card" HBox.hgrow="ALWAYS"
+                              prefWidth="420" minHeight="340">
+                            <PieChart fx:id="revenuePieChart" title="توزيع الإيرادات على المجموعات (آخر 30 يوماً)"
+                                      legendSide="BOTTOM" animated="false" VBox.vgrow="ALWAYS"/>
+                        </VBox>
 
-                    <!-- مخطط أعمدة للحضور -->
-                    <VBox styleClass="card" HBox.hgrow="ALWAYS" prefWidth="500">
-                        <BarChart fx:id="attendanceBarChart" title="إحصائيات الحضور (الأيام الأخيرة)" animated="true">
-                            <xAxis>
-                                <CategoryAxis label="المجموعة/اليوم" />
-                            </xAxis>
-                            <yAxis>
-                                <NumberAxis label="عدد الطلاب" />
-                            </yAxis>
-                        </BarChart>
-                    </VBox>
-
-                </HBox>
-            </VBox>
+                        <VBox styleClass="card" HBox.hgrow="ALWAYS" prefWidth="520" minHeight="340">
+                            <BarChart fx:id="attendanceBarChart" title="الحضور خلال آخر 7 أيام"
+                                      animated="false" legendVisible="false" VBox.vgrow="ALWAYS">
+                                <xAxis><CategoryAxis label="اليوم" /></xAxis>
+                                <yAxis><NumberAxis label="عدد الطلاب" /></yAxis>
+                            </BarChart>
+                        </VBox>
+                    </HBox>
+                </VBox>
+            </ScrollPane>
         </StackPane>
     </center>
 </BorderPane>

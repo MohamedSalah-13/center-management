@@ -28,7 +28,7 @@ import java.util.List;
 public class TransactionService {
 
     private final TransactionRepository transactionRepository;
-    private final CenterSettingsRepository centerSettingsRepository;
+    private final SettingsService settingsService;
 
     /**
      * تسجيل دفع اشتراك طالب مخصص لحصة معينة (لتجنب الدفع المزدوج للحصة)
@@ -172,8 +172,7 @@ public class TransactionService {
      */
     @Transactional(readOnly = true)
     public BigDecimal getStudentBalance(Long studentId) {
-        LocalDateTime ledgerStart = centerSettingsRepository.findById(1L)
-                .map(CenterSettings::getLedgerStartDate)
+        LocalDateTime ledgerStart = java.util.Optional.ofNullable(settingsService.getSettings().getLedgerStartDate())
                 .map(LocalDate::atStartOfDay)
                 .orElse(null);
 

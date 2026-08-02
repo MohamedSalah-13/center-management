@@ -39,7 +39,7 @@ public class NotificationService {
 
     private final NotificationLogRepository notificationLogRepository;
     private final StudentRepository studentRepository;
-    private final CenterSettingsRepository centerSettingsRepository;
+    private final SettingsService settingsService;
     private final MessageSender messageSender;
 
     /** لا يُرسل إشعار غياب أكثر من مرة في اليوم لنفس الطالب */
@@ -157,9 +157,6 @@ public class NotificationService {
     }
 
     private String centerName() {
-        return centerSettingsRepository.findById(1L)
-                .map(CenterSettings::getCenterName)
-                .filter(name -> name != null && !name.isBlank())
-                .orElse("السنتر التعليمي");
+        return settingsService.getCenterName();
     }
 }
