@@ -2,6 +2,7 @@ package com.codejava.center.controller;
 
 import com.codejava.center.domain.User;
 import com.codejava.center.service.AuthService;
+import com.codejava.center.util.UserSession;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -17,17 +18,21 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.io.Resource;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
 @Controller
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE) // نسخة جديدة لكل فتح للشاشة - يمنع تراكم الـ listeners والحالة القديمة
 @RequiredArgsConstructor
 public class LoginController {
 
     private final AuthService authService;
     private final ApplicationContext applicationContext;
+    private final UserSession userSession;
 
     @Value("classpath:/fxml/Dashboard.fxml")
     private Resource dashboardFxml;
@@ -62,7 +67,7 @@ public class LoginController {
 
 
             // حفظ بيانات المستخدم في الجلسة
-            com.codejava.center.util.UserSession.setCurrentUser(user);
+            userSession.setCurrentUser(user);
 
             FXMLLoader fxmlLoader = new FXMLLoader(dashboardFxml.getURL());
             fxmlLoader.setControllerFactory(applicationContext::getBean);

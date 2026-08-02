@@ -1,9 +1,14 @@
 package com.codejava.center.controller;
 
 import com.codejava.center.domain.User;
+import com.codejava.center.domain.enums.Role;
+import com.codejava.center.service.AttendanceService;
 import com.codejava.center.service.SessionService;
 import com.codejava.center.service.StudentService;
 import com.codejava.center.service.TransactionService;
+import com.codejava.center.service.dto.DailyAttendance;
+import com.codejava.center.service.dto.GroupRevenue;
+import com.codejava.center.util.MoneyUtils;
 import com.codejava.center.util.UserSession;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -12,23 +17,37 @@ import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.chart.BarChart;
 import javafx.scene.chart.PieChart;
 import javafx.scene.chart.XYChart;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationContext;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.net.URL;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 @Controller
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE) // نسخة جديدة لكل فتح للشاشة - يمنع تراكم الـ listeners والحالة القديمة
 @RequiredArgsConstructor
 public class DashboardController {
 
@@ -38,6 +57,10 @@ public class DashboardController {
     private final StudentService studentService;
     private final TransactionService transactionService;
     private final SessionService sessionService;
+    private final AttendanceService attendanceService;
+    private final UserSession userSession;
+
+    private static final Locale ARABIC_LOCALE = Locale.forLanguageTag("ar");
     @FXML
     private StackPane contentArea;
     @FXML
@@ -68,11 +91,15 @@ public class DashboardController {
     @FXML
     public void initialize() {
         // جلب المستخدم المسجل حالياً من الجلسة
-        User currentUser = UserSession.getCurrentUser();
+        User currentUser = userSession.getCurrentUser();
 
-        // تطبيق الصلاحيات
-        if (currentUser != null && "SECRETARY".equalsIgnoreCase(currentUser.getRole())) {
+        // اسم المستخدم يُعرض لكل الصلاحيات وليس للسكرتارية فقط
+        if (currentUser != null) {
             userNameLabel.setText(currentUser.getUsername());
+        }
+
+        // تطبيق الصلاحيات - إخفاء الأزرار فقط؛ الفرض الحقيقي في طبقة الخدمات عبر @RequiresRole
+        if (currentUser != null && currentUser.getRole() == Role.SECRETARY) {
             // إخفاء زر الخزينة
             cashierButton.setVisible(false);
             cashierButton.setManaged(false); // setManaged(false) تجعل الزر لا يأخذ مساحة فارغة في القائمة
@@ -142,18 +169,25 @@ public class DashboardController {
         loadView("/fxml/Settings.fxml");
     }
     private void loadDashboardStats() {
-        // تنفيذ جلب البيانات في Thread منفصل لضمان سلاسة الواجهة
+        // البيانات المالية متاحة للمدير فقط؛ استدعاؤها بصلاحية سكرتارية
+        // سيرمي AccessDeniedException من طبقة الخدمات
+        boolean isAdmin = userSession.hasRole(Role.ADMIN);
+
         CompletableFuture.supplyAsync(() -> {
             long studentsCount = studentService.getAllStudents().size(); // يفضل عمل دالة count() في الـ Repository
-            double revenue = transactionService.calculateTodayNetBalance();
-            long activeSessions = sessionService.getAllSessions().stream().filter(s -> s.isActive()).count();
+            BigDecimal revenue = isAdmin ? transactionService.calculateTodayNetBalance() : null;
+            long activeSessions = sessionService.getActiveSessions().size();
 
             return new DashboardStats(studentsCount, revenue, activeSessions);
         }).thenAccept(stats -> Platform.runLater(() -> {
             totalStudentsLabel.setText(String.valueOf(stats.studentsCount));
-            dailyRevenueLabel.setText(stats.dailyRevenue + " ج.م");
+            dailyRevenueLabel.setText(stats.dailyRevenue == null
+                    ? "—" : MoneyUtils.formatWithCurrency(stats.dailyRevenue));
             activeSessionsLabel.setText(String.valueOf(stats.activeSessions));
-        }));
+        })).exceptionally(ex -> {
+            ex.printStackTrace();
+            return null;
+        });
     }
 
     @FXML
@@ -179,45 +213,95 @@ public class DashboardController {
     }
 
     private void loadChartsData() {
-        CompletableFuture.runAsync(() -> {
-            // 1. جلب أو تجهيز بيانات المخطط الدائري (PieChart)
-            // في النظام الفعلي: ستقوم بعمل Query لجلب إجمالي الإيرادات مجمعة حسب الـ Group
-            ObservableList<PieChart.Data> pieChartData = FXCollections.observableArrayList(
-                    new PieChart.Data("مجموعة أ. أحمد", 1500),
-                    new PieChart.Data("مجموعة أ. محمود", 2200),
-                    new PieChart.Data("مجموعة أ. سارة", 1800)
-            );
+        // مخطط الإيرادات مالي: يُخفى عن السكرتارية بدل استدعاء دالة محظورة عليها
+        boolean isAdmin = userSession.hasRole(Role.ADMIN);
+        revenuePieChart.setVisible(isAdmin);
+        revenuePieChart.setManaged(isAdmin);
 
-            // 2. جلب أو تجهيز بيانات مخطط الأعمدة (BarChart)
-            // في النظام الفعلي: Query لجلب عدد الحضور خلال الأسبوع
-            XYChart.Series<String, Number> series1 = new XYChart.Series<>();
-            series1.setName("الحضور الفعلي");
-            series1.getData().add(new XYChart.Data<>("السبت", 45));
-            series1.getData().add(new XYChart.Data<>("الأحد", 60));
-            series1.getData().add(new XYChart.Data<>("الإثنين", 35));
-            series1.getData().add(new XYChart.Data<>("الثلاثاء", 55));
+        CompletableFuture.supplyAsync(() -> new ChartsData(
+                isAdmin ? transactionService.getRevenueByGroupLast30Days() : List.of(),
+                attendanceService.getAttendanceLast7Days()
+        )).thenAccept(data -> Platform.runLater(() -> {
+            // 1. مخطط الإيرادات حسب المجموعة (آخر 30 يوماً)
+            ObservableList<PieChart.Data> pieChartData = FXCollections.observableArrayList();
+            BigDecimal grandTotal = BigDecimal.ZERO;
+            for (GroupRevenue row : data.revenue()) {
+                BigDecimal value = MoneyUtils.normalize(row.total());
+                grandTotal = grandTotal.add(value);
+                pieChartData.add(new PieChart.Data(row.groupName(), value.doubleValue()));
+            }
+            revenuePieChart.setData(pieChartData);
 
-            // 3. تحديث الواجهة في الـ JavaFX Thread
-            Platform.runLater(() -> {
-                revenuePieChart.setData(pieChartData);
-
-                attendanceBarChart.getData().clear();
-                attendanceBarChart.getData().add(series1);
-
-                // إضافة تأثيرات حركية خفيفة (Animations)
-                revenuePieChart.getData().forEach(data -> {
-                    String percentage = String.format("%.1f%%", (data.getPieValue() / 5500) * 100);
-                    Tooltip toolTip = new Tooltip(percentage);
-                    Tooltip.install(data.getNode(), toolTip);
-                });
+            // النسب تُحسب من الإجمالي الفعلي وليس من رقم ثابت
+            final BigDecimal total = grandTotal;
+            revenuePieChart.getData().forEach(slice -> {
+                String percentage = total.signum() == 0
+                        ? "0.0%"
+                        : String.format("%.1f%%", (slice.getPieValue() / total.doubleValue()) * 100);
+                Tooltip.install(slice.getNode(),
+                        new Tooltip(slice.getName() + ": " + MoneyUtils.formatWithCurrency(BigDecimal.valueOf(slice.getPieValue()))
+                                + " (" + percentage + ")"));
             });
+
+            // 2. مخطط الحضور خلال آخر 7 أيام - تُعرض كل الأيام حتى الأيام بلا حضور
+            Map<LocalDate, Long> countsByDate = data.attendance().stream()
+                    .collect(Collectors.toMap(DailyAttendance::date, DailyAttendance::count));
+
+            XYChart.Series<String, Number> series = new XYChart.Series<>();
+            series.setName("الحضور الفعلي");
+            DateTimeFormatter dayLabel = DateTimeFormatter.ofPattern("EEEE", ARABIC_LOCALE);
+            for (int i = 6; i >= 0; i--) {
+                LocalDate day = LocalDate.now().minusDays(i);
+                series.getData().add(new XYChart.Data<>(
+                        day.format(dayLabel), countsByDate.getOrDefault(day, 0L)));
+            }
+
+            attendanceBarChart.getData().clear();
+            attendanceBarChart.getData().add(series);
+        })).exceptionally(ex -> {
+            ex.printStackTrace();
+            return null;
         });
     }
-    public void handleLogout(ActionEvent actionEvent) {
 
+    // حاوية لنقل بيانات المخططات بين الـ Threads
+    private record ChartsData(List<GroupRevenue> revenue, List<DailyAttendance> attendance) {
+    }
+    public void handleLogout(ActionEvent actionEvent) {
+        try {
+            // 1. إنهاء الجلسة الحالية أولاً حتى لا يرث المستخدم التالي صلاحيات السابق
+            userSession.cleanUserSession();
+
+            // 2. العودة إلى شاشة الدخول
+            URL resource = getClass().getResource("/fxml/Login.fxml");
+            if (resource == null) {
+                throw new IllegalStateException("الملف غير موجود: /fxml/Login.fxml");
+            }
+            FXMLLoader loader = new FXMLLoader(resource);
+            loader.setControllerFactory(applicationContext::getBean);
+            Parent loginRoot = loader.load();
+
+            Stage stage = (Stage) ((Node) actionEvent.getSource()).getScene().getWindow();
+            Scene scene = new Scene(loginRoot, 500, 400);
+            scene.getStylesheets().add(getClass().getResource("/css/style.css").toExternalForm());
+            stage.setScene(scene);
+            stage.setTitle("تسجيل الدخول - نظام إدارة السنتر");
+            stage.centerOnScreen();
+        } catch (IOException e) {
+            e.printStackTrace();
+            showError("تعذر العودة إلى شاشة الدخول: " + e.getMessage());
+        }
+    }
+
+    private void showError(String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle("خطأ");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
     }
 
     // كلاس داخلي لنقل بيانات الإحصائيات
-    private record DashboardStats(long studentsCount, double dailyRevenue, long activeSessions) {
+    private record DashboardStats(long studentsCount, BigDecimal dailyRevenue, long activeSessions) {
     }
 }

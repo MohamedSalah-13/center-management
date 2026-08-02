@@ -2,11 +2,15 @@ package com.codejava.center.service;
 
 import com.codejava.center.domain.CenterSettings;
 import com.codejava.center.repository.CenterSettingsRepository;
+import com.codejava.center.domain.enums.Role;
+import com.codejava.center.security.RequiresRole;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.time.LocalDate;
 
 @Service
@@ -14,6 +18,16 @@ import java.time.LocalDate;
 public class BackupService {
 
     private final CenterSettingsRepository centerSettingsRepository;
+
+    // بيانات الاتصال تُقرأ من الإعدادات (متغيرات البيئة) بدلاً من كتابتها داخل الكود
+    @Value("${spring.datasource.username}")
+    private String dbUsername;
+
+    @Value("${spring.datasource.password}")
+    private String dbPassword;
+
+    @Value("${spring.datasource.url}")
+    private String dbUrl;
 
     // تشغيل تلقائي كل يوم الساعة 2 صباحاً
     @Scheduled(cron = "0 0 2 * * ?")
@@ -28,20 +42,16 @@ public class BackupService {
     public boolean executeBackup(String targetDirectory) {
         try {
             String fileName = "backup_" + LocalDate.now() + ".sql";
-            String fullPath = targetDirectory + "/" + fileName;
+            String fullPath = Path.of(targetDirectory, fileName).toString();
 
             ProcessBuilder processBuilder = new ProcessBuilder(
                     "mysqldump",
-                    "-u", "root",
-                    "-pm13ido",
-                    "center_db",
+                    "-u", dbUsername,
+                    extractDatabaseName(dbUrl),
                     "-r", fullPath
             );
 
-            Process process = processBuilder.start();
-            int processComplete = process.waitFor();
-
-            return processComplete == 0;
+            return runWithPassword(processBuilder);
         } catch (Exception e) {
             e.printStackTrace();
             return false;
@@ -49,25 +59,51 @@ public class BackupService {
     }
 
     // دالة استعادة النسخة الاحتياطية الجديدة
+    @RequiresRole(Role.ADMIN)
     public boolean restoreBackup(String sqlFilePath) {
         try {
             ProcessBuilder processBuilder = new ProcessBuilder(
                     "mysql",
-                    "-u", "root",
-                    "-pm13ido",
-                    "center_db"
+                    "-u", dbUsername,
+                    extractDatabaseName(dbUrl)
             );
 
             // قراءة ملف الـ SQL وتمريره كمدخل لأمر mysql
             processBuilder.redirectInput(new File(sqlFilePath));
 
-            Process process = processBuilder.start();
-            int processComplete = process.waitFor();
-
-            return processComplete == 0; // 0 تعني نجاح العملية
+            return runWithPassword(processBuilder);
         } catch (Exception e) {
             e.printStackTrace();
             return false;
         }
+    }
+
+    /**
+     * تنفيذ الأمر مع تمرير كلمة المرور عبر متغير البيئة MYSQL_PWD بدلاً من سطر الأوامر،
+     * حتى لا تظهر كلمة المرور في قائمة العمليات (Task Manager / ps) لأي مستخدم على الجهاز.
+     */
+    private boolean runWithPassword(ProcessBuilder processBuilder) throws Exception {
+        if (dbPassword != null && !dbPassword.isEmpty()) {
+            processBuilder.environment().put("MYSQL_PWD", dbPassword);
+        }
+        // توجيه رسائل الخطأ لمخرجات البرنامج بدل ابتلاعها، لتشخيص سبب الفشل
+        processBuilder.redirectErrorStream(false);
+        processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT);
+
+        Process process = processBuilder.start();
+        return process.waitFor() == 0;
+    }
+
+    /**
+     * استخراج اسم قاعدة البيانات من رابط JDBC
+     * مثال: jdbc:mysql://localhost:3306/center_db?useSSL=false  ->  center_db
+     */
+    private String extractDatabaseName(String jdbcUrl) {
+        String withoutParams = jdbcUrl.split("\\?", 2)[0];
+        int lastSlash = withoutParams.lastIndexOf('/');
+        if (lastSlash < 0 || lastSlash == withoutParams.length() - 1) {
+            throw new IllegalStateException("تعذر استخراج اسم قاعدة البيانات من الرابط: " + jdbcUrl);
+        }
+        return withoutParams.substring(lastSlash + 1);
     }
 }
