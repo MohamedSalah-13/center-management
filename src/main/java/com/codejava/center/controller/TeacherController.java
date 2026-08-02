@@ -108,11 +108,18 @@ public class TeacherController {
         // جلب النافذة الحالية لربط حوار الطباعة بها
         javafx.stage.Window window = ((Node) event.getSource()).getScene().getWindow();
 
-        try {
-            reportService.printTeacherStatement(selectedTeacher, window);
-        } catch (Exception e) {
-            AlertUtils.showError("خطأ", "حدث خطأ أثناء الطباعة: " + e.getMessage());
-        }
+        Teacher target = selectedTeacher;
+
+        // جلب الحصص في الخلفية، ثم الطباعة على خيط الواجهة (شرط PrinterJob في JavaFX)
+        FxAsync.supply(() -> teacherService.getPayableSessionsOf(target.getId()),
+                sessions -> {
+                    try {
+                        reportService.printTeacherStatement(target, sessions, window);
+                    } catch (Exception e) {
+                        AlertUtils.showError("خطأ", "حدث خطأ أثناء الطباعة: " + FxAsync.messageOf(e));
+                    }
+                },
+                error -> AlertUtils.showError("خطأ", "تعذر تحميل حصص المعلم: " + FxAsync.messageOf(error)));
     }
 
     @FXML

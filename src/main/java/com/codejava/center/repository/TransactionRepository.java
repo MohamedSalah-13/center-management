@@ -32,6 +32,21 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     boolean existsByStudentAndSessionAndType(Student student, Session session, TransactionType type);
 
     /**
+     * حركات نقدية في فترة، لعرضها في شاشة تقفيل الوردية.
+     * تستثني SESSION_CHARGE لأنها استحقاق على الطالب لا حركة في الدرج.
+     * LEFT JOIN FETCH لأن الحركات العامة (مصروفات، مستحقات معلمين) بلا طالب أو مجموعة.
+     */
+    @Query("""
+            SELECT t FROM Transaction t
+            LEFT JOIN FETCH t.student LEFT JOIN FETCH t.group
+            WHERE t.type <> com.codejava.center.domain.enums.TransactionType.SESSION_CHARGE
+              AND t.transactionDate >= :startDate AND t.transactionDate < :endDate
+            ORDER BY t.transactionDate DESC
+            """)
+    List<Transaction> findCashMovements(@Param("startDate") LocalDateTime startDate,
+                                        @Param("endDate") LocalDateTime endDate);
+
+    /**
      * رصيد الطالب = مجموع ما دفعه (INCOME) ناقص مجموع رسوم الحصص المخصومة (SESSION_CHARGE).
      * الحركات السابقة لتاريخ بداية دفتر الحسابات تُستبعد، لأن الدفعات القديمة
      * ليست لها خصومات مقابلة وستُظهر الطالب دائناً بمبلغ وهمي.

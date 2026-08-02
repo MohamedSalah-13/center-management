@@ -55,6 +55,18 @@ public interface SessionRepository extends JpaRepository<Session, Long> {
     Optional<Session> findByGroupAndIsActiveTrue(CourseGroup group);
 
     /**
+     * الحصص القابلة لصرف مستحقات معلمها: مغلقة ولم تُصرَف بعد.
+     * الحصة المفتوحة مستبعدة عمداً لأن طلاباً آخرين قد يسجّلون حضورهم بعد،
+     * فيُحتسب الإيراد ناقصاً ويُصرف للمعلم أقل من حقه.
+     */
+    @Query("""
+            SELECT s FROM Session s JOIN FETCH s.group g JOIN FETCH g.teacher
+            WHERE s.isActive = false AND s.isPaidOut = false
+            ORDER BY s.sessionDate, s.id
+            """)
+    List<Session> findPayableSessions();
+
+    /**
      * جلب حصة مع مجموعتها ومعلمها في استعلام واحد (لتفادي LazyInitializationException خارج الـ Transaction)
      */
     @Query("SELECT s FROM Session s JOIN FETCH s.group g JOIN FETCH g.teacher WHERE s.id = :id")

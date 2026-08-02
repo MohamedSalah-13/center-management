@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.codejava.center.service.dto.GroupRevenue;
+import com.codejava.center.service.dto.ShiftSummary;
 import com.codejava.center.util.MoneyUtils;
 
 import java.math.BigDecimal;
@@ -132,6 +133,37 @@ public class TransactionService {
 
         // 3. حفظ الحركة في قاعدة البيانات
         transactionRepository.save(transaction);
+    }
+
+    /**
+     * جرد الوردية ليوم محدد: تفصيل الوارد والمنصرف والمستحقات المصروفة والصافي.
+     * يبني على calculateTodayNetBalance لكنه يُظهر المكوّنات بدل رقم واحد،
+     * لأن تقفيل الدرج يحتاج معرفة من أين جاء الفرق.
+     */
+    @Transactional(readOnly = true)
+    @RequiresRole(Role.ADMIN)
+    public ShiftSummary getShiftSummary(LocalDate day) {
+        LocalDateTime start = day.atStartOfDay();
+        // بداية اليوم التالي مع مقارنة "أصغر من": تشمل آخر ثانية بكل أجزائها
+        LocalDateTime end = day.plusDays(1).atStartOfDay();
+
+        BigDecimal income = MoneyUtils.normalize(
+                transactionRepository.sumAmountByTypeAndDateRange(TransactionType.INCOME, start, end));
+        BigDecimal expense = MoneyUtils.normalize(
+                transactionRepository.sumAmountByTypeAndDateRange(TransactionType.EXPENSE, start, end));
+        BigDecimal payouts = MoneyUtils.normalize(
+                transactionRepository.sumAmountByTypeAndDateRange(TransactionType.TEACHER_PAYOUT, start, end));
+
+        BigDecimal net = MoneyUtils.normalize(income.subtract(expense.add(payouts)));
+        return new ShiftSummary(income, expense, payouts, net);
+    }
+
+    /** الحركات النقدية ليوم محدد (بدون رسوم الحصص) */
+    @Transactional(readOnly = true)
+    @RequiresRole(Role.ADMIN)
+    public List<Transaction> getCashMovements(LocalDate day) {
+        return transactionRepository.findCashMovements(
+                day.atStartOfDay(), day.plusDays(1).atStartOfDay());
     }
 
     /**

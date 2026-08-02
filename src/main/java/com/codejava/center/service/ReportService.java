@@ -1,8 +1,17 @@
 package com.codejava.center.service;
 
+import com.codejava.center.domain.CenterSettings;
 import com.codejava.center.domain.Teacher;
+import com.codejava.center.domain.Transaction;
+import com.codejava.center.repository.CenterSettingsRepository;
+import com.codejava.center.service.dto.SessionPayout;
+import com.codejava.center.service.dto.ShiftSummary;
 import com.codejava.center.util.MoneyUtils;
+import javafx.geometry.Pos;
 import javafx.print.PrinterJob;
+import javafx.scene.control.Separator;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
@@ -20,6 +29,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -39,8 +49,116 @@ public class ReportService {
      */
     private final Map<String, JasperReport> compiledReports = new ConcurrentHashMap<>();
 
-    public ReportService(DataSource dataSource) {
+    private final CenterSettingsRepository centerSettingsRepository;
+
+    public ReportService(DataSource dataSource, CenterSettingsRepository centerSettingsRepository) {
         this.dataSource = dataSource;
+        this.centerSettingsRepository = centerSettingsRepository;
+    }
+
+    /**
+     * ترويسة موحّدة لكل المطبوعات: شعار السنتر واسمه وهاتفه.
+     * هذه البيانات كانت تُجمع في شاشة الإعدادات ولا تظهر في أي مستند.
+     */
+    private VBox buildHeader(String documentTitle) {
+        CenterSettings settings = centerSettingsRepository.findById(1L).orElse(null);
+
+        VBox header = new VBox(6);
+        header.setAlignment(Pos.CENTER);
+
+        if (settings != null && settings.getLogoPath() != null && !settings.getLogoPath().isBlank()) {
+            File logoFile = new File(settings.getLogoPath());
+            if (logoFile.exists()) {
+                ImageView logo = new ImageView(new Image(logoFile.toURI().toString()));
+                logo.setFitHeight(70);
+                logo.setPreserveRatio(true);
+                header.getChildren().add(logo);
+            }
+        }
+
+        String centerName = settings != null && settings.getCenterName() != null && !settings.getCenterName().isBlank()
+                ? settings.getCenterName()
+                : "السنتر التعليمي";
+        Label nameLabel = new Label(centerName);
+        nameLabel.setFont(Font.font("System", FontWeight.BOLD, 22));
+        header.getChildren().add(nameLabel);
+
+        if (settings != null && settings.getCenterPhone() != null && !settings.getCenterPhone().isBlank()) {
+            Label phone = new Label("هاتف: " + settings.getCenterPhone());
+            phone.setFont(Font.font("System", 12));
+            header.getChildren().add(phone);
+        }
+
+        Label title = new Label(documentTitle);
+        title.setFont(Font.font("System", FontWeight.BOLD, 18));
+        header.getChildren().addAll(new Separator(), title);
+
+        return header;
+    }
+
+    /**
+     * طباعة جرد الوردية: الملخّص ثم تفصيل الحركات.
+     */
+    public void printShiftSummary(LocalDate day, ShiftSummary summary,
+                                  List<Transaction> movements, Window ownerWindow) {
+        VBox page = new VBox(12);
+        page.setStyle("-fx-padding: 30; -fx-background-color: white;");
+
+        page.getChildren().add(buildHeader("جرد الوردية - " + day));
+
+        page.getChildren().addAll(
+                summaryLine("الوارد (اشتراكات)", summary.totalIncome()),
+                summaryLine("المصروفات", summary.totalExpense()),
+                summaryLine("مستحقات معلمين مصروفة", summary.totalTeacherPayouts()),
+                new Separator(),
+                summaryLine("صافي الدرج", summary.net()),
+                new Separator());
+
+        Label detailsTitle = new Label("تفصيل الحركات (" + movements.size() + " حركة)");
+        detailsTitle.setFont(Font.font("System", FontWeight.BOLD, 14));
+        page.getChildren().add(detailsTitle);
+
+        for (Transaction t : movements) {
+            page.getChildren().add(new Label(String.format("%s   |   %s   |   %s",
+                    t.getTransactionDate().format(DateTimeFormatter.ofPattern("hh:mm a")),
+                    MoneyUtils.format(t.getAmount()),
+                    t.getDescription())));
+        }
+
+        Label printedAt = new Label("\nتاريخ الطباعة: "
+                + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+        printedAt.setFont(Font.font("System", 11));
+        page.getChildren().add(printedAt);
+
+        printNode(page, ownerWindow);
+    }
+
+    private Label summaryLine(String label, java.math.BigDecimal value) {
+        Label line = new Label(label + ": " + MoneyUtils.formatWithCurrency(value));
+        line.setFont(Font.font("System", 15));
+        return line;
+    }
+
+    /**
+     * إرسال عقدة للطباعة مع إنهاء المهمة في كل الحالات.
+     * ترك المهمة بلا endJob عند الفشل يُبقيها معلّقة في طابور الطابعة.
+     */
+    private void printNode(javafx.scene.Node node, Window ownerWindow) {
+        PrinterJob job = PrinterJob.createPrinterJob();
+        if (job == null) {
+            throw new IllegalStateException("لا توجد طابعة متاحة على هذا الجهاز.");
+        }
+
+        if (!job.showPrintDialog(ownerWindow)) {
+            job.cancelJob();
+            return;
+        }
+
+        try {
+            job.printPage(node);
+        } finally {
+            job.endJob();
+        }
     }
 
     /**
@@ -99,44 +217,62 @@ public class ReportService {
         return outputPath;
     }
 
-    public void printTeacherStatement(Teacher teacher, Window ownerWindow) {
-        PrinterJob job = PrinterJob.createPrinterJob();
-        if (job == null) {
-            throw new IllegalStateException("لا توجد طابعة متاحة على هذا الجهاز.");
-        }
+    /**
+     * كشف حساب معلم يحتوي تفصيل الحصص فعلياً.
+     * كان يطبع سطراً واحداً نصه "تفاصيل الحصص المالية ستدرج هنا لاحقاً".
+     */
+    public void printTeacherStatement(Teacher teacher, List<SessionPayout> sessions, Window ownerWindow) {
+        VBox page = new VBox(10);
+        page.setStyle("-fx-padding: 30; -fx-background-color: white;");
 
-        if (!job.showPrintDialog(ownerWindow)) {
-            job.cancelJob(); // تحرير مهمة الطباعة عند إلغاء المستخدم
-            return;
-        }
-
-        VBox printableNode = new VBox(15);
-        printableNode.setStyle("-fx-padding: 30; -fx-background-color: white;");
-
-        Label header = new Label("كشف حساب معلم - السنتر التعليمي");
-        header.setFont(Font.font("System", FontWeight.BOLD, 24));
-
-        Label dateLabel = new Label("تاريخ الإصدار: "
-                + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+        page.getChildren().add(buildHeader("كشف حساب معلم"));
 
         Label teacherInfo = new Label(
                 String.format("الاسم: %s%nالمادة: %s%nنوع العمولة: %s%nقيمة العمولة: %s",
-                        teacher.getName(), teacher.getSubject(), teacher.getCommissionType(),
+                        teacher.getName(), teacher.getSubject(),
+                        commissionLabel(teacher.getCommissionType()),
                         MoneyUtils.format(teacher.getCommissionValue()))
         );
-        teacherInfo.setFont(Font.font("System", 16));
+        teacherInfo.setFont(Font.font("System", 15));
+        page.getChildren().addAll(teacherInfo, new Separator());
 
-        Label summary = new Label("\n-- تفاصيل الحصص المالية ستدرج هنا لاحقاً --");
+        if (sessions.isEmpty()) {
+            page.getChildren().add(new Label("لا توجد حصص غير مصروفة لهذا المعلم."));
+        } else {
+            Label title = new Label("الحصص المغلقة غير المصروفة:");
+            title.setFont(Font.font("System", FontWeight.BOLD, 14));
+            page.getChildren().add(title);
 
-        printableNode.getChildren().addAll(header, dateLabel,
-                new javafx.scene.control.Separator(), teacherInfo, summary);
+            java.math.BigDecimal total = java.math.BigDecimal.ZERO;
+            for (SessionPayout s : sessions) {
+                page.getChildren().add(new Label(String.format(
+                        "%s   |   %s   |   حضور: %d   |   إيراد: %s   |   المستحق: %s",
+                        s.sessionDate(), s.groupName(), s.attendees(),
+                        MoneyUtils.format(s.totalRevenue()), MoneyUtils.format(s.payoutAmount()))));
+                total = total.add(s.payoutAmount());
+            }
 
-        // endJob في كل الحالات: تركها بلا إنهاء عند فشل printPage يُبقي المهمة معلّقة في الطابعة
-        try {
-            job.printPage(printableNode);
-        } finally {
-            job.endJob();
+            page.getChildren().add(new Separator());
+            Label totalLabel = new Label("إجمالي المستحق: " + MoneyUtils.formatWithCurrency(total));
+            totalLabel.setFont(Font.font("System", FontWeight.BOLD, 17));
+            page.getChildren().add(totalLabel);
         }
+
+        Label printedAt = new Label("\nتاريخ الإصدار: "
+                + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+        printedAt.setFont(Font.font("System", 11));
+        page.getChildren().add(printedAt);
+
+        printNode(page, ownerWindow);
+    }
+
+    private String commissionLabel(String type) {
+        return switch (type) {
+            case "PERCENTAGE" -> "نسبة مئوية";
+            case "FIXED_AMOUNT" -> "مبلغ ثابت";
+            case "RENT" -> "إيجار قاعة";
+            default -> type;
+        };
     }
 
     /**

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
+
+<VBox spacing="20.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.codejava.center.controller.TeacherPayoutController"
+      style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
+
+    <Label text="صرف مستحقات المعلمين" textFill="#2c3e50">
+        <font><Font name="System Bold" size="26.0" /></font>
+    </Label>
+
+    <Label text="تُعرض هنا الحصص المغلقة التي لم تُصرَف مستحقاتها بعد. الحصص المفتوحة لا تظهر لأن الحضور فيها لم يكتمل."
+           textFill="#7f8c8d" wrapText="true" />
+
+    <TableView fx:id="payoutsTable" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="colDate" text="التاريخ" prefWidth="110.0" />
+            <TableColumn fx:id="colGroup" text="المجموعة" prefWidth="160.0" />
+            <TableColumn fx:id="colTeacher" text="المعلم" prefWidth="160.0" />
+            <TableColumn fx:id="colAttendees" text="الحضور" prefWidth="80.0" />
+            <TableColumn fx:id="colRevenue" text="إيراد الحصة" prefWidth="120.0" />
+            <TableColumn fx:id="colType" text="نوع العمولة" prefWidth="120.0" />
+            <TableColumn fx:id="colPayout" text="المستحق" prefWidth="130.0" />
+        </columns>
+    </TableView>
+
+    <HBox spacing="20.0" alignment="CENTER_RIGHT"
+          style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
+        <Label text="إجمالي المستحقات غير المصروفة:">
+            <font><Font name="System Bold" size="15.0" /></font>
+        </Label>
+        <Label fx:id="totalPendingLabel" text="0.00 ج.م" textFill="#e67e22">
+            <font><Font name="System Bold" size="20.0" /></font>
+        </Label>
+        <Region HBox.hgrow="ALWAYS" />
+        <Button text="تحديث" onAction="#handleRefresh"
+                style="-fx-background-color: #7f8c8d; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+        <Button fx:id="payButton" text="صرف مستحقات الحصة المحددة" onAction="#handlePayout" disable="true"
+                style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+    </HBox>
+</VBox>

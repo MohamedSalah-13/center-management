@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.codejava.center.service.dto.SessionPayout;
 import com.codejava.center.util.MoneyUtils;
 
 import java.math.BigDecimal;
@@ -36,18 +37,22 @@ public class TeacherService {
         Session session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("الحصة غير موجودة"));
 
-        Teacher teacher = session.getGroup().getTeacher();
+        return calculatePayout(session, attendanceRepository.countBySession(session));
+    }
 
-        // حساب عدد الطلاب الذين حضروا هذه الحصة فعلياً
-        // يفترض أنك أضفت دالة countBySession في AttendanceRepository
-        long attendeesCount = attendanceRepository.countBySession(session);
+    /**
+     * خوارزمية العمولة حسب نوع اتفاق المعلم.
+     * مفصولة عن calculateSessionPayout حتى تستطيع شاشة الصرف حساب عدة حصص
+     * دون إعادة جلب كل حصة وعدّ حضورها مرتين.
+     */
+    private BigDecimal calculatePayout(Session session, long attendeesCount) {
+        Teacher teacher = session.getGroup().getTeacher();
 
         // إجمالي الإيراد = عدد الحضور * سعر الحصة المخصص للمجموعة
         BigDecimal totalRevenue = MoneyUtils.normalize(session.getGroup().getSessionPrice())
                 .multiply(BigDecimal.valueOf(attendeesCount));
         BigDecimal commissionValue = MoneyUtils.normalize(teacher.getCommissionValue());
 
-        // تطبيق الخوارزمية بناءً على نوع الاتفاق
         BigDecimal payout = switch (teacher.getCommissionType()) {
             case "PERCENTAGE" -> totalRevenue.multiply(commissionValue)
                     .divide(BigDecimal.valueOf(100), MoneyUtils.SCALE, RoundingMode.HALF_UP);
@@ -72,6 +77,12 @@ public class TeacherService {
             throw new IllegalStateException("تم صرف مستحقات هذه الحصة مسبقاً ولا يمكن تكرار الصرف.");
         }
 
+        // الحصة المفتوحة قد يسجّل فيها طلاب آخرون حضورهم بعد، فيكون الإيراد المحسوب
+        // ناقصاً ويُصرف للمعلم أقل من حقه دون إمكانية تصحيح (الصرف لا يتكرر)
+        if (session.isActive()) {
+            throw new IllegalStateException("لا يمكن صرف مستحقات حصة ما زالت مفتوحة. أغلق الحصة أولاً.");
+        }
+
         // 1. حساب المستحقات
         BigDecimal payoutAmount = calculateSessionPayout(sessionId);
 
@@ -90,6 +101,43 @@ public class TeacherService {
         // 3. إغلاق الحصة حتى لا يتم الدفع مرتين
         session.setPaidOut(true);
         sessionRepository.save(session);
+    }
+
+    /**
+     * الحصص المغلقة التي لم تُصرَف مستحقاتها بعد، ومع كل واحدة المبلغ المحسوب.
+     * عدد الحصص هنا محدود بطبيعته لأن التصفية تتم دورياً، فحساب الحضور لكل حصة مقبول.
+     */
+    /** نفس القائمة مقصورة على معلم واحد، لكشف حسابه */
+    @Transactional(readOnly = true)
+    @RequiresRole(Role.ADMIN)
+    public List<SessionPayout> getPayableSessionsOf(Long teacherId) {
+        return getPayableSessions().stream()
+                .filter(p -> teacherId.equals(p.teacherId()))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    @RequiresRole(Role.ADMIN)
+    public List<SessionPayout> getPayableSessions() {
+        return sessionRepository.findPayableSessions().stream()
+                .map(session -> {
+                    Teacher teacher = session.getGroup().getTeacher();
+                    long attendees = attendanceRepository.countBySession(session);
+                    BigDecimal revenue = MoneyUtils.normalize(session.getGroup().getSessionPrice())
+                            .multiply(BigDecimal.valueOf(attendees));
+
+                    return new SessionPayout(
+                            session.getId(),
+                            session.getGroup().getName(),
+                            teacher.getId(),
+                            teacher.getName(),
+                            session.getSessionDate(),
+                            attendees,
+                            teacher.getCommissionType(),
+                            MoneyUtils.normalize(revenue),
+                            calculatePayout(session, attendees));
+                })
+                .toList();
     }
 
     @Transactional(readOnly = true)
