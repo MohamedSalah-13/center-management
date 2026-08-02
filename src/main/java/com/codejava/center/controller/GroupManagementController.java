@@ -5,6 +5,8 @@ import com.codejava.center.domain.Teacher;
 import com.codejava.center.service.CourseGroupService;
 import com.codejava.center.service.ReportService;
 import com.codejava.center.service.TeacherService;
+import com.codejava.center.util.FxAsync;
+import com.codejava.center.util.MoneyUtils;
 import com.codejava.commons.fx.dialog.AlertUtils;
 import com.codejava.commons.fx.form.FormUtils;
 import com.codejava.commons.fx.validation.InputValidator;
@@ -19,13 +21,17 @@ import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.util.StringConverter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @Controller
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE) // نسخة جديدة لكل فتح للشاشة - يمنع تراكم الـ listeners والحالة القديمة
 @RequiredArgsConstructor
 public class GroupManagementController {
 
@@ -96,7 +102,7 @@ public class GroupManagementController {
         colName.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getName()));
         colTeacher.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getTeacher().getName()));
         colCapacity.setCellValueFactory(data -> new SimpleStringProperty(String.valueOf(data.getValue().getMaxCapacity())));
-        colPrice.setCellValueFactory(data -> new SimpleStringProperty(String.valueOf(data.getValue().getSessionPrice())));
+        colPrice.setCellValueFactory(data -> new SimpleStringProperty(MoneyUtils.format(data.getValue().getSessionPrice())));
 
         groupsTable.setItems(groupsList);
     }
@@ -115,15 +121,15 @@ public class GroupManagementController {
 
     private void loadData() {
         // جلب البيانات في Thread منفصل لعدم تجميد الواجهة
-        CompletableFuture.runAsync(() -> {
-            var teachers = teacherService.getAllTeachers();
-            var groups = courseGroupService.getAllGroups();
+        FxAsync.supply(() -> new LoadedData(teacherService.getAllTeachers(), courseGroupService.getAllGroups()),
+                data -> {
+                    teacherComboBox.getItems().setAll(data.teachers());
+                    groupsList.setAll(data.groups());
+                },
+                error -> AlertUtils.showError("خطأ", "تعذر تحميل البيانات: " + FxAsync.messageOf(error)));
+    }
 
-            Platform.runLater(() -> {
-                teacherComboBox.getItems().setAll(teachers);
-                groupsList.setAll(groups);
-            });
-        });
+    private record LoadedData(java.util.List<Teacher> teachers, java.util.List<CourseGroup> groups) {
     }
 
     @FXML
@@ -143,19 +149,17 @@ public class GroupManagementController {
                     .name(name)
                     .teacher(selectedTeacher)
                     .maxCapacity(Integer.parseInt(capacityStr))
-                    .sessionPrice(Double.parseDouble(priceStr))
+                    .sessionPrice(new BigDecimal(priceStr))
                     .build();
 
-            CourseGroup savedGroup = courseGroupService.saveGroup(newGroup);
-
-            groupsList.add(savedGroup); // إضافة فورية للجدول
-            clearForm();
-            AlertUtils.showSuccess("نجاح", "تمت إضافة المجموعة بنجاح.");
+            FxAsync.supply(() -> courseGroupService.saveGroup(newGroup), savedGroup -> {
+                groupsList.add(savedGroup); // إضافة فورية للجدول
+                clearForm();
+                AlertUtils.showSuccess("نجاح", "تمت إضافة المجموعة بنجاح.");
+            }, error -> AlertUtils.showError("خطأ", FxAsync.messageOf(error)));
 
         } catch (NumberFormatException e) {
             AlertUtils.showError("خطأ في الأرقام", "السعة والسعر يجب أن تكون أرقاماً صحيحة.");
-        } catch (Exception e) {
-            AlertUtils.showError("خطأ", e.getMessage());
         }
     }
 
@@ -169,7 +173,7 @@ public class GroupManagementController {
                 groupNameField.setText(selectedGroup.getName());
                 teacherComboBox.setValue(selectedGroup.getTeacher());
                 capacityField.setText(String.valueOf(selectedGroup.getMaxCapacity()));
-                priceField.setText(String.valueOf(selectedGroup.getSessionPrice()));
+                priceField.setText(MoneyUtils.format(selectedGroup.getSessionPrice()));
 
                 // تفعيل أزرار التعديل والحذف
                 updateButton.setDisable(false);
@@ -198,18 +202,21 @@ public class GroupManagementController {
             selectedGroup.setName(name);
             selectedGroup.setTeacher(selectedTeacher);
             selectedGroup.setMaxCapacity(Integer.parseInt(capacityStr));
-            selectedGroup.setSessionPrice(Double.parseDouble(priceStr));
+            selectedGroup.setSessionPrice(new BigDecimal(priceStr));
 
-            CourseGroup updatedGroup = courseGroupService.saveGroup(selectedGroup);
-
-            // تحديث الجدول بصرياً
-            int selectedIndex = groupsTable.getSelectionModel().getSelectedIndex();
-            groupsList.set(selectedIndex, updatedGroup);
-
-            clearForm();
-            AlertUtils.showSuccess("نجاح", "تم التعديل بنجاح.");
-        } catch (Exception e) {
-            AlertUtils.showError("خطأ", e.getMessage());
+            CourseGroup target = selectedGroup;
+            FxAsync.supply(() -> courseGroupService.saveGroup(target), updatedGroup -> {
+                // تحديث الجدول بصرياً - البحث عن الموضع في القائمة المصدر وليس في العرض
+                // (الجدول مربوط بـ SortedList/FilteredList ولذلك يختلف ترتيب صفوفه عن groupsList)
+                int selectedIndex = groupsList.indexOf(target);
+                if (selectedIndex >= 0) {
+                    groupsList.set(selectedIndex, updatedGroup);
+                }
+                clearForm();
+                AlertUtils.showSuccess("نجاح", "تم التعديل بنجاح.");
+            }, error -> AlertUtils.showError("خطأ", FxAsync.messageOf(error)));
+        } catch (NumberFormatException e) {
+            AlertUtils.showError("خطأ في الأرقام", "السعة والسعر يجب أن تكون أرقاماً صحيحة.");
         }
     }
 
@@ -218,14 +225,13 @@ public class GroupManagementController {
         if (selectedGroup == null) return;
 
         if (AlertUtils.showConfirm("تأكيد الحذف", "هل أنت متأكد من حذف المجموعة: " + selectedGroup.getName() + "؟")) {
-            try {
-                courseGroupService.deleteGroup(selectedGroup.getId());
-                groupsList.remove(selectedGroup); // الإزالة من الجدول
+            CourseGroup target = selectedGroup;
+            FxAsync.run(() -> courseGroupService.deleteGroup(target.getId()), () -> {
+                groupsList.remove(target); // الإزالة من الجدول
                 clearForm();
                 AlertUtils.showSuccess("نجاح", "تم الحذف بنجاح.");
-            } catch (Exception e) {
-                AlertUtils.showError("خطأ", "لا يمكن حذف المجموعة لارتباطها بسجلات أخرى (حصص أو طلاب).");
-            }
+            }, error -> AlertUtils.showError("خطأ",
+                    "لا يمكن حذف المجموعة لارتباطها بسجلات أخرى (حصص أو طلاب)."));
         }
     }
 
