@@ -23,6 +23,14 @@
     <!-- لوحة المسح وعرض النتيجة (اليمين) -->
     <right>
         <VBox alignment="TOP_CENTER" spacing="20.0" style="-fx-padding: 30; -fx-background-color: white;" prefWidth="400.0">
+            <!-- تحديد الحصة التي يخدمها هذا الجهاز؛ "تلقائي" يترك النظام يستنتجها من مجموعات الطالب -->
+            <VBox spacing="5.0" maxWidth="Infinity">
+                <Label text="الحصة الحالية لهذا الجهاز:" textFill="#7f8c8d" />
+                <ComboBox fx:id="sessionComboBox" maxWidth="Infinity" promptText="تلقائي (حسب مجموعة الطالب)" />
+            </VBox>
+
+            <Separator />
+
             <Label text="مرر الكارنيه الآن" textFill="#7f8c8d">
                 <font><Font name="System Bold" size="18.0" /></font>
             </Label>

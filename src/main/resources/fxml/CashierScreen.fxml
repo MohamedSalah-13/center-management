@@ -44,6 +44,13 @@
         <Label fx:id="schoolLevelLabel" text="---" textFill="#7f8c8d" GridPane.columnIndex="1" GridPane.rowIndex="1">
             <font><Font size="14.0" /></font>
         </Label>
+
+        <Label text="الرصيد الحالي:" GridPane.columnIndex="0" GridPane.rowIndex="2">
+            <font><Font name="System Bold" size="14.0" /></font>
+        </Label>
+        <Label fx:id="balanceLabel" text="---" GridPane.columnIndex="1" GridPane.rowIndex="2">
+            <font><Font name="System Bold" size="18.0" /></font>
+        </Label>
     </GridPane>
 
     <!-- منطقة الدفع (تكون معطلة حتى يتم اختيار طالب) -->
