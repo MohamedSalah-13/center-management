@@ -129,12 +129,42 @@ because `CenterApplication` is itself a bean injecting `PasswordEncoder`.
 
 ## Schema changes
 
-`ddl-auto=update` creates tables and adds columns but **never changes existing column types
-and never drops anything**. If you change a column type, existing databases need a manual
-migration; `docs/first-install.md` §7 documents the hazards (DDL commits implicitly in MySQL
-so nothing rolls back; type changes rebuild and lock the table; `ADD COLUMN IF NOT EXISTS`
-is MariaDB syntax and fails on MySQL). Moving to Flyway/Liquibase is the outstanding
-architectural task before multi-customer deployment.
+The schema is owned by **Flyway** (`src/main/resources/db/migration`), and
+`ddl-auto=validate` means Hibernate creates nothing — it refuses to start if the schema and
+the entities disagree. A missing migration is therefore a loud startup failure, not a
+mystery error later.
+
+After changing any entity:
+
+1. Run the generator — it is not part of the normal suite, so name it explicitly:
+   ```bash
+   mvn -o test -Dtest=SchemaScriptGenerator
+   ```
+2. Diff `target/schema-mysql.sql` against the existing migrations.
+3. Add a **new** `V<n>__*.sql` with just the delta. Never edit a migration that has been
+   applied anywhere — Flyway checksums them and will refuse to run.
+
+Write migrations by hand only as a last resort; the generator exists because a
+hand-written schema that differs from the entities fails `validate` at the customer's
+first launch rather than here.
+
+Two MySQL facts worth remembering when writing migrations: DDL commits implicitly so
+nothing rolls back mid-script, and `ADD COLUMN IF NOT EXISTS` is MariaDB syntax that fails
+on MySQL. `docs/first-install.md` §7 has the full list.
+
+Tests set `spring.flyway.enabled=false` and build the schema with `create-drop` on H2,
+because the migrations are MySQL-dialect. That means the suite does **not** exercise the
+migrations; they are verified by the generator being their source and by `validate` at
+startup.
+
+## Packaging
+
+`packaging/build-installer.ps1` produces a self-contained Windows app via jpackage —
+bundled JRE, no Java needed on the customer's machine. `app-image` (default) needs no extra
+tooling; `-Type msi` needs WiX Toolset 3.x.
+
+The script must stay UTF-8 **with BOM**: Windows PowerShell 5.1 reads `.ps1` as the system
+codepage otherwise, which mangles the Arabic strings and breaks parsing.
 
 ## Dependencies
 

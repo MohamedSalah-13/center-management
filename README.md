@@ -10,7 +10,7 @@
 - **إطار عمل خلفي (Backend):** Spring Boot 3.2 (Spring Data JPA / Hibernate)
 - **الأمان والتشفير (Security):** Spring Security (BCryptPasswordEncoder) + صلاحيات على طبقة الخدمات عبر AOP
 - **واجهة المستخدم (UI):** JavaFX 21 + FXML
-- **قاعدة البيانات (Database):** MySQL 8+ (مُعدّلة لتجاوز مشكلة Public Key Retrieval)
+- **قاعدة البيانات (Database):** MySQL 8+ مع **Flyway** لإدارة تطوّر المخطط
 - **إدارة التبعيات والمكتبات:** Lombok, Maven
 - **معالجة الواجهات المتزامنة (Asynchronous UI):** `CompletableFuture` & `Platform.runLater()`
 
@@ -49,9 +49,8 @@ $env:DB_USERNAME = "center_app"; $env:DB_PASSWORD = "your-password"; mvn spring-
 قاعدة بيانات بصلاحيات محدودة، ضبط النسخ الاحتياطي، وما يجب معرفته عن رصيد الطلاب
 قبل أول يوم دراسي — راجع **[docs/first-install.md](docs/first-install.md)**.
 
-> التركيب الجديد **لا يحتاج أي سكربت ترحيل**: تُنشأ الجداول تلقائياً بالأنواع
-> الصحيحة. القسم 7 من الدليل يشرح ما يلزم لو احتجت يوماً ترحيل قاعدة قديمة فيها
-> بيانات.
+> التركيب الجديد **لا يحتاج أي خطوة يدوية**: Flyway ينشئ الجداول عند أول تشغيل.
+> القسم 8 يشرح بناء نسخة للتوزيع بـ Java مدمجة، والقسم 9 قواعد تطوير المخطط بعدها.
 
 ---
 
