@@ -4,6 +4,7 @@ import com.codejava.center.domain.Student;
 import com.codejava.center.domain.Transaction;
 import com.codejava.center.service.StudentService;
 import com.codejava.center.service.TransactionService;
+import com.codejava.center.util.MoneyUtils;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -12,13 +13,17 @@ import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 
+import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Controller
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE) // نسخة جديدة لكل فتح للشاشة - يمنع تراكم الـ listeners والحالة القديمة
 @RequiredArgsConstructor
 public class PaymentHistoryController {
 
@@ -48,7 +53,7 @@ public class PaymentHistoryController {
         ));
 
         colAmount.setCellValueFactory(data -> new SimpleStringProperty(
-                String.valueOf(data.getValue().getAmount())
+                MoneyUtils.format(data.getValue().getAmount())
         ));
 
         colGroup.setCellValueFactory(data -> new SimpleStringProperty(
@@ -91,8 +96,10 @@ public class PaymentHistoryController {
             studentNameLabel.setText("اسم الطالب: " + result.student().getName());
 
             // حساب الإجمالي
-            double total = result.history().stream().mapToDouble(Transaction::getAmount).sum();
-            totalPaidLabel.setText("إجمالي المدفوعات: " + total + " ج.م");
+            BigDecimal total = result.history().stream()
+                    .map(Transaction::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            totalPaidLabel.setText("إجمالي المدفوعات: " + MoneyUtils.formatWithCurrency(total));
 
             // تعبئة الجدول
             transactionsList.setAll(result.history());

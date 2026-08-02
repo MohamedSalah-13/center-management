@@ -2,6 +2,9 @@ package com.codejava.center.service;
 
 import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.repository.CourseGroupRepository;
+import com.codejava.center.domain.enums.Role;
+import com.codejava.center.security.RequiresRole;
+import com.codejava.center.util.MoneyUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,13 +18,15 @@ public class CourseGroupService {
     private final CourseGroupRepository courseGroupRepository;
 
     @Transactional
+    @RequiresRole(Role.ADMIN)
     public CourseGroup saveGroup(CourseGroup group) {
         if (group.getMaxCapacity() == null || group.getMaxCapacity() <= 0) {
             throw new IllegalArgumentException("سعة القاعة يجب أن تكون أكبر من صفر.");
         }
-        if (group.getSessionPrice() == null || group.getSessionPrice() < 0) {
+        if (group.getSessionPrice() == null || group.getSessionPrice().signum() < 0) {
             throw new IllegalArgumentException("سعر الحصة لا يمكن أن يكون سالباً.");
         }
+        group.setSessionPrice(MoneyUtils.normalize(group.getSessionPrice()));
         return courseGroupRepository.save(group);
     }
 
@@ -33,6 +38,7 @@ public class CourseGroupService {
      * حذف مجموعة دراسية
      */
     @Transactional
+    @RequiresRole(Role.ADMIN)
     public void deleteGroup(Long groupId) {
         // يمكنك هنا إضافة تحقق للـ Constraints (مثلاً هل يوجد طلاب مسجلين في المجموعة؟)
         // قبل السماح بالحذف لتجنب الـ DataIntegrityViolationException

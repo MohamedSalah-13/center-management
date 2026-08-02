@@ -3,6 +3,8 @@ package com.codejava.center.service;
 import com.codejava.center.domain.Session;
 import com.codejava.center.domain.Teacher;
 import com.codejava.center.domain.enums.TransactionType;
+import com.codejava.center.domain.enums.Role;
+import com.codejava.center.security.RequiresRole;
 import com.codejava.center.repository.AttendanceRepository;
 import com.codejava.center.repository.SessionRepository;
 import com.codejava.center.repository.TeacherRepository;
@@ -10,6 +12,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.codejava.center.util.MoneyUtils;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 
 @Service
@@ -25,7 +31,8 @@ public class TeacherService {
      * حساب مستحقات المعلم لحصة معينة دون الدفع الفعلي (للمعاينة فقط)
      */
     @Transactional(readOnly = true)
-    public Double calculateSessionPayout(Long sessionId) {
+    @RequiresRole(Role.ADMIN)
+    public BigDecimal calculateSessionPayout(Long sessionId) {
         Session session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("الحصة غير موجودة"));
 
@@ -36,22 +43,27 @@ public class TeacherService {
         long attendeesCount = attendanceRepository.countBySession(session);
 
         // إجمالي الإيراد = عدد الحضور * سعر الحصة المخصص للمجموعة
-        double totalRevenue = attendeesCount * session.getGroup().getSessionPrice();
-        double commissionValue = teacher.getCommissionValue();
+        BigDecimal totalRevenue = MoneyUtils.normalize(session.getGroup().getSessionPrice())
+                .multiply(BigDecimal.valueOf(attendeesCount));
+        BigDecimal commissionValue = MoneyUtils.normalize(teacher.getCommissionValue());
 
         // تطبيق الخوارزمية بناءً على نوع الاتفاق
-        return switch (teacher.getCommissionType()) {
-            case "PERCENTAGE" -> totalRevenue * (commissionValue / 100.0);
+        BigDecimal payout = switch (teacher.getCommissionType()) {
+            case "PERCENTAGE" -> totalRevenue.multiply(commissionValue)
+                    .divide(BigDecimal.valueOf(100), MoneyUtils.SCALE, RoundingMode.HALF_UP);
             case "FIXED_AMOUNT" -> commissionValue;
-            case "RENT" -> totalRevenue - commissionValue;
+            case "RENT" -> totalRevenue.subtract(commissionValue);
             default -> throw new IllegalStateException("نوع عمولة غير معروف: " + teacher.getCommissionType());
         };
+
+        return MoneyUtils.normalize(payout);
     }
 
     /**
      * تنفيذ عملية الدفع وإغلاق حساب الحصة
      */
     @Transactional
+    @RequiresRole(Role.ADMIN)
     public void processSessionPayout(Long sessionId) {
         Session session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("الحصة غير موجودة"));
@@ -61,9 +73,9 @@ public class TeacherService {
         }
 
         // 1. حساب المستحقات
-        Double payoutAmount = calculateSessionPayout(sessionId);
+        BigDecimal payoutAmount = calculateSessionPayout(sessionId);
 
-        if (payoutAmount < 0) {
+        if (payoutAmount.signum() < 0) {
             throw new IllegalStateException("خطأ مالي: قيمة المستحقات بالسالب. يرجى مراجعة إيراد الحصة وقيمة الإيجار.");
         }
 
@@ -81,18 +93,25 @@ public class TeacherService {
     }
 
     @Transactional(readOnly = true)
+    @RequiresRole(Role.ADMIN)
     public List<Teacher> getAllTeachers() {
         return teacherRepository.findAll();
     }
 
     @Transactional
+    @RequiresRole(Role.ADMIN)
     public Teacher saveTeacher(Teacher teacher) {
         if (teacher.getName() == null || teacher.getName().isEmpty()) {
             throw new IllegalArgumentException("اسم المعلم مطلوب.");
         }
+        if (teacher.getCommissionValue() == null || teacher.getCommissionValue().signum() < 0) {
+            throw new IllegalArgumentException("قيمة العمولة مطلوبة ولا يمكن أن تكون سالبة.");
+        }
+        teacher.setCommissionValue(MoneyUtils.normalize(teacher.getCommissionValue()));
         return teacherRepository.save(teacher);
     }
     @Transactional
+    @RequiresRole(Role.ADMIN)
     public void deleteTeacher(Long teacherId) {
         teacherRepository.deleteById(teacherId);
     }

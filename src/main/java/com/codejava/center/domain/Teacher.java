@@ -3,6 +3,8 @@ package com.codejava.center.domain;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(name = "teachers")
 @Getter
@@ -27,6 +29,7 @@ public class Teacher {
     @Column(nullable = false, length = 20)
     private String commissionType;
 
-    @Column(nullable = false)
-    private Double commissionValue;
+    // BigDecimal وليس Double: قيمة العمولة تُضرب وتُقسم في حساب مستحقات المعلم
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal commissionValue;
 }

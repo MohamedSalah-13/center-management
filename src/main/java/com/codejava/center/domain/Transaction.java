@@ -3,6 +3,7 @@ package com.codejava.center.domain;
 import com.codejava.center.domain.enums.TransactionType;
 import jakarta.persistence.*;
 import lombok.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -24,8 +25,9 @@ public class Transaction {
     @Column(nullable = false, length = 20)
     private TransactionType type;
 
-    @Column(nullable = false)
-    private Double amount;
+    // BigDecimal وليس Double: النظام يتعامل مع نقود ولا يحتمل أخطاء الفاصلة العائمة
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal amount;
 
     @Column(nullable = false, length = 255)
     private String description;

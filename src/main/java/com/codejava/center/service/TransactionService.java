@@ -5,11 +5,19 @@ import com.codejava.center.domain.Session;
 import com.codejava.center.domain.Student;
 import com.codejava.center.domain.Transaction;
 import com.codejava.center.domain.enums.TransactionType;
+import com.codejava.center.domain.enums.Role;
+import com.codejava.center.security.RequiresRole;
+import com.codejava.center.domain.CenterSettings;
+import com.codejava.center.repository.CenterSettingsRepository;
 import com.codejava.center.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.codejava.center.service.dto.GroupRevenue;
+import com.codejava.center.util.MoneyUtils;
+
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -19,12 +27,14 @@ import java.util.List;
 public class TransactionService {
 
     private final TransactionRepository transactionRepository;
+    private final CenterSettingsRepository centerSettingsRepository;
 
     /**
      * تسجيل دفع اشتراك طالب مخصص لحصة معينة (لتجنب الدفع المزدوج للحصة)
      */
     @Transactional
-    public Transaction recordStudentPayment(Student student, CourseGroup group, Session session, Double amount, String description) {
+    @RequiresRole(Role.ADMIN)
+    public Transaction recordStudentPayment(Student student, CourseGroup group, Session session, BigDecimal amount, String description) {
         validateAmount(amount);
 
         // التحقق من عدم تكرار الدفع لنفس الحصة (إذا تم تمرير حصة)
@@ -37,7 +47,7 @@ public class TransactionService {
 
         Transaction transaction = Transaction.builder()
                 .type(TransactionType.INCOME)
-                .amount(amount)
+                .amount(MoneyUtils.normalize(amount))
                 .description(description)
                 .transactionDate(LocalDateTime.now())
                 .student(student)
@@ -52,7 +62,8 @@ public class TransactionService {
      * الدالة القديمة لضمان عدم تعطل الأكواد والشاشات الأخرى التي لا تمرر "حصة"
      */
     @Transactional
-    public Transaction recordStudentPayment(Student student, CourseGroup group, Double amount, String description) {
+    @RequiresRole(Role.ADMIN)
+    public Transaction recordStudentPayment(Student student, CourseGroup group, BigDecimal amount, String description) {
         return recordStudentPayment(student, group, null, amount, description);
     }
 
@@ -60,12 +71,13 @@ public class TransactionService {
      * تسجيل مصروفات عامة للسنتر (نثريات)
      */
     @Transactional
-    public Transaction recordExpense(Double amount, String description) {
+    @RequiresRole(Role.ADMIN)
+    public Transaction recordExpense(BigDecimal amount, String description) {
         validateAmount(amount);
 
         Transaction transaction = Transaction.builder()
                 .type(TransactionType.EXPENSE)
-                .amount(amount)
+                .amount(MoneyUtils.normalize(amount))
                 .description(description)
                 .transactionDate(LocalDateTime.now())
                 .build();
@@ -78,21 +90,25 @@ public class TransactionService {
      * يعيد صافي الدرج (الوردية) الموجود حالياً
      */
     @Transactional(readOnly = true)
-    public Double calculateTodayNetBalance() {
+    @RequiresRole(Role.ADMIN)
+    public BigDecimal calculateTodayNetBalance() {
         LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
         LocalDateTime endOfDay = LocalDate.now().atTime(23, 59, 59);
 
-        Double totalIncome = transactionRepository.sumAmountByTypeAndDateRange(TransactionType.INCOME, startOfDay, endOfDay);
-        Double totalExpense = transactionRepository.sumAmountByTypeAndDateRange(TransactionType.EXPENSE, startOfDay, endOfDay);
-        Double totalTeacherPayouts = transactionRepository.sumAmountByTypeAndDateRange(TransactionType.TEACHER_PAYOUT, startOfDay, endOfDay);
+        BigDecimal totalIncome = transactionRepository.sumAmountByTypeAndDateRange(TransactionType.INCOME, startOfDay, endOfDay);
+        BigDecimal totalExpense = transactionRepository.sumAmountByTypeAndDateRange(TransactionType.EXPENSE, startOfDay, endOfDay);
+        BigDecimal totalTeacherPayouts = transactionRepository.sumAmountByTypeAndDateRange(TransactionType.TEACHER_PAYOUT, startOfDay, endOfDay);
 
         // الصافي = الوارد - (المصروفات + مستحقات المعلمين المدفوعة)
-        return totalIncome - (totalExpense + totalTeacherPayouts);
+        return MoneyUtils.normalize(
+                MoneyUtils.normalize(totalIncome)
+                        .subtract(MoneyUtils.normalize(totalExpense).add(MoneyUtils.normalize(totalTeacherPayouts)))
+        );
     }
 
     // دالة مساعدة لمنع إدخال قيم سالبة أو صفرية
-    private void validateAmount(Double amount) {
-        if (amount == null || amount <= 0) {
+    private void validateAmount(BigDecimal amount) {
+        if (amount == null || amount.signum() <= 0) {
             throw new IllegalArgumentException("المبلغ يجب أن يكون أكبر من صفر.");
         }
     }
@@ -101,20 +117,72 @@ public class TransactionService {
      * تسجيل صرف مستحقات المعلمين
      */
     @Transactional
-    public void recordTeacherPayout(Double payoutAmount, String description) {
+    @RequiresRole(Role.ADMIN)
+    public void recordTeacherPayout(BigDecimal payoutAmount, String description) {
         // 1. التحقق من صحة المبلغ (يجب أن يكون أكبر من صفر)
         validateAmount(payoutAmount);
 
         // 2. إنشاء كائن الحركة المالية
         Transaction transaction = Transaction.builder()
                 .type(TransactionType.TEACHER_PAYOUT) // تحديد نوع الحركة كـ صرف مستحقات
-                .amount(payoutAmount)
+                .amount(MoneyUtils.normalize(payoutAmount))
                 .description(description)
                 .transactionDate(LocalDateTime.now()) // تسجيل وقت الصرف اللحظي
                 .build();
 
         // 3. حفظ الحركة في قاعدة البيانات
         transactionRepository.save(transaction);
+    }
+
+    /**
+     * رصيد الطالب الحالي: ما دفعه ناقص رسوم الحصص التي حضرها.
+     * قيمة سالبة تعني متأخرات عليه.
+     */
+    @Transactional(readOnly = true)
+    public BigDecimal getStudentBalance(Long studentId) {
+        LocalDateTime ledgerStart = centerSettingsRepository.findById(1L)
+                .map(CenterSettings::getLedgerStartDate)
+                .map(LocalDate::atStartOfDay)
+                .orElse(null);
+
+        return MoneyUtils.normalize(transactionRepository.calculateStudentBalance(studentId, ledgerStart));
+    }
+
+    /**
+     * خصم رسوم حصة من رصيد الطالب عند تسجيل حضوره.
+     * ليست حركة نقدية: لا تدخل في جرد الخزينة، بل تمثّل استحقاقاً على الطالب.
+     */
+    @Transactional
+    public Transaction chargeSession(Student student, CourseGroup group, Session session, BigDecimal amount) {
+        validateAmount(amount);
+
+        // الحارس الحقيقي: لا تُخصم رسوم نفس الحصة مرتين لنفس الطالب
+        if (transactionRepository.existsByStudentAndSessionAndType(student, session, TransactionType.SESSION_CHARGE)) {
+            throw new IllegalStateException("تم خصم رسوم هذه الحصة مسبقاً لهذا الطالب.");
+        }
+
+        Transaction charge = Transaction.builder()
+                .type(TransactionType.SESSION_CHARGE)
+                .amount(MoneyUtils.normalize(amount))
+                .description("رسوم حصة: " + group.getName() + " بتاريخ " + session.getSessionDate())
+                .transactionDate(LocalDateTime.now())
+                .student(student)
+                .group(group)
+                .session(session)
+                .build();
+
+        return transactionRepository.save(charge);
+    }
+
+    /**
+     * إجمالي الإيرادات مجمّعة حسب المجموعة خلال آخر 30 يوماً (لمخطط لوحة القيادة)
+     */
+    @Transactional(readOnly = true)
+    @RequiresRole(Role.ADMIN)
+    public List<GroupRevenue> getRevenueByGroupLast30Days() {
+        LocalDateTime start = LocalDate.now().minusDays(30).atStartOfDay();
+        LocalDateTime end = LocalDate.now().plusDays(1).atStartOfDay();
+        return transactionRepository.sumIncomeByGroup(start, end);
     }
 
     /**
