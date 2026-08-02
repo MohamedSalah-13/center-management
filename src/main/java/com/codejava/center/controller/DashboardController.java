@@ -203,6 +203,11 @@ public class DashboardController {
     public void showArrears(ActionEvent event) {
         loadView("/fxml/Arrears.fxml");
     }
+
+    @FXML
+    public void showAttendanceReport(ActionEvent event) {
+        loadView("/fxml/AttendanceReport.fxml");
+    }
     private void loadDashboardStats() {
         // البيانات المالية متاحة للمدير فقط؛ استدعاؤها بصلاحية سكرتارية
         // سيرمي AccessDeniedException من طبقة الخدمات

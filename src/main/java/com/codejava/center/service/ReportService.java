@@ -4,6 +4,8 @@ import com.codejava.center.domain.CenterSettings;
 import com.codejava.center.domain.Teacher;
 import com.codejava.center.domain.Transaction;
 import com.codejava.center.repository.CenterSettingsRepository;
+import com.codejava.center.service.dto.AttendanceSummary;
+import com.codejava.center.service.dto.GroupAttendanceReport;
 import com.codejava.center.service.dto.SessionPayout;
 import com.codejava.center.service.dto.ShiftSummary;
 import com.codejava.center.service.dto.StudentBalance;
@@ -194,6 +196,41 @@ public class ReportService {
         receipt.getChildren().addAll(new Separator(), paid, balance);
 
         printNode(receipt, ownerWindow);
+    }
+
+    /**
+     * تقرير حضور وغياب مجموعة خلال فترة.
+     */
+    public void printAttendanceReport(GroupAttendanceReport report, LocalDate from, LocalDate to,
+                                      Window ownerWindow) {
+        VBox page = new VBox(8);
+        page.setStyle("-fx-padding: 30; -fx-background-color: white;");
+
+        page.getChildren().add(buildHeader("تقرير الحضور والغياب - " + report.groupName()));
+
+        Label period = new Label(String.format("الفترة: من %s إلى %s   -   عدد الحصص المنعقدة: %d",
+                from, to, report.totalSessions()));
+        period.setFont(Font.font("System", FontWeight.BOLD, 14));
+        page.getChildren().addAll(period, new Separator());
+
+        for (AttendanceSummary row : report.rows()) {
+            long absences = Math.max(0, report.totalSessions() - row.attended());
+            String rate = report.totalSessions() == 0
+                    ? "---"
+                    : String.format("%.0f%%", (row.attended() * 100.0) / report.totalSessions());
+
+            page.getChildren().add(new Label(String.format(
+                    "%s   |   حضر: %d   |   غاب: %d   |   النسبة: %s   |   ولي الأمر: %s",
+                    row.studentName(), row.attended(), absences, rate,
+                    row.parentPhone() != null ? row.parentPhone() : "---")));
+        }
+
+        Label printedAt = new Label("\nتاريخ الإصدار: "
+                + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+        printedAt.setFont(Font.font("System", 11));
+        page.getChildren().addAll(new Separator(), printedAt);
+
+        printNode(page, ownerWindow);
     }
 
     private Label summaryLine(String label, java.math.BigDecimal value) {

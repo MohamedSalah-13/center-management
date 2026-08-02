@@ -66,6 +66,9 @@ public interface SessionRepository extends JpaRepository<Session, Long> {
             """)
     List<Session> findPayableSessions();
 
+    /** عدد الحصص المنعقدة لمجموعة خلال فترة - المقام في نسبة الحضور */
+    long countByGroupIdAndSessionDateBetween(Long groupId, LocalDate fromDate, LocalDate toDate);
+
     /**
      * جلب حصة مع مجموعتها ومعلمها في استعلام واحد (لتفادي LazyInitializationException خارج الـ Transaction)
      */

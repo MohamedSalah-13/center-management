@@ -1,12 +1,14 @@
 package com.codejava.center.repository;
 
 import com.codejava.center.domain.Student;
+import com.codejava.center.service.dto.AttendanceSummary;
 import com.codejava.center.service.dto.StudentBalance;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -48,4 +50,30 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
                                        THEN t.amount ELSE -t.amount END), 0)
             """)
     List<StudentBalance> findStudentsInArrears(@Param("startDate") LocalDateTime startDate);
+
+    /**
+     * حضور كل طالب في مجموعة خلال فترة.
+     *
+     * <p>النظام يسجّل الحضور فقط ولا يوجد جدول للغياب، فالغياب يُستنتج: كل مشترك نشط
+     * في المجموعة يظهر هنا ولو لم يحضر ولا حصة واحدة (LEFT JOIN)، وعدد غيابه هو
+     * إجمالي حصص الفترة ناقص ما حضره.</p>
+     *
+     * <p>شرط نطاق الحصص داخل ON لا WHERE: وضعه في WHERE يحوّل الربط إلى INNER
+     * فيختفي الطلاب الغائبون تماماً وهم بالضبط من يبحث عنهم التقرير.</p>
+     */
+    @Query("""
+            SELECT new com.codejava.center.service.dto.AttendanceSummary(
+                st.id, st.name, st.barcode, st.parentPhone, COUNT(a.id))
+            FROM Student st
+            JOIN StudentGroup sg ON sg.student = st AND sg.group.id = :groupId AND sg.isActive = true
+            LEFT JOIN Attendance a ON a.student = st
+                 AND a.session.group.id = :groupId
+                 AND a.session.sessionDate BETWEEN :fromDate AND :toDate
+            WHERE st.isActive = true
+            GROUP BY st.id, st.name, st.barcode, st.parentPhone
+            ORDER BY COUNT(a.id), st.name
+            """)
+    List<AttendanceSummary> findGroupAttendance(@Param("groupId") Long groupId,
+                                                @Param("fromDate") LocalDate fromDate,
+                                                @Param("toDate") LocalDate toDate);
 }

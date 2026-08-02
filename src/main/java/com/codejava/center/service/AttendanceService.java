@@ -9,7 +9,9 @@ import com.codejava.center.repository.SessionRepository;
 import com.codejava.center.repository.StudentGroupRepository;
 import com.codejava.center.repository.StudentRepository;
 import com.codejava.center.service.dto.AttendanceResult;
+import com.codejava.center.service.dto.AttendanceSummary;
 import com.codejava.center.service.dto.DailyAttendance;
+import com.codejava.center.service.dto.GroupAttendanceReport;
 import com.codejava.center.util.MoneyUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -121,6 +123,19 @@ public class AttendanceService {
                 .remainingBalance(remaining)
                 .message("تم التسجيل بنجاح - الرصيد المتبقي: " + MoneyUtils.formatWithCurrency(remaining))
                 .build();
+    }
+
+    /**
+     * تقرير حضور وغياب مجموعة خلال فترة.
+     * الغياب مشتق: النظام لا يخزّن سجلات غياب، بل يقارن المشتركين النشطين
+     * بمن سجّل حضوره فعلاً في حصص الفترة.
+     */
+    @Transactional(readOnly = true)
+    public GroupAttendanceReport getGroupAttendance(CourseGroup group, LocalDate from, LocalDate to) {
+        long totalSessions = sessionRepository.countByGroupIdAndSessionDateBetween(group.getId(), from, to);
+        List<AttendanceSummary> rows = studentRepository.findGroupAttendance(group.getId(), from, to);
+
+        return new GroupAttendanceReport(group.getName(), totalSessions, rows);
     }
 
     /**
