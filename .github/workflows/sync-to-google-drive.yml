@@ -41,6 +41,8 @@ jobs:
             -x ".github/*" \
             -x "target/*" \
             -x "*.class" \
+            -x "*application-local.properties" \
+            -x "*.env" \
             -x "$BACKUP_FILE"
 
       - name: Upload backup to Google Drive

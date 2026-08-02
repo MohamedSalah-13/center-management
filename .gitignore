@@ -4,6 +4,12 @@ target/
 !**/src/test/**/target/
 .kotlin
 
+### أسرار وبيانات اتصال محلية - يجب ألا تُرفع إلى git إطلاقاً ###
+application-local.properties
+**/application-local.properties
+*.env
+.env
+
 ### IntelliJ IDEA ###
 .idea
 .idea/modules.xml
