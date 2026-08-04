@@ -12,8 +12,10 @@ import com.codejava.center.service.dto.StudentBalance;
 import com.codejava.center.util.CommissionTypes;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
+import com.codejava.center.util.PrintDocument;
+import com.codejava.center.util.Printing;
 import javafx.geometry.Pos;
-import javafx.print.PrinterJob;
+import javafx.scene.Node;
 import javafx.scene.control.Separator;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -40,6 +42,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 @Service
 public class ReportService {
@@ -62,43 +65,69 @@ public class ReportService {
     }
 
     /**
-     * ترويسة موحّدة لكل المطبوعات: شعار السنتر واسمه وهاتفه.
-     * هذه البيانات كانت تُجمع في شاشة الإعدادات ولا تظهر في أي مستند.
+     * مصنع الترويسة الموحّدة: شعار السنتر واسمه وهاتفه فوق كل صفحة.
+     *
+     * <p>يُرجع {@link Supplier} لا عقدة جاهزة لأن الترويسة تتكرر في أعلى كل صفحة، والعقدة
+     * الواحدة لا تُضاف إلى أكثر من أب في JavaFX.</p>
+     *
+     * <p>بيانات السنتر والشعار تُقرأ مرة واحدة هنا لا داخل المُنتِج: استدعاؤه يقع مرة لكل
+     * صفحة، وتقرير من عشر صفحات كان سيعني عشرة استعلامات لقاعدة البيانات وعشر قراءات
+     * لملف الشعار من القرص.</p>
      */
-    private VBox buildHeader(String documentTitle) {
+    private Supplier<Node> headerFactory(String documentTitle) {
         CenterSettings settings = settingsService.getSettings();
 
-        VBox header = new VBox(6);
-        header.setAlignment(Pos.CENTER);
-
-        if (settings.getLogoPath() != null && !settings.getLogoPath().isBlank()) {
-            File logoFile = new File(settings.getLogoPath());
-            if (logoFile.exists()) {
-                ImageView logo = new ImageView(new Image(logoFile.toURI().toString()));
-                logo.setFitHeight(70);
-                logo.setPreserveRatio(true);
-                header.getChildren().add(logo);
-            }
-        }
-
-        String centerName = settings != null && settings.getCenterName() != null && !settings.getCenterName().isBlank()
+        String centerName = settings != null && settings.getCenterName() != null
+                && !settings.getCenterName().isBlank()
                 ? settings.getCenterName()
                 : I18n.get("report.header.defaultCenterName");
-        Label nameLabel = new Label(centerName);
-        nameLabel.setFont(Font.font("System", FontWeight.BOLD, 22));
-        header.getChildren().add(nameLabel);
+        String phone = settings != null ? settings.getCenterPhone() : null;
+        Image logo = loadLogo(settings);
 
-        if (settings.getCenterPhone() != null && !settings.getCenterPhone().isBlank()) {
-            Label phone = new Label(I18n.format("report.header.phone", settings.getCenterPhone()));
-            phone.setFont(Font.font("System", 12));
-            header.getChildren().add(phone);
+        return () -> {
+            VBox header = new VBox(6);
+            header.setAlignment(Pos.CENTER);
+
+            if (logo != null) {
+                ImageView view = new ImageView(logo);
+                view.setFitHeight(70);
+                view.setPreserveRatio(true);
+                header.getChildren().add(view);
+            }
+
+            Label nameLabel = new Label(centerName);
+            nameLabel.setFont(Font.font("System", FontWeight.BOLD, 22));
+            header.getChildren().add(nameLabel);
+
+            if (phone != null && !phone.isBlank()) {
+                Label phoneLabel = new Label(I18n.format("report.header.phone", phone));
+                phoneLabel.setFont(Font.font("System", 12));
+                header.getChildren().add(phoneLabel);
+            }
+
+            Label title = new Label(documentTitle);
+            title.setFont(Font.font("System", FontWeight.BOLD, 18));
+            header.getChildren().addAll(new Separator(), title);
+
+            return header;
+        };
+    }
+
+    /** الشعار قد يكون غير مضبوط أو نُقل ملفه؛ المطبوعة تخرج بلا شعار ولا تفشل */
+    private Image loadLogo(CenterSettings settings) {
+        if (settings == null || settings.getLogoPath() == null || settings.getLogoPath().isBlank()) {
+            return null;
         }
+        File logoFile = new File(settings.getLogoPath());
+        return logoFile.exists() ? new Image(logoFile.toURI().toString()) : null;
+    }
 
-        Label title = new Label(documentTitle);
-        title.setFont(Font.font("System", FontWeight.BOLD, 18));
-        header.getChildren().addAll(new Separator(), title);
-
-        return header;
+    /** سطر تاريخ الطباعة في ذيل كل مستند */
+    private Label stamp(String key) {
+        Label label = new Label(I18n.format(key,
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))));
+        label.setFont(Font.font("System", 11));
+        return label;
     }
 
     /**
@@ -106,12 +135,10 @@ public class ReportService {
      */
     public void printShiftSummary(LocalDate day, ShiftSummary summary,
                                   List<Transaction> movements, Window ownerWindow) {
-        VBox page = new VBox(12);
-        page.setStyle("-fx-padding: 30; -fx-background-color: white;");
+        PrintDocument document = PrintDocument.report()
+                .header(headerFactory(I18n.format("report.shift.title", day)));
 
-        page.getChildren().add(buildHeader(I18n.format("report.shift.title", day)));
-
-        page.getChildren().addAll(
+        document.add(
                 summaryLine(I18n.get("shift.income"), summary.totalIncome()),
                 summaryLine(I18n.get("shift.expenses"), summary.totalExpense()),
                 summaryLine(I18n.get("shift.payouts"), summary.totalTeacherPayouts()),
@@ -121,53 +148,41 @@ public class ReportService {
 
         Label detailsTitle = new Label(I18n.format("report.shift.details", movements.size()));
         detailsTitle.setFont(Font.font("System", FontWeight.BOLD, 14));
-        page.getChildren().add(detailsTitle);
+        document.add(detailsTitle);
 
         for (Transaction t : movements) {
-            page.getChildren().add(new Label(I18n.format("report.shift.row",
+            document.add(new Label(I18n.format("report.shift.row",
                     t.getTransactionDate().format(DateTimeFormatter.ofPattern("hh:mm a")),
                     MoneyUtils.format(t.getAmount()),
                     t.getDescription())));
         }
 
-        Label printedAt = new Label(I18n.format("report.printedAt",
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))));
-        printedAt.setFont(Font.font("System", 11));
-        page.getChildren().add(printedAt);
-
-        printNode(page, ownerWindow);
+        document.add(stamp("report.printedAt"));
+        Printing.print(document, ownerWindow);
     }
 
     /**
      * تقرير المتأخرات: قائمة المدينين ومبالغهم مع بيانات التواصل.
      */
     public void printArrearsReport(List<StudentBalance> arrears, java.math.BigDecimal totalDue, Window ownerWindow) {
-        VBox page = new VBox(8);
-        page.setStyle("-fx-padding: 30; -fx-background-color: white;");
-
-        page.getChildren().add(buildHeader(I18n.get("report.arrears.title")));
+        PrintDocument document = PrintDocument.report()
+                .header(headerFactory(I18n.get("report.arrears.title")));
 
         String none = I18n.get("common.none");
         for (StudentBalance row : arrears) {
-            page.getChildren().add(new Label(I18n.format("report.arrears.row",
+            document.add(new Label(I18n.format("report.arrears.row",
                     row.studentName(),
                     row.barcode() != null ? row.barcode() : none,
                     row.parentPhone() != null ? row.parentPhone() : none,
                     MoneyUtils.format(row.amountDue()))));
         }
 
-        page.getChildren().add(new Separator());
         Label total = new Label(I18n.format("report.arrears.total",
                 arrears.size(), MoneyUtils.formatWithCurrency(totalDue)));
         total.setFont(Font.font("System", FontWeight.BOLD, 16));
-        page.getChildren().add(total);
 
-        Label printedAt = new Label(I18n.format("report.issuedAt",
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))));
-        printedAt.setFont(Font.font("System", 11));
-        page.getChildren().add(printedAt);
-
-        printNode(page, ownerWindow);
+        document.add(new Separator(), total, stamp("report.issuedAt"));
+        Printing.print(document, ownerWindow);
     }
 
     /**
@@ -177,12 +192,11 @@ public class ReportService {
      */
     public void printPaymentReceipt(String studentName, String groupName, java.math.BigDecimal amount,
                                     java.math.BigDecimal newBalance, String description, Window ownerWindow) {
-        VBox receipt = new VBox(10);
-        receipt.setStyle("-fx-padding: 25; -fx-background-color: white; -fx-border-color: black; -fx-border-width: 1;");
+        // إيصال لا تقرير: صفحة واحدة على الرول بلا ترقيم، وبورق الإيصالات لا ورق التقارير
+        PrintDocument receipt = PrintDocument.receipt()
+                .header(headerFactory(I18n.get("report.receipt.title")));
 
-        receipt.getChildren().add(buildHeader(I18n.get("report.receipt.title")));
-
-        receipt.getChildren().addAll(
+        receipt.add(
                 new Label(I18n.format("report.receipt.date", LocalDateTime.now()
                         .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")))),
                 new Label(I18n.format("report.receipt.student", studentName)),
@@ -195,9 +209,8 @@ public class ReportService {
         Label balance = new Label(I18n.format("report.receipt.balance", MoneyUtils.formatWithCurrency(newBalance)));
         balance.setFont(Font.font("System", 14));
 
-        receipt.getChildren().addAll(new Separator(), paid, balance);
-
-        printNode(receipt, ownerWindow);
+        receipt.add(new Separator(), paid, balance);
+        Printing.print(receipt, ownerWindow);
     }
 
     /**
@@ -205,15 +218,13 @@ public class ReportService {
      */
     public void printAttendanceReport(GroupAttendanceReport report, LocalDate from, LocalDate to,
                                       Window ownerWindow) {
-        VBox page = new VBox(8);
-        page.setStyle("-fx-padding: 30; -fx-background-color: white;");
-
-        page.getChildren().add(buildHeader(I18n.format("report.attendance.title", report.groupName())));
+        PrintDocument document = PrintDocument.report()
+                .header(headerFactory(I18n.format("report.attendance.title", report.groupName())));
 
         Label period = new Label(I18n.format("report.attendance.period",
                 from, to, report.totalSessions()));
         period.setFont(Font.font("System", FontWeight.BOLD, 14));
-        page.getChildren().addAll(period, new Separator());
+        document.add(period, new Separator());
 
         String none = I18n.get("common.none");
         for (AttendanceSummary row : report.rows()) {
@@ -222,45 +233,19 @@ public class ReportService {
                     ? none
                     : String.format("%.0f%%", (row.attended() * 100.0) / report.totalSessions());
 
-            page.getChildren().add(new Label(I18n.format("report.attendance.row",
+            document.add(new Label(I18n.format("report.attendance.row",
                     row.studentName(), row.attended(), absences, rate,
                     row.parentPhone() != null ? row.parentPhone() : none)));
         }
 
-        Label printedAt = new Label(I18n.format("report.issuedAt",
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))));
-        printedAt.setFont(Font.font("System", 11));
-        page.getChildren().addAll(new Separator(), printedAt);
-
-        printNode(page, ownerWindow);
+        document.add(new Separator(), stamp("report.issuedAt"));
+        Printing.print(document, ownerWindow);
     }
 
     private Label summaryLine(String label, java.math.BigDecimal value) {
         Label line = new Label(I18n.format("report.summaryLine", label, MoneyUtils.formatWithCurrency(value)));
         line.setFont(Font.font("System", 15));
         return line;
-    }
-
-    /**
-     * إرسال عقدة للطباعة مع إنهاء المهمة في كل الحالات.
-     * ترك المهمة بلا endJob عند الفشل يُبقيها معلّقة في طابور الطابعة.
-     */
-    private void printNode(javafx.scene.Node node, Window ownerWindow) {
-        PrinterJob job = PrinterJob.createPrinterJob();
-        if (job == null) {
-            throw new IllegalStateException(I18n.get("error.printer.unavailable"));
-        }
-
-        if (!job.showPrintDialog(ownerWindow)) {
-            job.cancelJob();
-            return;
-        }
-
-        try {
-            job.printPage(node);
-        } finally {
-            job.endJob();
-        }
     }
 
     /**
@@ -324,10 +309,8 @@ public class ReportService {
      * كان يطبع سطراً واحداً نصه "تفاصيل الحصص المالية ستدرج هنا لاحقاً".
      */
     public void printTeacherStatement(Teacher teacher, List<SessionPayout> sessions, Window ownerWindow) {
-        VBox page = new VBox(10);
-        page.setStyle("-fx-padding: 30; -fx-background-color: white;");
-
-        page.getChildren().add(buildHeader(I18n.get("report.teacher.title")));
+        PrintDocument document = PrintDocument.report()
+                .header(headerFactory(I18n.get("report.teacher.title")));
 
         Label teacherInfo = new Label(
                 I18n.format("report.teacher.info",
@@ -336,35 +319,30 @@ public class ReportService {
                         MoneyUtils.format(teacher.getCommissionValue()))
         );
         teacherInfo.setFont(Font.font("System", 15));
-        page.getChildren().addAll(teacherInfo, new Separator());
+        document.add(teacherInfo, new Separator());
 
         if (sessions.isEmpty()) {
-            page.getChildren().add(new Label(I18n.get("report.teacher.noSessions")));
+            document.add(new Label(I18n.get("report.teacher.noSessions")));
         } else {
             Label title = new Label(I18n.get("report.teacher.sessionsTitle"));
             title.setFont(Font.font("System", FontWeight.BOLD, 14));
-            page.getChildren().add(title);
+            document.add(title);
 
             java.math.BigDecimal total = java.math.BigDecimal.ZERO;
             for (SessionPayout s : sessions) {
-                page.getChildren().add(new Label(I18n.format("report.teacher.row",
+                document.add(new Label(I18n.format("report.teacher.row",
                         s.sessionDate(), s.groupName(), s.attendees(),
                         MoneyUtils.format(s.totalRevenue()), MoneyUtils.format(s.payoutAmount()))));
                 total = total.add(s.payoutAmount());
             }
 
-            page.getChildren().add(new Separator());
             Label totalLabel = new Label(I18n.format("report.teacher.total", MoneyUtils.formatWithCurrency(total)));
             totalLabel.setFont(Font.font("System", FontWeight.BOLD, 17));
-            page.getChildren().add(totalLabel);
+            document.add(new Separator(), totalLabel);
         }
 
-        Label printedAt = new Label(I18n.format("report.issuedAt",
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))));
-        printedAt.setFont(Font.font("System", 11));
-        page.getChildren().add(printedAt);
-
-        printNode(page, ownerWindow);
+        document.add(stamp("report.issuedAt"));
+        Printing.print(document, ownerWindow);
     }
 
     /**

@@ -73,6 +73,105 @@
             </VBox>
         </Tab>
 
+        <!-- ============ الطباعة ============ -->
+        <Tab text="%settings.tab.print">
+            <ScrollPane fitToWidth="true">
+                <VBox spacing="16.0">
+                    <padding><Insets top="24.0" bottom="24.0" left="26.0" right="26.0"/></padding>
+
+                    <GridPane hgap="16.0" vgap="14.0">
+                        <columnConstraints>
+                            <ColumnConstraints minWidth="170.0" halignment="RIGHT"/>
+                            <ColumnConstraints minWidth="300.0" hgrow="ALWAYS"/>
+                            <ColumnConstraints minWidth="110.0"/>
+                        </columnConstraints>
+
+                        <Label text="%settings.printMode" styleClass="sub-label"
+                               GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                        <ComboBox fx:id="printModeCombo" maxWidth="Infinity"
+                                  GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                        <Button text="%common.refresh" onAction="#handleRefreshPrinters" styleClass="btn-secondary"
+                                GridPane.columnIndex="2" GridPane.rowIndex="0"/>
+                    </GridPane>
+
+                    <Label text="%settings.printModeNote" styleClass="muted-text" wrapText="true"/>
+
+                    <Separator/>
+
+                    <!-- التقارير: ورق مقطوع، تُقسَّم على صفحات -->
+                    <Label text="%settings.printReports" styleClass="sub-label"/>
+
+                    <GridPane hgap="16.0" vgap="14.0">
+                        <columnConstraints>
+                            <ColumnConstraints minWidth="170.0" halignment="RIGHT"/>
+                            <ColumnConstraints minWidth="300.0" hgrow="ALWAYS"/>
+                            <ColumnConstraints minWidth="110.0"/>
+                        </columnConstraints>
+
+                        <Label text="%settings.printer" styleClass="sub-label"
+                               GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                        <ComboBox fx:id="reportPrinterCombo" maxWidth="Infinity"
+                                  GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+
+                        <Label text="%settings.paper" styleClass="sub-label"
+                               GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                        <ComboBox fx:id="reportPaperCombo" maxWidth="Infinity"
+                                  GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                        <Button text="%settings.printTestPage" onAction="#handlePrintReportTestPage"
+                                styleClass="btn-secondary"
+                                GridPane.columnIndex="2" GridPane.rowIndex="1"/>
+
+                        <Label text="%settings.printTarget" styleClass="sub-label"
+                               GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                        <Label fx:id="reportTargetLabel" text="%common.empty" wrapText="true"
+                               GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+                    </GridPane>
+
+                    <Label fx:id="reportWarningLabel" styleClass="danger-text" wrapText="true"
+                           visible="false" managed="false"/>
+
+                    <Separator/>
+
+                    <!-- الإيصالات: رول متصل، صفحة واحدة -->
+                    <Label text="%settings.printReceipts" styleClass="sub-label"/>
+
+                    <GridPane hgap="16.0" vgap="14.0">
+                        <columnConstraints>
+                            <ColumnConstraints minWidth="170.0" halignment="RIGHT"/>
+                            <ColumnConstraints minWidth="300.0" hgrow="ALWAYS"/>
+                            <ColumnConstraints minWidth="110.0"/>
+                        </columnConstraints>
+
+                        <Label text="%settings.printer" styleClass="sub-label"
+                               GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                        <ComboBox fx:id="receiptPrinterCombo" maxWidth="Infinity"
+                                  GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+
+                        <Label text="%settings.paper" styleClass="sub-label"
+                               GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                        <ComboBox fx:id="receiptPaperCombo" maxWidth="Infinity"
+                                  GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                        <Button text="%settings.printTestReceipt" onAction="#handlePrintReceiptTestPage"
+                                styleClass="btn-secondary"
+                                GridPane.columnIndex="2" GridPane.rowIndex="1"/>
+
+                        <Label text="%settings.printTarget" styleClass="sub-label"
+                               GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                        <Label fx:id="receiptTargetLabel" text="%common.empty" wrapText="true"
+                               GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+                    </GridPane>
+
+                    <Label fx:id="receiptWarningLabel" styleClass="danger-text" wrapText="true"
+                           visible="false" managed="false"/>
+
+                    <Separator/>
+
+                    <Label text="%settings.paperNote" styleClass="muted-text" wrapText="true"/>
+                    <Label text="%settings.printNote" styleClass="muted-text" wrapText="true"/>
+                </VBox>
+            </ScrollPane>
+        </Tab>
+
         <!-- ============ النسخ الاحتياطي ============ -->
         <Tab text="%settings.tab.backup">
             <VBox spacing="18.0">

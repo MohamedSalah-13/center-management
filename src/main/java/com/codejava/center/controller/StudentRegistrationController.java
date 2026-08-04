@@ -11,8 +11,7 @@ import com.codejava.center.service.StudentService;
 import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
-import com.codejava.commons.fx.form.FormUtils;
-import com.codejava.commons.fx.validation.InputValidator;
+import com.codejava.center.util.Forms;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -86,8 +85,8 @@ public class StudentRegistrationController {
 
         loadStudents();
         loadGroups();
-        InputValidator.makeNumericOnly(phoneField, parentPhoneField);
-        FormUtils.focusNextOnEnter(nameField, phoneField, parentPhoneField);
+        Forms.numericOnly(phoneField, parentPhoneField);
+        Forms.focusNextOnEnter(nameField, phoneField, parentPhoneField);
 
 
         FilteredList<Student> filteredData = new FilteredList<>(studentsList, b -> true);

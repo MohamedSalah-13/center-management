@@ -12,8 +12,7 @@ import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
-import com.codejava.commons.fx.form.FormUtils;
-import com.codejava.commons.fx.validation.InputValidator;
+import com.codejava.center.util.Forms;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -79,8 +78,8 @@ public class CashierController {
         });
 
         // تأمين خانة المبلغ
-        InputValidator.makeDecimalOnly(amountField);
-        FormUtils.focusNextOnEnter(amountField, descriptionField);
+        Forms.decimalOnly(amountField);
+        Forms.focusNextOnEnter(amountField, descriptionField);
         // إعطاء التركيز لحقل البحث عند فتح الشاشة
         Platform.runLater(() -> barcodeSearchField.requestFocus());
     }

@@ -8,8 +8,7 @@ import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
-import com.codejava.commons.fx.form.FormUtils;
-import com.codejava.commons.fx.validation.InputValidator;
+import com.codejava.center.util.Forms;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
@@ -75,8 +74,8 @@ public class TeacherController {
         loadTeachers();
 
         // تأمين خانة المبلغ
-        InputValidator.makeDecimalOnly(valueField);
-        FormUtils.focusNextOnEnter(nameField, subjectField);
+        Forms.decimalOnly(valueField);
+        Forms.focusNextOnEnter(nameField, subjectField);
 
 
         FilteredList<Teacher> filteredData = new FilteredList<>(teachersList, b -> true);

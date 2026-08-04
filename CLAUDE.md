@@ -107,9 +107,9 @@ How to reach strings:
 - Enums: `Role`/`NotificationType`/`TransactionType` expose `getDisplayName()` reading
   `role.ADMIN`, `notificationType.ABSENCE`, … Add the key when you add a constant.
 - Commission type is a `String` column, not an enum — use `util/CommissionTypes`.
-- Alerts: `util/Dialogs`, **not** `AlertUtils` from fx-commons. The vendored jar has no way
-  to set direction or button labels, so its dialogs rendered left-to-right with OK/Cancel
-  whatever the language.
+- Alerts: `util/Dialogs`. It replaced `AlertUtils` from the old fx-commons dependency, whose
+  five static methods had no way to set direction or button labels, so its dialogs rendered
+  left-to-right with OK/Cancel whatever the language.
 
 `I18n.setLocale` also calls `Locale.setDefault`, which is what localises `DatePicker` month
 names and other strings baked into JavaFX. Arabic uses `ar-EG-u-nu-latn` so amounts and
@@ -128,6 +128,63 @@ Direction is set on the `Scene` by `ViewLoader`, never hardcoded in FXML.
 `center-left` means "start of the line" in both languages, and writing `center-right` for
 Arabic flips it a second time and pushes the text to the wrong edge. The old hardcoded
 `-fx-alignment: center-right` on `.sidebar-btn` was that bug.
+
+### Printing
+
+**Describe a printout as blocks, not as one node.** Build a `util/PrintDocument` —
+`PrintDocument.report()` or `.receipt()`, a `header(Supplier<Node>)`, then `add(...)` for
+each row — and hand it to `util/Printing.print(document, owner)`. Never call
+`PrinterJob.createPrinterJob()` directly.
+
+The reason is not tidiness. `printPage` renders **one page** and silently drops whatever
+does not fit: an arrears report with 200 students printed the first 40 and nothing said so.
+`Printing` measures the blocks and packs them into pages, so a block is never cut in half.
+A block is therefore the unit that must not split — keep a heading and its first row in one
+block if they must stay together.
+
+The header is a `Supplier` because it repeats on every page and a JavaFX node cannot have
+two parents. Read whatever it needs (settings, logo) *outside* the lambda: it runs once per
+page, so a query inside it is one query per page.
+
+`util/PrintPreferences` holds, **per machine** (`java.util.prefs`, no Flyway migration):
+
+- printer **and paper size per `DocumentKind`** — one machine may drive a thermal receipt
+  printer and an A4 printer at once;
+- `PrintMode` (`PREVIEW` / `DIALOG` / `DIRECT`), global, `DIALOG` by default because that is
+  what every earlier release did.
+
+Paper choices come from `printer.getPrinterAttributes().getSupportedPapers()`, not a list in
+code: only the printer knows its roll size, and offering a size it rejects fails at the
+customer. Anything saved but now missing — unplugged printer, unsupported paper — falls back
+to the printer's default instead of throwing; an unplugged printer must not stop receipts.
+`savedPrinterIsMissing` / `savedPaperIsMissing` are what let the settings screen say so.
+
+Two invariants worth keeping:
+
+- `REPORT` paginates and numbers its pages; `RECEIPT` is one page however long, because a
+  roll has no page breaks.
+- The print dialog is shown **before** pagination, since the user may pick another paper size
+  in it and a layout computed for A4 is wrong for A5.
+
+**Content is laid out at the paper's width, not shrunk to it.** `fitToWidth` turns on
+`wrapText` and caps widths to the printable area before measuring, so the same document sets
+itself on A4 and on an 80 mm roll at its designed font size. `fitScale` is only a safety net
+for what wrapping cannot break (one over-long word, an image) — it never enlarges.
+
+Margins come from `MarginType.HARDWARE_MINIMUM`, never `DEFAULT`. JavaFX's `DEFAULT` is 0.75
+inch per side, an A4 number: on a 227 pt roll the two margins eat 108 pt and leave 42 mm, so
+the receipt printed tiny in the middle of the paper. Breathing room is `REPORT_PADDING` /
+`RECEIPT_PADDING` inside the sheet instead.
+
+`Printing.pageBreaks` is package-private and free of JavaFX on purpose: it is the decision
+that loses data when it is wrong, and `PaginationTest` covers it without a toolkit.
+
+The preview window pins the sheets to `LEFT_TO_RIGHT` while its own toolbar follows the UI
+language. Printing happens on a node outside any scene, i.e. left-to-right; letting the
+preview inherit the Arabic scene direction would show a mirrored version of what comes out
+of the printer, which is the one thing a preview must not do. For the same reason the
+stylesheet is loaded onto the off-screen layout scene too — measuring in one font and
+printing in another makes the computed page breaks wrong.
 
 ### Money
 
@@ -231,7 +288,11 @@ codepage otherwise, which mangles the Arabic strings and breaks parsing.
 
 ## Dependencies
 
-`com.codejava.commons:fx-commons` (`AlertUtils`, `FormUtils`, `InputValidator`) is not on
-Maven Central. It is vendored in `lib/` and resolved through a `file://` repository declared
-in the POM — do not remove either, or the build breaks on every machine but the one where it
-was originally installed.
+Everything resolves from Maven Central. **Keep it that way** — no `<repositories>` block, no
+jar committed to the repo.
+
+The project used to depend on `com.codejava.commons:fx-commons`, which is not on Maven
+Central and was vendored under `lib/` behind a `file://` repository. `Dialogs` had already
+replaced its `AlertUtils` (see above), and the rest of it came down to three small helpers,
+now `util/Forms.java`. Reach for `util/Forms` — `numericOnly`, `decimalOnly`,
+`focusNextOnEnter` — when a form field needs an input restriction.
