@@ -7,56 +7,56 @@
       fx:controller="com.codejava.center.controller.AttendanceReportController"
       style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
 
-    <Label text="تقرير الحضور والغياب" textFill="#2c3e50">
+    <Label text="%attReport.title" textFill="#2c3e50">
         <font><Font name="System Bold" size="26.0" /></font>
     </Label>
 
     <GridPane hgap="15.0" vgap="15.0"
               style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
-        <Label text="المجموعة:" GridPane.columnIndex="0" GridPane.rowIndex="0">
+        <Label text="%attReport.group" GridPane.columnIndex="0" GridPane.rowIndex="0">
             <font><Font name="System Bold" size="14.0" /></font>
         </Label>
-        <ComboBox fx:id="groupComboBox" promptText="اختر المجموعة..." prefWidth="240.0"
+        <ComboBox fx:id="groupComboBox" promptText="%attReport.selectGroupPrompt" prefWidth="240.0"
                   GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
-        <Label text="من تاريخ:" GridPane.columnIndex="2" GridPane.rowIndex="0">
+        <Label text="%attReport.from" GridPane.columnIndex="2" GridPane.rowIndex="0">
             <font><Font name="System Bold" size="14.0" /></font>
         </Label>
         <DatePicker fx:id="fromPicker" editable="false" GridPane.columnIndex="3" GridPane.rowIndex="0" />
 
-        <Label text="إلى تاريخ:" GridPane.columnIndex="4" GridPane.rowIndex="0">
+        <Label text="%attReport.to" GridPane.columnIndex="4" GridPane.rowIndex="0">
             <font><Font name="System Bold" size="14.0" /></font>
         </Label>
         <DatePicker fx:id="toPicker" editable="false" GridPane.columnIndex="5" GridPane.rowIndex="0" />
 
         <HBox spacing="10.0" GridPane.columnIndex="1" GridPane.rowIndex="1" GridPane.columnSpan="5"
               alignment="CENTER_RIGHT">
-            <Button text="عرض التقرير" onAction="#handleGenerate"
+            <Button text="%attReport.generate" onAction="#handleGenerate"
                     style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
-            <Button fx:id="printButton" text="طباعة" onAction="#handlePrint" disable="true"
+            <Button fx:id="printButton" text="%common.print" onAction="#handlePrint" disable="true"
                     style="-fx-background-color: #7f8c8d; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
         </HBox>
     </GridPane>
 
     <HBox spacing="20.0" alignment="CENTER_LEFT">
-        <Label text="عدد الحصص المنعقدة:">
+        <Label text="%attReport.totalSessions">
             <font><Font name="System Bold" size="14.0" /></font>
         </Label>
         <Label fx:id="totalSessionsLabel" text="0" textFill="#2c3e50">
             <font><Font name="System Bold" size="20.0" /></font>
         </Label>
         <Region HBox.hgrow="ALWAYS" />
-        <CheckBox fx:id="absenteesOnlyCheck" text="عرض من لديهم غياب فقط" />
+        <CheckBox fx:id="absenteesOnlyCheck" text="%attReport.absenteesOnly" />
     </HBox>
 
     <TableView fx:id="reportTable" VBox.vgrow="ALWAYS">
         <columns>
-            <TableColumn fx:id="colName" text="اسم الطالب" prefWidth="220.0" />
-            <TableColumn fx:id="colBarcode" text="الباركود" prefWidth="130.0" />
-            <TableColumn fx:id="colParentPhone" text="هاتف ولي الأمر" prefWidth="140.0" />
-            <TableColumn fx:id="colAttended" text="حضر" prefWidth="80.0" />
-            <TableColumn fx:id="colAbsent" text="غاب" prefWidth="80.0" />
-            <TableColumn fx:id="colRate" text="نسبة الحضور" prefWidth="120.0" />
+            <TableColumn fx:id="colName" text="%attReport.col.name" prefWidth="220.0" />
+            <TableColumn fx:id="colBarcode" text="%attReport.col.barcode" prefWidth="130.0" />
+            <TableColumn fx:id="colParentPhone" text="%attReport.col.parentPhone" prefWidth="140.0" />
+            <TableColumn fx:id="colAttended" text="%attReport.col.attended" prefWidth="80.0" />
+            <TableColumn fx:id="colAbsent" text="%attReport.col.absent" prefWidth="80.0" />
+            <TableColumn fx:id="colRate" text="%attReport.col.rate" prefWidth="120.0" />
         </columns>
     </TableView>
 </VBox>

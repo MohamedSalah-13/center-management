@@ -1,13 +1,13 @@
 package com.codejava.center.controller;
 
 import com.codejava.center.domain.Transaction;
-import com.codejava.center.domain.enums.TransactionType;
 import com.codejava.center.service.ReportService;
 import com.codejava.center.service.TransactionService;
 import com.codejava.center.service.dto.ShiftSummary;
+import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
+import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
-import com.codejava.commons.fx.dialog.AlertUtils;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -52,11 +52,11 @@ public class ShiftClosingController {
     public void initialize() {
         colTime.setCellValueFactory(d -> new SimpleStringProperty(
                 d.getValue().getTransactionDate().format(timeFormatter)));
-        colType.setCellValueFactory(d -> new SimpleStringProperty(typeLabel(d.getValue().getType())));
+        colType.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getType().getDisplayName()));
         colAmount.setCellValueFactory(d -> new SimpleStringProperty(
                 MoneyUtils.format(d.getValue().getAmount())));
         colStudent.setCellValueFactory(d -> new SimpleStringProperty(
-                d.getValue().getStudent() != null ? d.getValue().getStudent().getName() : "---"));
+                d.getValue().getStudent() != null ? d.getValue().getStudent().getName() : I18n.get("common.none")));
         colDescription.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getDescription()));
 
         movementsTable.setItems(movements);
@@ -65,15 +65,6 @@ public class ShiftClosingController {
         dayPicker.valueProperty().addListener((obs, oldVal, newVal) -> loadShift());
 
         loadShift();
-    }
-
-    private String typeLabel(TransactionType type) {
-        return switch (type) {
-            case INCOME -> "وارد (اشتراك)";
-            case EXPENSE -> "مصروف";
-            case TEACHER_PAYOUT -> "مستحقات معلم";
-            case SESSION_CHARGE -> "رسوم حصة";
-        };
     }
 
     private void loadShift() {
@@ -89,13 +80,13 @@ public class ShiftClosingController {
             payoutLabel.setText(MoneyUtils.formatWithCurrency(data.summary().totalTeacherPayouts()));
             netLabel.setText(MoneyUtils.formatWithCurrency(data.summary().net()));
             movements.setAll(data.movements());
-        }, error -> AlertUtils.showError("خطأ", "تعذر تحميل جرد الوردية: " + FxAsync.messageOf(error)));
+        }, error -> Dialogs.error(I18n.format("shift.loadFailed", FxAsync.messageOf(error))));
     }
 
     @FXML
     public void handlePrint(ActionEvent event) {
         if (currentSummary == null) {
-            AlertUtils.showWarning("تنبيه", "لم يتم تحميل بيانات الوردية بعد.");
+            Dialogs.warning(I18n.get("shift.notLoaded"));
             return;
         }
 
@@ -107,7 +98,7 @@ public class ShiftClosingController {
                     day, currentSummary, movements,
                     ((Node) event.getSource()).getScene().getWindow());
         } catch (Exception e) {
-            AlertUtils.showError("خطأ في الطباعة", FxAsync.messageOf(e));
+            Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(e));
         }
     }
 

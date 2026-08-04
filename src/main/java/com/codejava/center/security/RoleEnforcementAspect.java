@@ -2,6 +2,7 @@ package com.codejava.center.security;
 
 import com.codejava.center.domain.User;
 import com.codejava.center.domain.enums.Role;
+import com.codejava.center.util.I18n;
 import com.codejava.center.util.UserSession;
 import lombok.RequiredArgsConstructor;
 import org.aspectj.lang.annotation.Aspect;
@@ -28,7 +29,7 @@ public class RoleEnforcementAspect {
         User currentUser = userSession.getCurrentUser();
 
         if (currentUser == null) {
-            throw new AccessDeniedException("لا توجد جلسة مستخدم. يرجى تسجيل الدخول أولاً.");
+            throw new AccessDeniedException(I18n.get("error.access.noSession"));
         }
 
         Role[] allowed = requiresRole.value();
@@ -36,11 +37,10 @@ public class RoleEnforcementAspect {
 
         if (!permitted) {
             String allowedNames = Arrays.stream(allowed)
-                    .map(Role::getArabicName)
-                    .collect(Collectors.joining(" أو "));
-            throw new AccessDeniedException(
-                    "هذه العملية متاحة لـ" + allowedNames + " فقط. صلاحيتك الحالية: "
-                            + currentUser.getRole().getArabicName());
+                    .map(Role::getDisplayName)
+                    .collect(Collectors.joining(" " + I18n.get("common.or") + " "));
+            throw new AccessDeniedException(I18n.format("error.access.denied",
+                    allowedNames, currentUser.getRole().getDisplayName()));
         }
     }
 }

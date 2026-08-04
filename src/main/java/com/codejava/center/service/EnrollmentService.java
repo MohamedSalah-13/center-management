@@ -4,6 +4,7 @@ import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Student;
 import com.codejava.center.domain.StudentGroup;
 import com.codejava.center.repository.StudentGroupRepository;
+import com.codejava.center.util.I18n;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,13 +29,13 @@ public class EnrollmentService {
         Optional<StudentGroup> existing = studentGroupRepository.findByStudentAndGroup(student, group);
 
         if (existing.isPresent() && existing.get().isActive()) {
-            throw new IllegalStateException("الطالب مشترك بالفعل في هذه المجموعة!");
+            throw new IllegalStateException(I18n.get("error.enrollment.alreadyMember"));
         }
 
         long currentMembers = studentGroupRepository.countByGroupAndIsActiveTrue(group);
         if (group.getMaxCapacity() != null && currentMembers >= group.getMaxCapacity()) {
             throw new IllegalStateException(
-                    "عفواً، المجموعة مكتملة العدد! (السعة القصوى: " + group.getMaxCapacity() + ")");
+                    I18n.format("error.enrollment.groupFull", group.getMaxCapacity()));
         }
 
         // إعادة تفعيل اشتراك سابق بدل إنشاء صف مكرر لنفس الطالب ونفس المجموعة

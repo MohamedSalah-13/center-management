@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.codejava.center.service.dto.SessionPayout;
+import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
 
 import java.math.BigDecimal;
@@ -35,7 +36,7 @@ public class TeacherService {
     @RequiresRole(Role.ADMIN)
     public BigDecimal calculateSessionPayout(Long sessionId) {
         Session session = sessionRepository.findById(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("الحصة غير موجودة"));
+                .orElseThrow(() -> new IllegalArgumentException(I18n.get("error.session.notFound")));
 
         return calculatePayout(session, attendanceRepository.countBySession(session));
     }
@@ -58,7 +59,8 @@ public class TeacherService {
                     .divide(BigDecimal.valueOf(100), MoneyUtils.SCALE, RoundingMode.HALF_UP);
             case "FIXED_AMOUNT" -> commissionValue;
             case "RENT" -> totalRevenue.subtract(commissionValue);
-            default -> throw new IllegalStateException("نوع عمولة غير معروف: " + teacher.getCommissionType());
+            default -> throw new IllegalStateException(
+                    I18n.format("error.teacher.unknownCommission", teacher.getCommissionType()));
         };
 
         return MoneyUtils.normalize(payout);
@@ -71,27 +73,27 @@ public class TeacherService {
     @RequiresRole(Role.ADMIN)
     public void processSessionPayout(Long sessionId) {
         Session session = sessionRepository.findById(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("الحصة غير موجودة"));
+                .orElseThrow(() -> new IllegalArgumentException(I18n.get("error.session.notFound")));
 
         if (session.isPaidOut()) {
-            throw new IllegalStateException("تم صرف مستحقات هذه الحصة مسبقاً ولا يمكن تكرار الصرف.");
+            throw new IllegalStateException(I18n.get("error.teacher.payoutAlreadyDone"));
         }
 
         // الحصة المفتوحة قد يسجّل فيها طلاب آخرون حضورهم بعد، فيكون الإيراد المحسوب
         // ناقصاً ويُصرف للمعلم أقل من حقه دون إمكانية تصحيح (الصرف لا يتكرر)
         if (session.isActive()) {
-            throw new IllegalStateException("لا يمكن صرف مستحقات حصة ما زالت مفتوحة. أغلق الحصة أولاً.");
+            throw new IllegalStateException(I18n.get("error.teacher.sessionStillOpen"));
         }
 
         // 1. حساب المستحقات
         BigDecimal payoutAmount = calculateSessionPayout(sessionId);
 
         if (payoutAmount.signum() < 0) {
-            throw new IllegalStateException("خطأ مالي: قيمة المستحقات بالسالب. يرجى مراجعة إيراد الحصة وقيمة الإيجار.");
+            throw new IllegalStateException(I18n.get("error.teacher.negativePayout"));
         }
 
         // 2. تسجيل الحركة المالية في الخزينة كمصروف (TEACHER_PAYOUT)
-        String description = String.format("تصفية حساب المعلم: %s - حصة: %s - حضور: %d طلاب",
+        String description = I18n.format("teacher.payoutDescription",
                 session.getGroup().getTeacher().getName(),
                 session.getSessionDate().toString(),
                 attendanceRepository.countBySession(session));
@@ -150,10 +152,10 @@ public class TeacherService {
     @RequiresRole(Role.ADMIN)
     public Teacher saveTeacher(Teacher teacher) {
         if (teacher.getName() == null || teacher.getName().isEmpty()) {
-            throw new IllegalArgumentException("اسم المعلم مطلوب.");
+            throw new IllegalArgumentException(I18n.get("error.teacher.nameRequired"));
         }
         if (teacher.getCommissionValue() == null || teacher.getCommissionValue().signum() < 0) {
-            throw new IllegalArgumentException("قيمة العمولة مطلوبة ولا يمكن أن تكون سالبة.");
+            throw new IllegalArgumentException(I18n.get("error.teacher.commissionRequired"));
         }
         teacher.setCommissionValue(MoneyUtils.normalize(teacher.getCommissionValue()));
         return teacherRepository.save(teacher);

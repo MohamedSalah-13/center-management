@@ -1,5 +1,6 @@
 package com.codejava.center.service.notification;
 
+import com.codejava.center.util.I18n;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -37,7 +38,7 @@ public class WhatsAppLinkSender implements MessageSender {
     public SendResult send(String internationalPhone, String message) {
         try {
             if (!Desktop.isDesktopSupported() || !Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
-                return SendResult.failed("نظام التشغيل لا يدعم فتح المتصفح تلقائياً.");
+                return SendResult.failed(I18n.get("error.whatsapp.browserUnsupported"));
             }
 
             String url = "https://wa.me/" + internationalPhone
@@ -46,7 +47,7 @@ public class WhatsAppLinkSender implements MessageSender {
             Desktop.getDesktop().browse(URI.create(url));
             return SendResult.ok();
         } catch (Exception e) {
-            return SendResult.failed("تعذر فتح محادثة واتساب: " + e.getMessage());
+            return SendResult.failed(I18n.format("error.whatsapp.openFailed", e.getMessage()));
         }
     }
 

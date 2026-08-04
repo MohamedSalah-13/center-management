@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.codejava.center.service.dto.GroupRevenue;
 import com.codejava.center.service.dto.ShiftSummary;
+import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
 
 import java.math.BigDecimal;
@@ -42,7 +43,7 @@ public class TransactionService {
         if (session != null) {
             boolean alreadyPaid = transactionRepository.existsByStudentAndSessionAndType(student, session, TransactionType.INCOME);
             if (alreadyPaid) {
-                throw new IllegalStateException("تم دفع مصروفات هذه الحصة مسبقاً لهذا الطالب.");
+                throw new IllegalStateException(I18n.get("error.transaction.sessionAlreadyPaid"));
             }
         }
 
@@ -110,7 +111,7 @@ public class TransactionService {
     // دالة مساعدة لمنع إدخال قيم سالبة أو صفرية
     private void validateAmount(BigDecimal amount) {
         if (amount == null || amount.signum() <= 0) {
-            throw new IllegalArgumentException("المبلغ يجب أن يكون أكبر من صفر.");
+            throw new IllegalArgumentException(I18n.get("error.transaction.amountPositive"));
         }
     }
 
@@ -189,13 +190,14 @@ public class TransactionService {
 
         // الحارس الحقيقي: لا تُخصم رسوم نفس الحصة مرتين لنفس الطالب
         if (transactionRepository.existsByStudentAndSessionAndType(student, session, TransactionType.SESSION_CHARGE)) {
-            throw new IllegalStateException("تم خصم رسوم هذه الحصة مسبقاً لهذا الطالب.");
+            throw new IllegalStateException(I18n.get("error.transaction.sessionAlreadyCharged"));
         }
 
         Transaction charge = Transaction.builder()
                 .type(TransactionType.SESSION_CHARGE)
                 .amount(MoneyUtils.normalize(amount))
-                .description("رسوم حصة: " + group.getName() + " بتاريخ " + session.getSessionDate())
+                .description(I18n.format("transaction.sessionChargeDescription",
+                        group.getName(), session.getSessionDate()))
                 .transactionDate(LocalDateTime.now())
                 .student(student)
                 .group(group)

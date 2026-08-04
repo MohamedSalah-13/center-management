@@ -2,6 +2,7 @@ package com.codejava.center.service;
 
 import com.codejava.center.domain.User;
 import com.codejava.center.repository.UserRepository;
+import com.codejava.center.util.I18n;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,6 @@ public class AuthService {
                 return user;
             }
         }
-        throw new IllegalArgumentException("اسم المستخدم أو كلمة المرور غير صحيحة.");
+        throw new IllegalArgumentException(I18n.get("error.auth.invalidCredentials"));
     }
 }

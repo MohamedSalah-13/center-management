@@ -8,15 +8,15 @@
       style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
 
     <HBox spacing="20.0" alignment="CENTER_LEFT">
-        <Label text="تقفيل الوردية" textFill="#2c3e50">
+        <Label text="%shift.title" textFill="#2c3e50">
             <font><Font name="System Bold" size="26.0" /></font>
         </Label>
         <Region HBox.hgrow="ALWAYS" />
-        <Label text="اليوم:">
+        <Label text="%shift.day">
             <font><Font name="System Bold" size="14.0" /></font>
         </Label>
         <DatePicker fx:id="dayPicker" editable="false" />
-        <Button text="طباعة الجرد" onAction="#handlePrint"
+        <Button text="%shift.print" onAction="#handlePrint"
                 style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
     </HBox>
 
@@ -24,33 +24,32 @@
     <HBox spacing="20.0">
         <VBox styleClass="stat-card, card-green" HBox.hgrow="ALWAYS"
               style="-fx-background-color: #27ae60; -fx-padding: 20; -fx-background-radius: 8;">
-            <Label text="الوارد (اشتراكات)" textFill="WHITE" style="-fx-font-size: 15px;" />
-            <Label fx:id="incomeLabel" text="0.00 ج.م" textFill="WHITE" style="-fx-font-size: 26px; -fx-font-weight: bold;" />
+            <Label text="%shift.income" textFill="WHITE" style="-fx-font-size: 15px;" />
+            <Label fx:id="incomeLabel" text="%common.empty" textFill="WHITE" style="-fx-font-size: 26px; -fx-font-weight: bold;" />
         </VBox>
         <VBox HBox.hgrow="ALWAYS" style="-fx-background-color: #e74c3c; -fx-padding: 20; -fx-background-radius: 8;">
-            <Label text="المصروفات" textFill="WHITE" style="-fx-font-size: 15px;" />
-            <Label fx:id="expenseLabel" text="0.00 ج.م" textFill="WHITE" style="-fx-font-size: 26px; -fx-font-weight: bold;" />
+            <Label text="%shift.expenses" textFill="WHITE" style="-fx-font-size: 15px;" />
+            <Label fx:id="expenseLabel" text="%common.empty" textFill="WHITE" style="-fx-font-size: 26px; -fx-font-weight: bold;" />
         </VBox>
         <VBox HBox.hgrow="ALWAYS" style="-fx-background-color: #e67e22; -fx-padding: 20; -fx-background-radius: 8;">
-            <Label text="مستحقات معلمين مصروفة" textFill="WHITE" style="-fx-font-size: 15px;" />
-            <Label fx:id="payoutLabel" text="0.00 ج.م" textFill="WHITE" style="-fx-font-size: 26px; -fx-font-weight: bold;" />
+            <Label text="%shift.payouts" textFill="WHITE" style="-fx-font-size: 15px;" />
+            <Label fx:id="payoutLabel" text="%common.empty" textFill="WHITE" style="-fx-font-size: 26px; -fx-font-weight: bold;" />
         </VBox>
         <VBox HBox.hgrow="ALWAYS" style="-fx-background-color: #2c3e50; -fx-padding: 20; -fx-background-radius: 8;">
-            <Label text="صافي الدرج" textFill="WHITE" style="-fx-font-size: 15px;" />
-            <Label fx:id="netLabel" text="0.00 ج.م" textFill="WHITE" style="-fx-font-size: 26px; -fx-font-weight: bold;" />
+            <Label text="%shift.net" textFill="WHITE" style="-fx-font-size: 15px;" />
+            <Label fx:id="netLabel" text="%common.empty" textFill="WHITE" style="-fx-font-size: 26px; -fx-font-weight: bold;" />
         </VBox>
     </HBox>
 
-    <Label text="تفصيل الحركات النقدية (رسوم الحصص غير مدرجة لأنها استحقاق على الطالب لا نقد في الدرج)"
-           textFill="#7f8c8d" wrapText="true" />
+    <Label text="%shift.note" textFill="#7f8c8d" wrapText="true" />
 
     <TableView fx:id="movementsTable" VBox.vgrow="ALWAYS">
         <columns>
-            <TableColumn fx:id="colTime" text="الوقت" prefWidth="110.0" />
-            <TableColumn fx:id="colType" text="النوع" prefWidth="150.0" />
-            <TableColumn fx:id="colAmount" text="المبلغ" prefWidth="120.0" />
-            <TableColumn fx:id="colStudent" text="الطالب" prefWidth="180.0" />
-            <TableColumn fx:id="colDescription" text="البيان" prefWidth="360.0" />
+            <TableColumn fx:id="colTime" text="%shift.col.time" prefWidth="110.0" />
+            <TableColumn fx:id="colType" text="%shift.col.type" prefWidth="150.0" />
+            <TableColumn fx:id="colAmount" text="%shift.col.amount" prefWidth="120.0" />
+            <TableColumn fx:id="colStudent" text="%shift.col.student" prefWidth="180.0" />
+            <TableColumn fx:id="colDescription" text="%shift.col.description" prefWidth="360.0" />
         </columns>
     </TableView>
 </VBox>

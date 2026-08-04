@@ -4,6 +4,7 @@ import com.codejava.center.domain.CenterSettings;
 import com.codejava.center.repository.CenterSettingsRepository;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.security.RequiresRole;
+import com.codejava.center.util.I18n;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -102,7 +103,7 @@ public class BackupService {
         String withoutParams = jdbcUrl.split("\\?", 2)[0];
         int lastSlash = withoutParams.lastIndexOf('/');
         if (lastSlash < 0 || lastSlash == withoutParams.length() - 1) {
-            throw new IllegalStateException("تعذر استخراج اسم قاعدة البيانات من الرابط: " + jdbcUrl);
+            throw new IllegalStateException(I18n.format("error.backup.dbNameUnresolved", jdbcUrl));
         }
         return withoutParams.substring(lastSlash + 1);
     }

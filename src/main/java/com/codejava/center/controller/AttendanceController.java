@@ -4,6 +4,8 @@ import com.codejava.center.domain.Session;
 import com.codejava.center.service.AttendanceService;
 import com.codejava.center.service.SessionService;
 import com.codejava.center.service.dto.AttendanceResult;
+import com.codejava.center.util.FxAsync;
+import com.codejava.center.util.I18n;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -83,8 +85,9 @@ public class AttendanceController {
             @Override
             public String toString(Session session) {
                 return session == null
-                        ? "تلقائي (حسب مجموعة الطالب)"
-                        : session.getGroup().getName() + " - " + session.getSessionDate();
+                        ? I18n.get("attendance.autoSession")
+                        : I18n.format("attendance.sessionLabel",
+                                session.getGroup().getName(), session.getSessionDate());
             }
 
             @Override
@@ -132,12 +135,11 @@ public class AttendanceController {
         }).exceptionally(ex -> {
             // بدون هذا المعالج كان أي خطأ (انقطاع قاعدة البيانات مثلاً) يمر بصمت
             // فيظن الموظف أن القارئ لم يقرأ الكارنيه
-            Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-            String message = cause.getMessage() != null ? cause.getMessage() : cause.getClass().getSimpleName();
+            String message = FxAsync.messageOf(ex);
             Platform.runLater(() -> updateUIWithResult(new AttendanceLog(
                     LocalTime.now().format(timeFormatter),
-                    "خطأ في النظام",
-                    "تعذر إتمام العملية: " + message,
+                    I18n.get("common.systemError"),
+                    I18n.format("attendance.processFailed", message),
                     false
             )));
             return null;
@@ -178,7 +180,7 @@ public class AttendanceController {
     }
 
     private void resetResultCard() {
-        studentNameLabel.setText("في انتظار قراءة الكارنيه...");
+        studentNameLabel.setText(I18n.get("attendance.waiting"));
         groupNameLabel.setText("");
         statusLabel.setText("");
         resultCard.setStyle("-fx-background-color: #e9ecef; -fx-padding: 20; -fx-background-radius: 10;");

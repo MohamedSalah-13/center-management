@@ -15,6 +15,7 @@ import com.codejava.center.service.dto.NotificationCandidate;
 import com.codejava.center.service.dto.StudentBalance;
 import com.codejava.center.service.notification.MessageSender;
 import com.codejava.center.service.notification.PhoneNumbers;
+import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -65,8 +66,7 @@ public class NotificationService {
                 continue;
             }
 
-            String message = String.format(
-                    "السلام عليكم، %s يفيدكم بأن الطالب/ة %s تغيّب عن %d حصة من أصل %d في مجموعة %s. برجاء المتابعة. شكراً لتعاونكم.",
+            String message = I18n.format("notify.message.absence",
                     centerName, row.studentName(), absences, report.totalSessions(), report.groupName());
 
             candidates.add(toCandidate(row.studentId(), row.studentName(), NotificationType.ABSENCE,
@@ -89,8 +89,7 @@ public class NotificationService {
         List<NotificationCandidate> candidates = new ArrayList<>();
 
         for (StudentBalance row : arrears) {
-            String message = String.format(
-                    "السلام عليكم، %s يفيدكم بأن الطالب/ة %s عليه مستحقات بقيمة %s. برجاء السداد لاستمرار حضور الحصص. شكراً لتعاونكم.",
+            String message = I18n.format("notify.message.arrears",
                     centerName, row.studentName(), MoneyUtils.formatWithCurrency(row.amountDue()));
 
             candidates.add(toCandidate(row.studentId(), row.studentName(), NotificationType.ARREARS,
@@ -122,7 +121,8 @@ public class NotificationService {
     @RequiresRole(Role.ADMIN)
     public MessageSender.SendResult send(NotificationCandidate candidate) {
         if (!candidate.phoneValid()) {
-            return MessageSender.SendResult.failed("رقم ولي الأمر غير صالح: " + candidate.rawPhone());
+            return MessageSender.SendResult.failed(
+                    I18n.format("error.notification.invalidPhone", candidate.rawPhone()));
         }
 
         MessageSender.SendResult result = messageSender.send(
@@ -130,7 +130,7 @@ public class NotificationService {
 
         if (result.success()) {
             Student student = studentRepository.findById(candidate.studentId())
-                    .orElseThrow(() -> new IllegalStateException("الطالب غير موجود"));
+                    .orElseThrow(() -> new IllegalStateException(I18n.get("error.notification.studentNotFound")));
 
             notificationLogRepository.save(NotificationLog.builder()
                     .student(student)

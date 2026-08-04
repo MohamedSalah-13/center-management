@@ -3,8 +3,9 @@ package com.codejava.center.controller;
 import com.codejava.center.domain.User;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.service.UserService;
+import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
-import javafx.application.Platform;
+import com.codejava.center.util.I18n;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -16,8 +17,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
-
-import java.util.concurrent.CompletableFuture;
 
 @Controller
 @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE) // نسخة جديدة لكل فتح للشاشة - يمنع تراكم الـ listeners والحالة القديمة
@@ -44,7 +43,7 @@ public class UserManagementController {
         roleCombo.setConverter(new StringConverter<>() {
             @Override
             public String toString(Role role) {
-                return role == null ? "" : role.getArabicName();
+                return role == null ? "" : role.getDisplayName();
             }
 
             @Override
@@ -56,10 +55,10 @@ public class UserManagementController {
         colId.setCellValueFactory(data -> new SimpleStringProperty(String.valueOf(data.getValue().getId())));
         colUsername.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getUsername()));
 
-        // ترجمة الصلاحيات لتعرض بالعربية في الجدول
+        // اسم الصلاحية بلغة الواجهة الحالية لا بالاسم المخزَّن في قاعدة البيانات
         colRole.setCellValueFactory(data -> {
             Role role = data.getValue().getRole();
-            return new SimpleStringProperty(role == null ? "" : role.getArabicName());
+            return new SimpleStringProperty(role == null ? "" : role.getDisplayName());
         });
 
         usersTable.setItems(usersList);
@@ -70,7 +69,7 @@ public class UserManagementController {
     private void loadData() {
         FxAsync.supply(userService::getAllUsers,
                 users -> usersList.setAll(users),
-                error -> showAlert(Alert.AlertType.ERROR, "خطأ", "تعذر تحميل المستخدمين: " + FxAsync.messageOf(error)));
+                error -> Dialogs.error(I18n.format("user.loadFailed", FxAsync.messageOf(error))));
     }
 
     private void setupTableSelectionListener() {
@@ -105,7 +104,7 @@ public class UserManagementController {
         Role role = roleCombo.getValue();
 
         if (username.isEmpty() || role == null) {
-            showAlert(Alert.AlertType.WARNING, "تنبيه", "يرجى إدخال اسم المستخدم واختيار الصلاحية.");
+            Dialogs.warning(I18n.get("user.usernameAndRoleRequired"));
             return;
         }
 
@@ -116,16 +115,16 @@ public class UserManagementController {
         FxAsync.supply(() -> userService.saveUser(user, password), saved -> {
             if (isNew) {
                 usersList.add(saved);
-                showAlert(Alert.AlertType.INFORMATION, "نجاح", "تمت إضافة المستخدم بنجاح.");
+                Dialogs.success(I18n.get("user.added"));
             } else {
                 int idx = usersList.indexOf(user);
                 if (idx >= 0) {
                     usersList.set(idx, saved);
                 }
-                showAlert(Alert.AlertType.INFORMATION, "نجاح", "تم تحديث بيانات المستخدم.");
+                Dialogs.success(I18n.get("user.updated"));
             }
             clearForm();
-        }, error -> showAlert(Alert.AlertType.ERROR, "خطأ", FxAsync.messageOf(error)));
+        }, error -> Dialogs.error(FxAsync.messageOf(error)));
     }
 
     @FXML
@@ -134,20 +133,20 @@ public class UserManagementController {
 
         // منع المدير من حذف حسابه الشخصي بالخطأ
         if ("admin".equalsIgnoreCase(selectedUser.getUsername())) {
-            showAlert(Alert.AlertType.ERROR, "مرفوض", "لا يمكن حذف الحساب الافتراضي للمدير.");
+            Dialogs.error(I18n.get("common.rejected"), I18n.get("user.cannotDeleteAdmin"));
             return;
         }
 
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "هل أنت متأكد من حذف المستخدم: " + selectedUser.getUsername() + "؟", ButtonType.YES, ButtonType.NO);
-        confirm.showAndWait().ifPresent(response -> {
-            if (response == ButtonType.YES) {
-                User target = selectedUser;
-                FxAsync.run(() -> userService.deleteUser(target.getId()), () -> {
-                    usersList.remove(target);
-                    clearForm();
-                }, error -> showAlert(Alert.AlertType.ERROR, "خطأ", FxAsync.messageOf(error)));
-            }
-        });
+        if (!Dialogs.confirm(I18n.get("common.confirmDelete"),
+                I18n.format("user.deleteConfirm", selectedUser.getUsername()))) {
+            return;
+        }
+
+        User target = selectedUser;
+        FxAsync.run(() -> userService.deleteUser(target.getId()), () -> {
+            usersList.remove(target);
+            clearForm();
+        }, error -> Dialogs.error(FxAsync.messageOf(error)));
     }
 
     @FXML
@@ -159,13 +158,5 @@ public class UserManagementController {
         usersTable.getSelectionModel().clearSelection();
         updateButton.setDisable(true);
         deleteButton.setDisable(true);
-    }
-
-    private void showAlert(Alert.AlertType type, String title, String content) {
-        Alert alert = new Alert(type);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(content);
-        alert.showAndWait();
     }
 }

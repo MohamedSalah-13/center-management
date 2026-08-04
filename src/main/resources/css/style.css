@@ -147,9 +147,14 @@
     -fx-font-size: 14px;
     -fx-font-weight: normal;
     -fx-padding: 10 14;
-    -fx-alignment: center-right;
     -fx-background-radius: 8;
     -fx-cursor: hand;
+    /* center-left لكلتا اللغتين، لا center-right للعربية:
+       JavaFX يعكس مواضع التخطيط بنفسه عند RIGHT_TO_LEFT - وهو ما ينقل القائمة
+       الجانبية من <left> إلى يمين الشاشة - والانعكاس يشمل قيمة -fx-alignment.
+       فـ center-left تعني "جهة بداية السطر": يسار بالإنجليزية ويمين بالعربية،
+       بينما كانت center-right تُعكس فتُلصق النص العربي بالجهة الخطأ. */
+    -fx-alignment: center-left;
 }
 .sidebar-btn:hover {
     -fx-background-color: rgba(255,255,255,0.10);
@@ -169,6 +174,23 @@
 .sidebar-btn-logout:hover {
     -fx-background-color: #c0392b;
 }
+
+/* قائمة اختيار اللغة داخل القائمة الجانبية الداكنة:
+   الشكل الافتراضي أبيض بإطار فاتح فيبدو لصيقة غريبة فوق التدرّج الكحلي */
+.sidebar-combo {
+    -fx-background-color: rgba(255,255,255,0.10);
+    -fx-border-color: rgba(255,255,255,0.18);
+    -fx-background-radius: 7;
+    -fx-border-radius: 7;
+    -fx-padding: 4;
+    -fx-font-size: 13px;
+    -fx-cursor: hand;
+}
+.sidebar-combo > .list-cell {
+    -fx-text-fill: #e6ecf3;
+    -fx-background-color: transparent;
+}
+.sidebar-combo .arrow { -fx-background-color: #cfd8e3; }
 
 /* منطقة التنقّل القابلة للتمرير: شفافة تماماً حتى لا تكسر تدرّج القائمة */
 .sidebar-scroll,

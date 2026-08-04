@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.shape.Circle?>
 
@@ -8,7 +9,9 @@
 <?import javafx.scene.chart.CategoryAxis?>
 <?import javafx.scene.chart.NumberAxis?>
 <?import javafx.scene.chart.PieChart?>
-<BorderPane nodeOrientation="RIGHT_TO_LEFT" prefHeight="768.0" prefWidth="1280.0"
+<!-- لا nodeOrientation هنا: الاتجاه يُضبط على الـ Scene في ViewLoader تبعاً للغة،
+     وتثبيته في FXML كان يفرض اليمين-لليسار حتى على الواجهة الإنجليزية -->
+<BorderPane prefHeight="768.0" prefWidth="1280.0"
             xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.codejava.center.controller.DashboardController"
             stylesheets="@../css/style.css">
@@ -20,11 +23,21 @@
 
             <VBox alignment="CENTER" spacing="8" styleClass="sidebar-header">
                 <padding><Insets top="22.0" bottom="16.0" left="12.0" right="12.0"/></padding>
-                <Circle radius="28" fill="#ecf0f1" />
-                <Label fx:id="centerNameLabel" text="نظام إدارة السنتر" styleClass="sidebar-title"
-                       wrapText="true" textAlignment="CENTER" maxWidth="230"/>
+
+                <!-- الشعار المحفوظ في الإعدادات كان يظهر في المطبوعات فقط، وتبقى هنا
+                     دائرة رمادية ثابتة. الدائرة الآن بديل يظهر حين لا شعار أو تعذّر تحميله. -->
+                <StackPane>
+                    <Circle fx:id="logoPlaceholder" radius="28" fill="#ecf0f1"/>
+                    <ImageView fx:id="centerLogoView" fitWidth="200.0" fitHeight="64.0"
+                               preserveRatio="true" visible="false" managed="false"/>
+                </StackPane>
+                <!-- minHeight="-Infinity" هو USE_PREF_SIZE: بدونه يحسب الـ VBox أدنى ارتفاع
+                     للعنوان بسطر واحد فيقصّ الاسم الطويل بثلاث نقاط بدل أن يلتفّ.
+                     ظهر ذلك مع الإنجليزية لأن اسمها الافتراضي أطول من العربي. -->
+                <Label fx:id="centerNameLabel" text="%app.title" styleClass="sidebar-title"
+                       wrapText="true" textAlignment="CENTER" maxWidth="230" minHeight="-Infinity"/>
                 <HBox alignment="CENTER" spacing="6">
-                    <Label fx:id="userNameLabel" text="—" styleClass="sidebar-user"/>
+                    <Label fx:id="userNameLabel" text="%common.empty" styleClass="sidebar-user"/>
                     <Label fx:id="userRoleLabel" text="" styleClass="sidebar-role"/>
                 </HBox>
             </VBox>
@@ -37,50 +50,50 @@
                     <padding><Insets top="10.0" bottom="10.0" left="10.0" right="10.0"/></padding>
 
                     <VBox fx:id="navDailyBox" spacing="3.0">
-                        <Label text="التشغيل اليومي" styleClass="sidebar-section"/>
-                        <Button fx:id="homeButton" text="🏠   الرئيسية" onAction="#showHome"
+                        <Label text="%nav.section.daily" styleClass="sidebar-section"/>
+                        <Button fx:id="homeButton" text="%nav.home" onAction="#showHome"
                                 maxWidth="Infinity" styleClass="sidebar-btn, sidebar-btn-active"/>
-                        <Button fx:id="studentsButton" text="👥   تسجيل الطلاب" onAction="#showStudentRegistration"
+                        <Button fx:id="studentsButton" text="%nav.students" onAction="#showStudentRegistration"
                                 maxWidth="Infinity" styleClass="sidebar-btn"/>
-                        <Button fx:id="attendanceButton" text="⏱   الحضور والانصراف" onAction="#showAttendance"
+                        <Button fx:id="attendanceButton" text="%nav.attendance" onAction="#showAttendance"
                                 maxWidth="Infinity" styleClass="sidebar-btn"/>
-                        <Button fx:id="sessionsButton" text="📅   إدارة الحصص" onAction="#showSessionManagement"
+                        <Button fx:id="sessionsButton" text="%nav.sessions" onAction="#showSessionManagement"
                                 maxWidth="Infinity" styleClass="sidebar-btn"/>
                     </VBox>
 
                     <VBox fx:id="navFinanceBox" spacing="3.0">
-                        <Label text="المالية" styleClass="sidebar-section"/>
-                        <Button fx:id="cashierButton" text="💰   الخزينة والاشتراكات" onAction="#showCashier"
+                        <Label text="%nav.section.finance" styleClass="sidebar-section"/>
+                        <Button fx:id="cashierButton" text="%nav.cashier" onAction="#showCashier"
                                 maxWidth="Infinity" styleClass="sidebar-btn"/>
-                        <Button fx:id="paymentHistoryButton" text="🧾   سجل المدفوعات" onAction="#showPaymentHistory"
+                        <Button fx:id="paymentHistoryButton" text="%nav.paymentHistory" onAction="#showPaymentHistory"
                                 maxWidth="Infinity" styleClass="sidebar-btn"/>
-                        <Button fx:id="expensesButton" text="📉   المصروفات" onAction="#showExpenses"
+                        <Button fx:id="expensesButton" text="%nav.expenses" onAction="#showExpenses"
                                 maxWidth="Infinity" styleClass="sidebar-btn"/>
-                        <Button fx:id="shiftClosingButton" text="🧮   تقفيل الوردية" onAction="#showShiftClosing"
+                        <Button fx:id="shiftClosingButton" text="%nav.shiftClosing" onAction="#showShiftClosing"
                                 maxWidth="Infinity" styleClass="sidebar-btn"/>
-                        <Button fx:id="teacherPayoutButton" text="💵   صرف مستحقات المعلمين"
+                        <Button fx:id="teacherPayoutButton" text="%nav.teacherPayout"
                                 onAction="#showTeacherPayout" maxWidth="Infinity" styleClass="sidebar-btn"/>
                     </VBox>
 
                     <VBox fx:id="navReportsBox" spacing="3.0">
-                        <Label text="التقارير والمتابعة" styleClass="sidebar-section"/>
-                        <Button fx:id="attendanceReportButton" text="📊   تقرير الحضور والغياب"
+                        <Label text="%nav.section.reports" styleClass="sidebar-section"/>
+                        <Button fx:id="attendanceReportButton" text="%nav.attendanceReport"
                                 onAction="#showAttendanceReport" maxWidth="Infinity" styleClass="sidebar-btn"/>
-                        <Button fx:id="arrearsButton" text="⚠   تقرير المتأخرات" onAction="#showArrears"
+                        <Button fx:id="arrearsButton" text="%nav.arrears" onAction="#showArrears"
                                 maxWidth="Infinity" styleClass="sidebar-btn"/>
-                        <Button fx:id="notificationsButton" text="📨   إشعارات أولياء الأمور"
+                        <Button fx:id="notificationsButton" text="%nav.notifications"
                                 onAction="#showNotifications" maxWidth="Infinity" styleClass="sidebar-btn"/>
                     </VBox>
 
                     <VBox fx:id="navAdminBox" spacing="3.0">
-                        <Label text="الإدارة" styleClass="sidebar-section"/>
-                        <Button fx:id="teachersButton" text="👨‍🏫   إدارة المعلمين" onAction="#showTeachers"
+                        <Label text="%nav.section.admin" styleClass="sidebar-section"/>
+                        <Button fx:id="teachersButton" text="%nav.teachers" onAction="#showTeachers"
                                 maxWidth="Infinity" styleClass="sidebar-btn"/>
-                        <Button fx:id="groupsButton" text="📚   إدارة المجموعات" onAction="#showGroups"
+                        <Button fx:id="groupsButton" text="%nav.groups" onAction="#showGroups"
                                 maxWidth="Infinity" styleClass="sidebar-btn"/>
-                        <Button fx:id="usersManagementButton" text="🔐   إدارة المستخدمين" onAction="#showUsers"
+                        <Button fx:id="usersManagementButton" text="%nav.users" onAction="#showUsers"
                                 maxWidth="Infinity" styleClass="sidebar-btn"/>
-                        <Button fx:id="settingsButton" text="⚙   الإعدادات" onAction="#showSettings"
+                        <Button fx:id="settingsButton" text="%nav.settings" onAction="#showSettings"
                                 maxWidth="Infinity" styleClass="sidebar-btn"/>
                     </VBox>
                 </VBox>
@@ -88,9 +101,17 @@
 
             <Separator styleClass="sidebar-separator"/>
 
-            <VBox>
+            <VBox spacing="10.0">
                 <padding><Insets top="10.0" bottom="14.0" left="12.0" right="12.0"/></padding>
-                <Button text="🚪   تسجيل الخروج" onAction="#handleLogout"
+
+                <!-- اللغة متاحة لكل الأدوار: تفضيل عرض على هذا الجهاز، لا إعداد إداري -->
+                <HBox alignment="CENTER_LEFT" spacing="8.0">
+                    <Label text="%common.language" styleClass="sidebar-role"/>
+                    <ComboBox fx:id="languageCombo" styleClass="sidebar-combo"
+                              maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                </HBox>
+
+                <Button text="%nav.logout" onAction="#handleLogout"
                         maxWidth="Infinity" styleClass="sidebar-btn, sidebar-btn-logout"/>
             </VBox>
         </VBox>
@@ -102,19 +123,19 @@
                 <VBox fx:id="homeView" spacing="24.0">
                     <padding><Insets top="30.0" bottom="30.0" left="32.0" right="32.0"/></padding>
 
-                    <Label text="نظرة عامة على النظام" styleClass="header-label" />
+                    <Label text="%home.title" styleClass="header-label" />
 
                     <HBox spacing="20.0" alignment="CENTER_LEFT">
                         <VBox styleClass="stat-card, card-blue" HBox.hgrow="ALWAYS">
-                            <Label text="إجمالي الطلاب" styleClass="stat-caption"/>
+                            <Label text="%home.totalStudents" styleClass="stat-caption"/>
                             <Label fx:id="totalStudentsLabel" text="0" styleClass="stat-value"/>
                         </VBox>
                         <VBox fx:id="revenueCard" styleClass="stat-card, card-green" HBox.hgrow="ALWAYS">
-                            <Label text="صافي درج اليوم" styleClass="stat-caption"/>
-                            <Label fx:id="dailyRevenueLabel" text="—" styleClass="stat-value"/>
+                            <Label text="%home.dailyRevenue" styleClass="stat-caption"/>
+                            <Label fx:id="dailyRevenueLabel" text="%common.empty" styleClass="stat-value"/>
                         </VBox>
                         <VBox styleClass="stat-card, card-orange" HBox.hgrow="ALWAYS">
-                            <Label text="الحصص المفتوحة الآن" styleClass="stat-caption"/>
+                            <Label text="%home.activeSessions" styleClass="stat-caption"/>
                             <Label fx:id="activeSessionsLabel" text="0" styleClass="stat-value"/>
                         </VBox>
                     </HBox>
@@ -122,15 +143,15 @@
                     <HBox spacing="20.0" VBox.vgrow="ALWAYS" alignment="CENTER">
                         <VBox fx:id="revenueChartCard" styleClass="card" HBox.hgrow="ALWAYS"
                               prefWidth="420" minHeight="340">
-                            <PieChart fx:id="revenuePieChart" title="توزيع الإيرادات على المجموعات (آخر 30 يوماً)"
+                            <PieChart fx:id="revenuePieChart" title="%home.revenueChart"
                                       legendSide="BOTTOM" animated="false" VBox.vgrow="ALWAYS"/>
                         </VBox>
 
                         <VBox styleClass="card" HBox.hgrow="ALWAYS" prefWidth="520" minHeight="340">
-                            <BarChart fx:id="attendanceBarChart" title="الحضور خلال آخر 7 أيام"
+                            <BarChart fx:id="attendanceBarChart" title="%home.attendanceChart"
                                       animated="false" legendVisible="false" VBox.vgrow="ALWAYS">
-                                <xAxis><CategoryAxis label="اليوم" /></xAxis>
-                                <yAxis><NumberAxis label="عدد الطلاب" /></yAxis>
+                                <xAxis><CategoryAxis label="%home.axis.day" /></xAxis>
+                                <yAxis><NumberAxis label="%home.axis.studentCount" /></yAxis>
                             </BarChart>
                         </VBox>
                     </HBox>

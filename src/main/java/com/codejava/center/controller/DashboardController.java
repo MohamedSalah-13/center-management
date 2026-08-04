@@ -9,38 +9,41 @@ import com.codejava.center.service.StudentService;
 import com.codejava.center.service.TransactionService;
 import com.codejava.center.service.dto.DailyAttendance;
 import com.codejava.center.service.dto.GroupRevenue;
+import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
+import com.codejava.center.util.I18n;
+import com.codejava.center.util.LanguageSelector;
 import com.codejava.center.util.MoneyUtils;
 import com.codejava.center.util.UserSession;
+import com.codejava.center.util.ViewLoader;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
-import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
-import javafx.scene.Parent;
-import javafx.scene.Scene;
 import javafx.scene.chart.BarChart;
 import javafx.scene.chart.PieChart;
 import javafx.scene.chart.XYChart;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tooltip;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.shape.Circle;
 import javafx.stage.Stage;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationContext;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 
+import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.net.URL;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -54,8 +57,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class DashboardController {
 
-    // حقن Spring Context لإدارة متحكمات الشاشات الفرعية
-    private final ApplicationContext applicationContext;
     // حقن الخدمات المطلوبة لجلب الإحصائيات
     private final StudentService studentService;
     private final TransactionService transactionService;
@@ -63,8 +64,8 @@ public class DashboardController {
     private final AttendanceService attendanceService;
     private final UserSession userSession;
     private final SettingsService settingsService;
+    private final ViewLoader viewLoader;
 
-    private static final Locale ARABIC_LOCALE = Locale.forLanguageTag("ar");
     private static final String ACTIVE_STYLE_CLASS = "sidebar-btn-active";
     @FXML
     private StackPane contentArea;
@@ -115,6 +116,10 @@ public class DashboardController {
     @FXML
     private Label centerNameLabel;
     @FXML
+    private ImageView centerLogoView;
+    @FXML
+    private Circle logoPlaceholder;
+    @FXML
     private Label userRoleLabel;
     @FXML
     private ScrollPane homeScroll;
@@ -128,6 +133,8 @@ public class DashboardController {
     private Label activeSessionsLabel;
     @FXML
     private Label userNameLabel;
+    @FXML
+    private ComboBox<Locale> languageCombo;
     @FXML private PieChart revenuePieChart;
     @FXML private BarChart<String, Number> attendanceBarChart;
 
@@ -137,11 +144,15 @@ public class DashboardController {
 
         if (currentUser != null) {
             userNameLabel.setText(currentUser.getUsername());
-            userRoleLabel.setText("(" + currentUser.getRole().getArabicName() + ")");
+            userRoleLabel.setText(I18n.format("home.userRole", currentUser.getRole().getDisplayName()));
         }
 
+        // تبديل اللغة يعيد بناء لوحة القيادة بالكامل؛ الجلسة محفوظة في UserSession
+        // فلا يُطالَب المستخدم بتسجيل الدخول من جديد
+        LanguageSelector.configure(languageCombo, this::reloadDashboard);
+
         applyRolePermissions(currentUser);
-        loadCenterName();
+        loadCenterBranding();
 
         loadDashboardStats();
         loadChartsData();
@@ -187,11 +198,35 @@ public class DashboardController {
         }
     }
 
-    /** اسم السنتر من الإعدادات بدل نص ثابت في الواجهة */
-    private void loadCenterName() {
-        FxAsync.supply(settingsService::getCenterName,
-                name -> centerNameLabel.setText(name),
-                error -> { /* الاسم الافتراضي المكتوب في FXML يكفي */ });
+    /**
+     * ترويسة القائمة الجانبية من الإعدادات: اسم السنتر وشعاره بدل نص ثابت ودائرة رمادية.
+     * تُقرأ الإعدادات مرة واحدة لأن الاسم والشعار يأتيان من نفس الصف.
+     */
+    private void loadCenterBranding() {
+        FxAsync.supply(settingsService::getSettings, settings -> {
+            String name = settings.getCenterName();
+            if (name != null && !name.isBlank()) {
+                centerNameLabel.setText(name);
+            }
+            showLogo(settings.getLogoPath());
+        }, error -> { /* الاسم الافتراضي المكتوب في FXML والدائرة البديلة يكفيان */ });
+    }
+
+    /** الشعار إن وُجد ملفه؛ وإلا تبقى الدائرة الرمادية كما هي */
+    private void showLogo(String logoPath) {
+        if (logoPath == null || logoPath.isBlank() || !new File(logoPath).exists()) {
+            return;
+        }
+
+        try {
+            centerLogoView.setImage(new Image(new File(logoPath).toURI().toString()));
+            centerLogoView.setVisible(true);
+            centerLogoView.setManaged(true);
+            hide(logoPlaceholder);
+        } catch (RuntimeException e) {
+            // ملف تالف أو صيغة غير مدعومة: الدائرة البديلة أهون من ترويسة فارغة
+            e.printStackTrace();
+        }
     }
 
 
@@ -282,7 +317,7 @@ public class DashboardController {
         }).thenAccept(stats -> Platform.runLater(() -> {
             totalStudentsLabel.setText(String.valueOf(stats.studentsCount));
             dailyRevenueLabel.setText(stats.dailyRevenue == null
-                    ? "—" : MoneyUtils.formatWithCurrency(stats.dailyRevenue));
+                    ? I18n.get("common.empty") : MoneyUtils.formatWithCurrency(stats.dailyRevenue));
             activeSessionsLabel.setText(String.valueOf(stats.activeSessions));
         })).exceptionally(ex -> {
             ex.printStackTrace();
@@ -303,19 +338,13 @@ public class DashboardController {
 
     private void loadView(String fxmlPath, Button sourceButton) {
         try {
-            URL resource = getClass().getResource(fxmlPath);
-            if (resource == null) {
-                throw new IllegalArgumentException("الملف غير موجود: " + fxmlPath);
-            }
-            FXMLLoader loader = new FXMLLoader(resource);
-            loader.setControllerFactory(applicationContext::getBean);
-            Node view = loader.load();
+            Node view = viewLoader.load(fxmlPath);
             contentArea.getChildren().setAll(view);
             markActive(sourceButton);
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             // الفشل الصامت كان يترك الشاشة كما هي فيظن المستخدم أن الزر لا يعمل
             e.printStackTrace();
-            showError("تعذر فتح الشاشة: " + e.getMessage());
+            Dialogs.error(I18n.format("home.openFailed", FxAsync.messageOf(e)));
         }
     }
 
@@ -372,8 +401,9 @@ public class DashboardController {
                     .collect(Collectors.toMap(DailyAttendance::date, DailyAttendance::count));
 
             XYChart.Series<String, Number> series = new XYChart.Series<>();
-            series.setName("الحضور الفعلي");
-            DateTimeFormatter dayLabel = DateTimeFormatter.ofPattern("EEEE", ARABIC_LOCALE);
+            series.setName(I18n.get("home.series.attendance"));
+            // أسماء الأيام بلغة الواجهة الحالية، لا بلغة ثابتة
+            DateTimeFormatter dayLabel = DateTimeFormatter.ofPattern("EEEE", I18n.current());
             for (int i = 6; i >= 0; i--) {
                 LocalDate day = LocalDate.now().minusDays(i);
                 series.getData().add(new XYChart.Data<>(
@@ -391,47 +421,31 @@ public class DashboardController {
     // حاوية لنقل بيانات المخططات بين الـ Threads
     private record ChartsData(List<GroupRevenue> revenue, List<DailyAttendance> attendance) {
     }
+
+    private void reloadDashboard() {
+        try {
+            viewLoader.showDashboard(stageOf(languageCombo));
+        } catch (IOException e) {
+            e.printStackTrace();
+            Dialogs.error(FxAsync.messageOf(e));
+        }
+    }
+
     public void handleLogout(ActionEvent actionEvent) {
         try {
             // 1. إنهاء الجلسة الحالية أولاً حتى لا يرث المستخدم التالي صلاحيات السابق
             userSession.cleanUserSession();
 
             // 2. العودة إلى شاشة الدخول
-            URL resource = getClass().getResource("/fxml/Login.fxml");
-            if (resource == null) {
-                throw new IllegalStateException("الملف غير موجود: /fxml/Login.fxml");
-            }
-            FXMLLoader loader = new FXMLLoader(resource);
-            loader.setControllerFactory(applicationContext::getBean);
-            Parent loginRoot = loader.load();
-
-            Stage stage = (Stage) ((Node) actionEvent.getSource()).getScene().getWindow();
-            Scene scene = new Scene(loginRoot, 500, 400);
-            scene.getStylesheets().add(getClass().getResource("/css/style.css").toExternalForm());
-
-            // رفع قيود نافذة لوحة القيادة قبل عرض شاشة الدخول الصغيرة،
-            // وإلا بقيت النافذة مكبّرة وبحد أدنى 1100×700 حول واجهة 500×400
-            stage.setMaximized(false);
-            stage.setMinWidth(0);
-            stage.setMinHeight(0);
-
-            stage.setScene(scene);
-            stage.setTitle("تسجيل الدخول - نظام إدارة السنتر");
-            stage.setWidth(500);
-            stage.setHeight(400);
-            stage.centerOnScreen();
+            viewLoader.showLogin(stageOf(actionEvent.getSource()));
         } catch (IOException e) {
             e.printStackTrace();
-            showError("تعذر العودة إلى شاشة الدخول: " + e.getMessage());
+            Dialogs.error(I18n.format("home.logoutFailed", FxAsync.messageOf(e)));
         }
     }
 
-    private void showError(String message) {
-        Alert alert = new Alert(Alert.AlertType.ERROR);
-        alert.setTitle("خطأ");
-        alert.setHeaderText(null);
-        alert.setContentText(message);
-        alert.showAndWait();
+    private Stage stageOf(Object node) {
+        return (Stage) ((Node) node).getScene().getWindow();
     }
 
     // كلاس داخلي لنقل بيانات الإحصائيات

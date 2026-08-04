@@ -11,44 +11,43 @@
       fx:controller="com.codejava.center.controller.TeacherController"
       style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
 
-    <Label text="إدارة المعلمين" textFill="#2c3e50">
+    <Label text="%teacher.title" textFill="#2c3e50">
         <font><Font name="System Bold" size="26.0" /></font>
     </Label>
 
     <GridPane hgap="20.0" vgap="15.0" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0;">
-        <Label text="اسم المعلم:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+        <Label text="%teacher.name" GridPane.columnIndex="0" GridPane.rowIndex="0" />
         <TextField fx:id="nameField" GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
-        <Label text="المادة:" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+        <Label text="%teacher.subject" GridPane.columnIndex="2" GridPane.rowIndex="0" />
         <TextField fx:id="subjectField" GridPane.columnIndex="3" GridPane.rowIndex="0" />
 
-        <Label text="نوع العمولة:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+        <Label text="%teacher.commissionType" GridPane.columnIndex="0" GridPane.rowIndex="1" />
         <ComboBox fx:id="typeCombo" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="1" />
 
-        <Label text="قيمة العمولة:" GridPane.columnIndex="2" GridPane.rowIndex="1" />
-        <TextField fx:id="valueField" promptText="نسبة % أو مبلغ" GridPane.columnIndex="3" GridPane.rowIndex="1" />
+        <Label text="%teacher.commissionValue" GridPane.columnIndex="2" GridPane.rowIndex="1" />
+        <TextField fx:id="valueField" promptText="%teacher.commissionValuePrompt" GridPane.columnIndex="3" GridPane.rowIndex="1" />
 
-        <!-- تم إضافة زر الطباعة هنا -->
         <HBox alignment="CENTER_LEFT" spacing="10.0" GridPane.columnIndex="1" GridPane.rowIndex="2" GridPane.columnSpan="3">
-            <Button text="حفظ جديد" onAction="#handleSaveAction" style="-fx-background-color: #27ae60; -fx-text-fill: white;" />
-            <Button fx:id="updateButton" text="تعديل" disable="true" onAction="#handleUpdateAction" style="-fx-background-color: #f39c12; -fx-text-fill: white;" />
-            <Button fx:id="deleteButton" text="حذف" disable="true" onAction="#handleDeleteAction" style="-fx-background-color: #e74c3c; -fx-text-fill: white;" />
-            <Button fx:id="printButton" text="طباعة كشف الحساب" disable="true" onAction="#handlePrintAction" style="-fx-background-color: #8e44ad; -fx-text-fill: white;" />
-            <Button text="إلغاء" onAction="#clearFields" style="-fx-background-color: #95a5a6; -fx-text-fill: white;" />
+            <Button text="%common.saveNew" onAction="#handleSaveAction" style="-fx-background-color: #27ae60; -fx-text-fill: white;" />
+            <Button fx:id="updateButton" text="%common.edit" disable="true" onAction="#handleUpdateAction" style="-fx-background-color: #f39c12; -fx-text-fill: white;" />
+            <Button fx:id="deleteButton" text="%common.delete" disable="true" onAction="#handleDeleteAction" style="-fx-background-color: #e74c3c; -fx-text-fill: white;" />
+            <Button fx:id="printButton" text="%teacher.printStatement" disable="true" onAction="#handlePrintAction" style="-fx-background-color: #8e44ad; -fx-text-fill: white;" />
+            <Button text="%common.cancel" onAction="#clearFields" style="-fx-background-color: #95a5a6; -fx-text-fill: white;" />
         </HBox>
     </GridPane>
 
     <HBox spacing="10.0" alignment="CENTER_LEFT" style="-fx-padding: 0 0 10 0;">
-        <Label text="بحث عن معلم:" />
-        <TextField fx:id="searchField" promptText="ابحث باسم المعلم أو المادة..." prefWidth="300.0" />
+        <Label text="%teacher.searchLabel" />
+        <TextField fx:id="searchField" promptText="%teacher.searchPrompt" prefWidth="300.0" />
     </HBox>
 
     <TableView fx:id="teacherTable" VBox.vgrow="ALWAYS">
         <columns>
-            <TableColumn fx:id="colName" text="الاسم" prefWidth="200.0" />
-            <TableColumn fx:id="colSubject" text="المادة" prefWidth="150.0" />
-            <TableColumn fx:id="colType" text="نوع العمولة" prefWidth="150.0" />
-            <TableColumn fx:id="colValue" text="القيمة" prefWidth="100.0" />
+            <TableColumn fx:id="colName" text="%teacher.col.name" prefWidth="200.0" />
+            <TableColumn fx:id="colSubject" text="%teacher.col.subject" prefWidth="150.0" />
+            <TableColumn fx:id="colType" text="%teacher.col.type" prefWidth="150.0" />
+            <TableColumn fx:id="colValue" text="%teacher.col.value" prefWidth="100.0" />
         </columns>
     </TableView>
 </VBox>

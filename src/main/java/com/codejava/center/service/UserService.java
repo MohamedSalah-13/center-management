@@ -4,6 +4,7 @@ import com.codejava.center.domain.User;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.repository.UserRepository;
 import com.codejava.center.security.RequiresRole;
+import com.codejava.center.util.I18n;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -26,7 +27,7 @@ public class UserService {
         if (user.getId() == null) {
             Optional<User> existingUser = userRepository.findByUsername(user.getUsername());
             if (existingUser.isPresent()) {
-                throw new IllegalStateException("اسم المستخدم هذا مسجل مسبقاً.");
+                throw new IllegalStateException(I18n.get("error.user.usernameTaken"));
             }
         }
 
@@ -35,7 +36,7 @@ public class UserService {
             user.setPassword(passwordEncoder.encode(rawPassword));
         } else if (user.getId() == null) {
             // لا يمكن إضافة مستخدم جديد بدون كلمة مرور
-            throw new IllegalArgumentException("كلمة المرور مطلوبة للمستخدم الجديد.");
+            throw new IllegalArgumentException(I18n.get("error.user.passwordRequired"));
         }
 
         return userRepository.save(user);

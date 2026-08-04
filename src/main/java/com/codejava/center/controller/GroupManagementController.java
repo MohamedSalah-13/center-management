@@ -5,9 +5,10 @@ import com.codejava.center.domain.Teacher;
 import com.codejava.center.service.CourseGroupService;
 import com.codejava.center.service.ReportService;
 import com.codejava.center.service.TeacherService;
+import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
+import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
-import com.codejava.commons.fx.dialog.AlertUtils;
 import com.codejava.commons.fx.form.FormUtils;
 import com.codejava.commons.fx.validation.InputValidator;
 import javafx.application.Platform;
@@ -112,7 +113,8 @@ public class GroupManagementController {
         teacherComboBox.setConverter(new StringConverter<>() {
             @Override
             public String toString(Teacher teacher) {
-                return teacher == null ? "" : teacher.getName() + " (" + teacher.getSubject() + ")";
+                return teacher == null ? "" : I18n.format("group.teacherWithSubject",
+                        teacher.getName(), teacher.getSubject());
             }
             @Override
             public Teacher fromString(String string) { return null; }
@@ -126,7 +128,7 @@ public class GroupManagementController {
                     teacherComboBox.getItems().setAll(data.teachers());
                     groupsList.setAll(data.groups());
                 },
-                error -> AlertUtils.showError("خطأ", "تعذر تحميل البيانات: " + FxAsync.messageOf(error)));
+                error -> Dialogs.error(I18n.format("common.loadFailed", FxAsync.messageOf(error))));
     }
 
     private record LoadedData(java.util.List<Teacher> teachers, java.util.List<CourseGroup> groups) {
@@ -140,7 +142,7 @@ public class GroupManagementController {
         String priceStr = priceField.getText().trim();
 
         if (name.isEmpty() || selectedTeacher == null || capacityStr.isEmpty() || priceStr.isEmpty()) {
-            AlertUtils.showWarning("بيانات ناقصة", "يرجى تعبئة جميع الحقول.");
+            Dialogs.warning(I18n.get("common.missingData"), I18n.get("group.fillAllFields"));
             return;
         }
 
@@ -155,11 +157,11 @@ public class GroupManagementController {
             FxAsync.supply(() -> courseGroupService.saveGroup(newGroup), savedGroup -> {
                 groupsList.add(savedGroup); // إضافة فورية للجدول
                 clearForm();
-                AlertUtils.showSuccess("نجاح", "تمت إضافة المجموعة بنجاح.");
-            }, error -> AlertUtils.showError("خطأ", FxAsync.messageOf(error)));
+                Dialogs.success(I18n.get("group.added"));
+            }, error -> Dialogs.error(FxAsync.messageOf(error)));
 
         } catch (NumberFormatException e) {
-            AlertUtils.showError("خطأ في الأرقام", "السعة والسعر يجب أن تكون أرقاماً صحيحة.");
+            Dialogs.error(I18n.get("common.numberError"), I18n.get("group.numbersInvalid"));
         }
     }
 
@@ -193,7 +195,7 @@ public class GroupManagementController {
         String priceStr = priceField.getText().trim();
 
         if (name.isEmpty() || selectedTeacher == null || capacityStr.isEmpty() || priceStr.isEmpty()) {
-            AlertUtils.showWarning("تنبيه", "يرجى تعبئة جميع الحقول.");
+            Dialogs.warning(I18n.get("group.fillAllFields"));
             return;
         }
 
@@ -213,10 +215,10 @@ public class GroupManagementController {
                     groupsList.set(selectedIndex, updatedGroup);
                 }
                 clearForm();
-                AlertUtils.showSuccess("نجاح", "تم التعديل بنجاح.");
-            }, error -> AlertUtils.showError("خطأ", FxAsync.messageOf(error)));
+                Dialogs.success(I18n.get("common.updated"));
+            }, error -> Dialogs.error(FxAsync.messageOf(error)));
         } catch (NumberFormatException e) {
-            AlertUtils.showError("خطأ في الأرقام", "السعة والسعر يجب أن تكون أرقاماً صحيحة.");
+            Dialogs.error(I18n.get("common.numberError"), I18n.get("group.numbersInvalid"));
         }
     }
 
@@ -224,14 +226,14 @@ public class GroupManagementController {
     public void handleDeleteAction(ActionEvent event) {
         if (selectedGroup == null) return;
 
-        if (AlertUtils.showConfirm("تأكيد الحذف", "هل أنت متأكد من حذف المجموعة: " + selectedGroup.getName() + "؟")) {
+        if (Dialogs.confirm(I18n.get("common.confirmDelete"),
+                I18n.format("group.deleteConfirm", selectedGroup.getName()))) {
             CourseGroup target = selectedGroup;
             FxAsync.run(() -> courseGroupService.deleteGroup(target.getId()), () -> {
                 groupsList.remove(target); // الإزالة من الجدول
                 clearForm();
-                AlertUtils.showSuccess("نجاح", "تم الحذف بنجاح.");
-            }, error -> AlertUtils.showError("خطأ",
-                    "لا يمكن حذف المجموعة لارتباطها بسجلات أخرى (حصص أو طلاب)."));
+                Dialogs.success(I18n.get("common.deleted"));
+            }, error -> Dialogs.error(I18n.get("group.deleteBlocked")));
         }
     }
 
@@ -268,13 +270,11 @@ public class GroupManagementController {
                 throw new RuntimeException(e);
             }
         }).thenRun(() -> {
-            Platform.runLater(() -> {
-                AlertUtils.showSuccess("نجاح", "تم استخراج التقرير وحفظه على سطح المكتب.");
-            });
+            Platform.runLater(() -> Dialogs.success(I18n.get("group.reportExported")));
         }).exceptionally(ex -> {
             Platform.runLater(() -> {
                 ex.printStackTrace();
-                AlertUtils.showError("خطأ", "فشل استخراج التقرير: " + ex.getCause().getMessage());
+                Dialogs.error(I18n.format("group.reportExportFailed", FxAsync.messageOf(ex)));
             });
             return null;
         });
@@ -295,9 +295,7 @@ public class GroupManagementController {
                 throw new RuntimeException(e);
             }
         }).exceptionally(ex -> {
-            Platform.runLater(() -> {
-                AlertUtils.showError("خطأ", "فشل عرض التقرير: " + ex.getCause().getMessage());
-            });
+            Platform.runLater(() -> Dialogs.error(I18n.format("group.reportPreviewFailed", FxAsync.messageOf(ex))));
             return null;
         });
     }
@@ -306,7 +304,7 @@ public class GroupManagementController {
     public void handlePrintAction(ActionEvent event) {
         // التأكد من أنه تم تحديد مجموعة بالفعل
         if (selectedGroup == null) {
-            AlertUtils.showWarning("تنبيه", "يرجى تحديد مجموعة من الجدول أولاً للعرض.");
+            Dialogs.warning(I18n.get("group.selectFirst"));
             return;
         }
 

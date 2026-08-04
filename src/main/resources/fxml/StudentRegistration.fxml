@@ -7,7 +7,7 @@
       fx:controller="com.codejava.center.controller.StudentRegistrationController"
       style="-fx-background-color: #f4f4f4; -fx-padding: 30;">
 
-    <Label text="تسجيل بيانات طالب" textFill="#2c3e50">
+    <Label text="%student.title" textFill="#2c3e50">
         <font><Font name="System Bold" size="24.0" /></font>
     </Label>
 
@@ -17,61 +17,61 @@
             <ColumnConstraints hgrow="ALWAYS" minWidth="250.0" />
         </columnConstraints>
 
-        <Label text="اسم الطالب:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+        <Label text="%student.name" GridPane.columnIndex="0" GridPane.rowIndex="0" />
         <TextField fx:id="nameField" GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
-        <Label text="رقم الهاتف:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+        <Label text="%student.phone" GridPane.columnIndex="0" GridPane.rowIndex="1" />
         <TextField fx:id="phoneField" GridPane.columnIndex="1" GridPane.rowIndex="1" />
 
-        <Label text="رقم ولي الأمر:" GridPane.columnIndex="0" GridPane.rowIndex="2" />
+        <Label text="%student.parentPhone" GridPane.columnIndex="0" GridPane.rowIndex="2" />
         <TextField fx:id="parentPhoneField" GridPane.columnIndex="1" GridPane.rowIndex="2" />
 
-        <Label text="المرحلة الدراسية:" GridPane.columnIndex="0" GridPane.rowIndex="3" />
+        <Label text="%student.level" GridPane.columnIndex="0" GridPane.rowIndex="3" />
         <ComboBox fx:id="schoolLevelCombo" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="3" />
 
-        <Label text="الباركود:" GridPane.columnIndex="0" GridPane.rowIndex="4" />
-        <TextField fx:id="barcodeField" promptText="يترك فارغاً للتوليد التلقائي" GridPane.columnIndex="1" GridPane.rowIndex="4" />
+        <Label text="%student.barcode" GridPane.columnIndex="0" GridPane.rowIndex="4" />
+        <TextField fx:id="barcodeField" promptText="%student.barcodePrompt" GridPane.columnIndex="1" GridPane.rowIndex="4" />
     </GridPane>
 
     <HBox alignment="CENTER_LEFT" spacing="15.0">
-        <Button text="حفظ جديد" onAction="#handleSaveAction" style="-fx-background-color: #27ae60; -fx-text-fill: white;" />
-        <Button fx:id="updateButton" text="تعديل" disable="true" onAction="#handleUpdateAction" style="-fx-background-color: #f39c12; -fx-text-fill: white;" />
-        <Button fx:id="deleteButton" text="حذف" disable="true" onAction="#handleDeleteAction" style="-fx-background-color: #e74c3c; -fx-text-fill: white;" />
-        <Button text="إلغاء التحديد" onAction="#handleClearAction" style="-fx-background-color: #95a5a6; -fx-text-fill: white;" />
-        <Button text="تصدير كارنيهات الجدول (PDF) 🖨️" onAction="#handleExportIdCards" style="-fx-background-color: #8e44ad; -fx-text-fill: white;" />
+        <Button text="%common.saveNew" onAction="#handleSaveAction" style="-fx-background-color: #27ae60; -fx-text-fill: white;" />
+        <Button fx:id="updateButton" text="%common.edit" disable="true" onAction="#handleUpdateAction" style="-fx-background-color: #f39c12; -fx-text-fill: white;" />
+        <Button fx:id="deleteButton" text="%common.delete" disable="true" onAction="#handleDeleteAction" style="-fx-background-color: #e74c3c; -fx-text-fill: white;" />
+        <Button text="%common.clearSelection" onAction="#handleClearAction" style="-fx-background-color: #95a5a6; -fx-text-fill: white;" />
+        <Button text="%student.exportIdCards" onAction="#handleExportIdCards" style="-fx-background-color: #8e44ad; -fx-text-fill: white;" />
     </HBox>
 
     <!-- القسم الجديد: إدارة الاشتراك في المجموعات -->
     <VBox spacing="10.0" style="-fx-padding: 15; -fx-background-color: white; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
-        <Label text="إدارة اشتراكات الطالب المحدد" textFill="#2c3e50">
+        <Label text="%student.enrollmentSection" textFill="#2c3e50">
             <font><Font name="System Bold" size="16.0" /></font>
         </Label>
 
         <HBox spacing="15.0" alignment="CENTER_LEFT">
-            <ComboBox fx:id="groupComboBox" promptText="اختر مجموعة للاشتراك..." prefWidth="250.0" />
-            <Label fx:id="groupCapacityLabel" text="السعة: ---" textFill="#7f8c8d">
+            <ComboBox fx:id="groupComboBox" promptText="%student.groupPrompt" prefWidth="250.0" />
+            <Label fx:id="groupCapacityLabel" text="%student.capacityUnknown" textFill="#7f8c8d">
                 <font><Font name="System Bold" size="14.0" /></font>
             </Label>
-            <Button fx:id="subscribeButton" text="اشتراك في المجموعة ➕" disable="true" onAction="#handleSubscribeAction" style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold;" />
+            <Button fx:id="subscribeButton" text="%student.subscribe" disable="true" onAction="#handleSubscribeAction" style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold;" />
         </HBox>
 
-        <Label fx:id="subscribedGroupsLabel" text="المجموعات المشترك بها: لم يتم تحديد طالب" textFill="#27ae60" wrapText="true">
+        <Label fx:id="subscribedGroupsLabel" text="%student.subscribedGroupsNoStudent" textFill="#27ae60" wrapText="true">
             <font><Font name="System Bold" size="14.0" /></font>
         </Label>
     </VBox>
 
     <!-- أضف هذا الجزء فوق تعريف الـ TableView -->
     <HBox spacing="10.0" alignment="CENTER_LEFT" style="-fx-padding: 0 0 10 0;">
-        <Label text="بحث عن طالب:" />
-        <TextField fx:id="searchField" promptText="ابحث بالاسم، الهاتف، أو الباركود..." prefWidth="300.0" styleClass="text-field" />
+        <Label text="%student.searchLabel" />
+        <TextField fx:id="searchField" promptText="%student.searchPrompt" prefWidth="300.0" styleClass="text-field" />
     </HBox>
 
     <TableView fx:id="studentTable" VBox.vgrow="ALWAYS">
         <columns>
-            <TableColumn fx:id="colBarcode" text="الباركود" prefWidth="120.0" />
-            <TableColumn fx:id="colName" text="الاسم" prefWidth="250.0" />
-            <TableColumn fx:id="colPhone" text="الهاتف" prefWidth="120.0" />
-            <TableColumn fx:id="colLevel" text="المرحلة" prefWidth="150.0" />
+            <TableColumn fx:id="colBarcode" text="%student.col.barcode" prefWidth="120.0" />
+            <TableColumn fx:id="colName" text="%student.col.name" prefWidth="250.0" />
+            <TableColumn fx:id="colPhone" text="%student.col.phone" prefWidth="120.0" />
+            <TableColumn fx:id="colLevel" text="%student.col.level" prefWidth="150.0" />
         </columns>
     </TableView>
 </VBox>

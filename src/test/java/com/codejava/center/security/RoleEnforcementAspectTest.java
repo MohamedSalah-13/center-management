@@ -2,6 +2,7 @@ package com.codejava.center.security;
 
 import com.codejava.center.domain.User;
 import com.codejava.center.domain.enums.Role;
+import com.codejava.center.util.I18n;
 import com.codejava.center.util.UserSession;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -31,11 +32,14 @@ class RoleEnforcementAspectTest {
         userSession.cleanUserSession();
     }
 
+    // النصوص تُقارَن بمفاتيح الحزمة لا بالعربية الحرفية: لغة الواجهة تُحفظ لكل جهاز،
+    // فتبديلها في التطبيق كان يُفشل هذه الاختبارات على جهاز المطوّر وحده.
+
     @Test
     void deniesWhenNoUserIsLoggedIn() {
         assertThatThrownBy(() -> guardedService.adminOnly())
                 .isInstanceOf(AccessDeniedException.class)
-                .hasMessageContaining("تسجيل الدخول");
+                .hasMessage(I18n.get("error.access.noSession"));
     }
 
     @Test
@@ -44,7 +48,8 @@ class RoleEnforcementAspectTest {
 
         assertThatThrownBy(() -> guardedService.adminOnly())
                 .isInstanceOf(AccessDeniedException.class)
-                .hasMessageContaining("مدير نظام");
+                .hasMessageContaining(Role.ADMIN.getDisplayName())
+                .hasMessageContaining(Role.SECRETARY.getDisplayName());
     }
 
     @Test

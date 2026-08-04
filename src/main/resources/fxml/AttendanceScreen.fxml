@@ -14,59 +14,60 @@
     <!-- شريط علوي -->
     <top>
         <HBox alignment="CENTER" style="-fx-background-color: #2c3e50; -fx-padding: 15;">
-            <Label text="شاشة الحضور والانصراف السريع" textFill="WHITE">
+            <Label text="%attendance.title" textFill="WHITE">
                 <font><Font name="System Bold" size="24.0" /></font>
             </Label>
         </HBox>
     </top>
 
-    <!-- لوحة المسح وعرض النتيجة (اليمين) -->
+    <!-- لوحة المسح وعرض النتيجة: JavaFX يعكس right/left تلقائياً مع اتجاه المشهد،
+         فتظهر عند اليمين في العربية وعند اليسار في الإنجليزية -->
     <right>
         <VBox alignment="TOP_CENTER" spacing="20.0" style="-fx-padding: 30; -fx-background-color: white;" prefWidth="400.0">
             <!-- تحديد الحصة التي يخدمها هذا الجهاز؛ "تلقائي" يترك النظام يستنتجها من مجموعات الطالب -->
             <VBox spacing="5.0" maxWidth="Infinity">
-                <Label text="الحصة الحالية لهذا الجهاز:" textFill="#7f8c8d" />
-                <ComboBox fx:id="sessionComboBox" maxWidth="Infinity" promptText="تلقائي (حسب مجموعة الطالب)" />
+                <Label text="%attendance.currentSession" textFill="#7f8c8d" />
+                <ComboBox fx:id="sessionComboBox" maxWidth="Infinity" promptText="%attendance.autoSession" />
             </VBox>
 
             <Separator />
 
-            <Label text="مرر الكارنيه الآن" textFill="#7f8c8d">
+            <Label text="%attendance.swipeNow" textFill="#7f8c8d">
                 <font><Font name="System Bold" size="18.0" /></font>
             </Label>
 
             <!-- حقل الباركود (سيتم إخفاؤه برمجياً أو جعله شفافاً في النسخة النهائية) -->
-            <TextField fx:id="barcodeScannerField" onAction="#handleBarcodeScan" promptText="استعداد للقراءة..."
+            <TextField fx:id="barcodeScannerField" onAction="#handleBarcodeScan" promptText="%attendance.scannerPrompt"
                        style="-fx-font-size: 18px; -fx-alignment: center;"/>
 
             <Separator />
 
             <!-- منطقة عرض النتيجة -->
             <VBox fx:id="resultCard" alignment="CENTER" spacing="10.0" style="-fx-padding: 20; -fx-background-radius: 10;">
-                <Label fx:id="studentNameLabel" text="اسم الطالب" wrapText="true" textAlignment="CENTER">
+                <Label fx:id="studentNameLabel" text="%attendance.studentName" wrapText="true" textAlignment="CENTER">
                     <font><Font name="System Bold" size="28.0" /></font>
                 </Label>
-                <Label fx:id="groupNameLabel" text="المجموعة">
+                <Label fx:id="groupNameLabel" text="%attendance.groupName">
                     <font><Font size="18.0" /></font>
                 </Label>
-                <Label fx:id="statusLabel" text="الحالة">
+                <Label fx:id="statusLabel" text="%attendance.status" wrapText="true" textAlignment="CENTER">
                     <font><Font name="System Bold" size="22.0" /></font>
                 </Label>
             </VBox>
         </VBox>
     </right>
 
-    <!-- جدول السجل اللحظي (اليسار) -->
+    <!-- جدول السجل اللحظي -->
     <center>
         <VBox style="-fx-padding: 20;" spacing="10.0">
-            <Label text="سجل الدخول اللحظي">
+            <Label text="%attendance.liveLog">
                 <font><Font name="System Bold" size="16.0" /></font>
             </Label>
             <TableView fx:id="attendanceLogTable" VBox.vgrow="ALWAYS">
                 <columns>
-                    <TableColumn fx:id="colTime" text="الوقت" prefWidth="100.0" />
-                    <TableColumn fx:id="colName" text="الاسم" prefWidth="250.0" />
-                    <TableColumn fx:id="colStatus" text="الحالة" prefWidth="150.0" />
+                    <TableColumn fx:id="colTime" text="%attendance.col.time" prefWidth="100.0" />
+                    <TableColumn fx:id="colName" text="%attendance.col.name" prefWidth="250.0" />
+                    <TableColumn fx:id="colStatus" text="%attendance.col.status" prefWidth="150.0" />
                 </columns>
             </TableView>
         </VBox>

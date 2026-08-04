@@ -9,17 +9,16 @@
       styleClass="content-area">
     <padding><Insets top="28.0" bottom="24.0" left="30.0" right="30.0"/></padding>
 
-    <Label text="إعدادات النظام" styleClass="header-label"/>
+    <Label text="%settings.title" styleClass="header-label"/>
 
     <TabPane VBox.vgrow="ALWAYS" tabClosingPolicy="UNAVAILABLE">
 
         <!-- ============ بيانات السنتر ============ -->
-        <Tab text="بيانات السنتر">
+        <Tab text="%settings.tab.center">
             <VBox spacing="18.0">
                 <padding><Insets top="24.0" bottom="24.0" left="26.0" right="26.0"/></padding>
 
-                <Label text="تظهر هذه البيانات في ترويسة كل إيصال وتقرير يطبعه النظام."
-                       styleClass="muted-text" wrapText="true"/>
+                <Label text="%settings.centerNote" styleClass="muted-text" wrapText="true"/>
 
                 <GridPane hgap="16.0" vgap="16.0">
                     <columnConstraints>
@@ -28,71 +27,33 @@
                         <ColumnConstraints minWidth="120.0"/>
                     </columnConstraints>
 
-                    <Label text="اسم السنتر:" styleClass="sub-label"
+                    <Label text="%settings.centerName" styleClass="sub-label"
                            GridPane.columnIndex="0" GridPane.rowIndex="0"/>
-                    <TextField fx:id="centerNameField" promptText="مثال: سنتر النجاح التعليمي"
+                    <TextField fx:id="centerNameField" promptText="%settings.centerNamePrompt"
                                GridPane.columnIndex="1" GridPane.rowIndex="0"/>
 
-                    <Label text="رقم الهاتف:" styleClass="sub-label"
+                    <Label text="%settings.centerPhone" styleClass="sub-label"
                            GridPane.columnIndex="0" GridPane.rowIndex="1"/>
-                    <TextField fx:id="centerPhoneField" promptText="مثال: 01012345678"
+                    <TextField fx:id="centerPhoneField" promptText="%settings.centerPhonePrompt"
                                GridPane.columnIndex="1" GridPane.rowIndex="1"/>
 
-                    <Label text="الشعار:" styleClass="sub-label"
+                    <Label text="%settings.logo" styleClass="sub-label"
                            GridPane.columnIndex="0" GridPane.rowIndex="2"/>
-                    <TextField fx:id="logoPathField" promptText="لم يُحدَّد شعار" editable="false"
+                    <TextField fx:id="logoPathField" promptText="%settings.logoPrompt" editable="false"
                                GridPane.columnIndex="1" GridPane.rowIndex="2"/>
-                    <Button text="اختيار..." onAction="#handleBrowseLogo" styleClass="btn-secondary"
+                    <Button text="%common.browse" onAction="#handleBrowseLogo" styleClass="btn-secondary"
                             GridPane.columnIndex="2" GridPane.rowIndex="2"/>
                 </GridPane>
 
                 <HBox spacing="14.0" alignment="CENTER_RIGHT" styleClass="card">
-                    <Label text="معاينة الشعار:" styleClass="sub-label"/>
+                    <Label text="%settings.logoPreview" styleClass="sub-label"/>
                     <ImageView fx:id="logoImageView" fitHeight="90.0" preserveRatio="true"/>
                 </HBox>
             </VBox>
         </Tab>
 
-        <!-- ============ النسخ الاحتياطي ============ -->
-        <Tab text="النسخ الاحتياطي">
-            <VBox spacing="18.0">
-                <padding><Insets top="24.0" bottom="24.0" left="26.0" right="26.0"/></padding>
-
-                <GridPane hgap="16.0" vgap="16.0">
-                    <columnConstraints>
-                        <ColumnConstraints minWidth="130.0" halignment="RIGHT"/>
-                        <ColumnConstraints minWidth="320.0" hgrow="ALWAYS"/>
-                        <ColumnConstraints minWidth="120.0"/>
-                    </columnConstraints>
-
-                    <Label text="مجلد الحفظ:" styleClass="sub-label"
-                           GridPane.columnIndex="0" GridPane.rowIndex="0"/>
-                    <TextField fx:id="backupPathField" promptText="لم يُحدَّد مجلد" editable="false"
-                               GridPane.columnIndex="1" GridPane.rowIndex="0"/>
-                    <Button text="اختيار..." onAction="#handleBrowseBackupPath" styleClass="btn-secondary"
-                            GridPane.columnIndex="2" GridPane.rowIndex="0"/>
-
-                    <CheckBox fx:id="autoBackupCheckBox" text="نسخة احتياطية تلقائية يومياً الساعة 2 صباحاً"
-                              GridPane.columnIndex="1" GridPane.rowIndex="1"/>
-                </GridPane>
-
-                <Label text="النسخ التلقائي يتطلب أن يكون الجهاز شغّالاً في ذلك الوقت، وأن يكون mysqldump ضمن مسار النظام. لا يوجد تعويض عن موعد فائت."
-                       styleClass="muted-text" wrapText="true"/>
-
-                <Separator/>
-
-                <HBox spacing="14.0">
-                    <Button text="أخذ نسخة احتياطية الآن" onAction="#handleManualBackup" styleClass="btn-success"/>
-                    <Button text="استعادة من نسخة..." onAction="#handleRestoreBackup" styleClass="btn-danger"/>
-                </HBox>
-
-                <Label text="⚠ الاستعادة تستبدل كل البيانات الحالية ببيانات الملف المختار ولا يمكن التراجع عنها."
-                       styleClass="danger-text" wrapText="true"/>
-            </VBox>
-        </Tab>
-
-        <!-- ============ دفتر الحسابات ============ -->
-        <Tab text="دفتر الحسابات">
+        <!-- ============ اللغة ============ -->
+        <Tab text="%settings.tab.language">
             <VBox spacing="18.0">
                 <padding><Insets top="24.0" bottom="24.0" left="26.0" right="26.0"/></padding>
 
@@ -102,27 +63,82 @@
                         <ColumnConstraints minWidth="220.0"/>
                     </columnConstraints>
 
-                    <Label text="تاريخ بداية الدفتر:" styleClass="sub-label"
+                    <Label text="%settings.language" styleClass="sub-label"
+                           GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                    <ComboBox fx:id="languageCombo" maxWidth="Infinity"
+                              GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                </GridPane>
+
+                <Label text="%settings.languageNote" styleClass="muted-text" wrapText="true"/>
+            </VBox>
+        </Tab>
+
+        <!-- ============ النسخ الاحتياطي ============ -->
+        <Tab text="%settings.tab.backup">
+            <VBox spacing="18.0">
+                <padding><Insets top="24.0" bottom="24.0" left="26.0" right="26.0"/></padding>
+
+                <GridPane hgap="16.0" vgap="16.0">
+                    <columnConstraints>
+                        <ColumnConstraints minWidth="130.0" halignment="RIGHT"/>
+                        <ColumnConstraints minWidth="320.0" hgrow="ALWAYS"/>
+                        <ColumnConstraints minWidth="120.0"/>
+                    </columnConstraints>
+
+                    <Label text="%settings.backupPath" styleClass="sub-label"
+                           GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                    <TextField fx:id="backupPathField" promptText="%settings.backupPathPrompt" editable="false"
+                               GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                    <Button text="%common.browse" onAction="#handleBrowseBackupPath" styleClass="btn-secondary"
+                            GridPane.columnIndex="2" GridPane.rowIndex="0"/>
+
+                    <CheckBox fx:id="autoBackupCheckBox" text="%settings.autoBackup"
+                              GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                </GridPane>
+
+                <Label text="%settings.backupNote" styleClass="muted-text" wrapText="true"/>
+
+                <Separator/>
+
+                <HBox spacing="14.0">
+                    <Button text="%settings.backupNow" onAction="#handleManualBackup" styleClass="btn-success"/>
+                    <Button text="%settings.restore" onAction="#handleRestoreBackup" styleClass="btn-danger"/>
+                </HBox>
+
+                <Label text="%settings.restoreWarning" styleClass="danger-text" wrapText="true"/>
+            </VBox>
+        </Tab>
+
+        <!-- ============ دفتر الحسابات ============ -->
+        <Tab text="%settings.tab.ledger">
+            <VBox spacing="18.0">
+                <padding><Insets top="24.0" bottom="24.0" left="26.0" right="26.0"/></padding>
+
+                <GridPane hgap="16.0" vgap="16.0">
+                    <columnConstraints>
+                        <ColumnConstraints minWidth="170.0" halignment="RIGHT"/>
+                        <ColumnConstraints minWidth="220.0"/>
+                    </columnConstraints>
+
+                    <Label text="%settings.ledgerStart" styleClass="sub-label"
                            GridPane.columnIndex="0" GridPane.rowIndex="0"/>
                     <DatePicker fx:id="ledgerStartDatePicker" editable="false"
                                 GridPane.columnIndex="1" GridPane.rowIndex="0"/>
                 </GridPane>
 
-                <Label text="رصيد الطالب يُحسب من الحركات المسجَّلة في هذا التاريخ فما بعده، وتُستبعد الحركات الأقدم تماماً."
-                       styleClass="muted-text" wrapText="true"/>
+                <Label text="%settings.ledgerNote" styleClass="muted-text" wrapText="true"/>
 
-                <Label text="⚠ تغيير هذا التاريخ يعيد حساب أرصدة كل الطلاب فوراً، وقد يمنع دخولهم من البوابة إن أصبحت أرصدتهم غير كافية. اتركه فارغاً لاحتساب كل الحركات، وهو الصحيح للتركيب الجديد."
-                       styleClass="danger-text" wrapText="true"/>
+                <Label text="%settings.ledgerWarning" styleClass="danger-text" wrapText="true"/>
 
                 <Separator/>
 
-                <Button text="مسح التاريخ (احتساب كل الحركات)" onAction="#handleClearLedgerDate"
+                <Button text="%settings.clearLedgerDate" onAction="#handleClearLedgerDate"
                         styleClass="btn-secondary"/>
             </VBox>
         </Tab>
 
         <!-- ============ معلومات النظام ============ -->
-        <Tab text="معلومات النظام">
+        <Tab text="%settings.tab.system">
             <VBox spacing="14.0">
                 <padding><Insets top="24.0" bottom="24.0" left="26.0" right="26.0"/></padding>
 
@@ -132,31 +148,30 @@
                         <ColumnConstraints minWidth="320.0" hgrow="ALWAYS"/>
                     </columnConstraints>
 
-                    <Label text="قناة إرسال الإشعارات:" styleClass="sub-label"
+                    <Label text="%settings.notificationChannel" styleClass="sub-label"
                            GridPane.columnIndex="0" GridPane.rowIndex="0"/>
-                    <Label fx:id="notificationChannelLabel" text="—"
+                    <Label fx:id="notificationChannelLabel" text="%common.empty"
                            GridPane.columnIndex="1" GridPane.rowIndex="0"/>
 
-                    <Label text="قاعدة البيانات:" styleClass="sub-label"
+                    <Label text="%settings.database" styleClass="sub-label"
                            GridPane.columnIndex="0" GridPane.rowIndex="1"/>
-                    <Label fx:id="databaseLabel" text="—"
+                    <Label fx:id="databaseLabel" text="%common.empty"
                            GridPane.columnIndex="1" GridPane.rowIndex="1"/>
 
-                    <Label text="مستخدم قاعدة البيانات:" styleClass="sub-label"
+                    <Label text="%settings.dbUser" styleClass="sub-label"
                            GridPane.columnIndex="0" GridPane.rowIndex="2"/>
-                    <Label fx:id="dbUserLabel" text="—"
+                    <Label fx:id="dbUserLabel" text="%common.empty"
                            GridPane.columnIndex="1" GridPane.rowIndex="2"/>
                 </GridPane>
 
-                <Label text="تُضبط قناة الإشعارات وبيانات الاتصال بقاعدة البيانات من إعدادات التشغيل لا من هذه الشاشة، لأنها تخص التركيب لا التشغيل اليومي. راجع docs/first-install.md."
-                       styleClass="muted-text" wrapText="true"/>
+                <Label text="%settings.systemNote" styleClass="muted-text" wrapText="true"/>
             </VBox>
         </Tab>
     </TabPane>
 
     <HBox spacing="14.0" alignment="CENTER_LEFT">
-        <Button text="حفظ الإعدادات" onAction="#handleSaveSettings" styleClass="btn-success"/>
-        <Button text="إعادة تحميل" onAction="#handleReload" styleClass="btn-secondary"/>
+        <Button text="%settings.save" onAction="#handleSaveSettings" styleClass="btn-success"/>
+        <Button text="%settings.reload" onAction="#handleReload" styleClass="btn-secondary"/>
         <Region HBox.hgrow="ALWAYS"/>
         <Label fx:id="statusLabel" text=""/>
     </HBox>

@@ -7,6 +7,7 @@ import com.codejava.center.repository.CenterSettingsRepository;
 import com.codejava.center.security.RequiresRole;
 import com.codejava.center.service.dto.StudentBalance;
 import com.codejava.center.repository.StudentRepository;
+import com.codejava.center.util.I18n;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +32,7 @@ public class StudentService {
     public Student saveStudent(Student student) {
         // 1. التحقق من البيانات الأساسية
         if (student.getName() == null || student.getName().trim().isEmpty()) {
-            throw new IllegalArgumentException("اسم الطالب لا يمكن أن يكون فارغاً.");
+            throw new IllegalArgumentException(I18n.get("error.student.nameRequired"));
         }
 
         // 2. معالجة الباركود
@@ -43,13 +44,13 @@ public class StudentService {
             if (student.getId() == null) {
                 Optional<Student> existingStudent = studentRepository.findByBarcode(student.getBarcode());
                 if (existingStudent.isPresent()) {
-                    throw new IllegalStateException("هذا الباركود مسجل بالفعل لطالب آخر.");
+                    throw new IllegalStateException(I18n.get("error.student.barcodeTaken"));
                 }
             }
         }
 
         if (student.getId() == null && studentRepository.existsByName(student.getName())) {
-            throw new IllegalStateException("هذا الاسم مسجل بالفعل لطالب آخر.");
+            throw new IllegalStateException(I18n.get("error.student.nameTaken"));
         }
 
         // 3. الحفظ في قاعدة البيانات
@@ -62,7 +63,8 @@ public class StudentService {
     @Transactional(readOnly = true) // للقراءة فقط، تسرع الأداء
     public Student findByBarcode(String barcode) {
         return studentRepository.findByBarcode(barcode)
-                .orElseThrow(() -> new IllegalArgumentException("لم يتم العثور على طالب بهذا الباركود: " + barcode));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        I18n.format("error.student.barcodeNotFound", barcode)));
     }
 
     /**

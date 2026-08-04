@@ -2,9 +2,11 @@ package com.codejava.center.controller;
 
 import com.codejava.center.service.TeacherService;
 import com.codejava.center.service.dto.SessionPayout;
+import com.codejava.center.util.CommissionTypes;
+import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
+import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
-import com.codejava.commons.fx.dialog.AlertUtils;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -47,7 +49,8 @@ public class TeacherPayoutController {
         colTeacher.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().teacherName()));
         colAttendees.setCellValueFactory(d -> new SimpleStringProperty(String.valueOf(d.getValue().attendees())));
         colRevenue.setCellValueFactory(d -> new SimpleStringProperty(MoneyUtils.format(d.getValue().totalRevenue())));
-        colType.setCellValueFactory(d -> new SimpleStringProperty(commissionLabel(d.getValue().commissionType())));
+        colType.setCellValueFactory(d -> new SimpleStringProperty(
+                CommissionTypes.displayName(d.getValue().commissionType())));
         colPayout.setCellValueFactory(d -> new SimpleStringProperty(MoneyUtils.format(d.getValue().payoutAmount())));
 
         payoutsTable.setItems(payouts);
@@ -55,15 +58,6 @@ public class TeacherPayoutController {
                 .addListener((obs, oldVal, newVal) -> payButton.setDisable(newVal == null));
 
         loadPayouts();
-    }
-
-    private String commissionLabel(String type) {
-        return switch (type) {
-            case "PERCENTAGE" -> "نسبة مئوية";
-            case "FIXED_AMOUNT" -> "مبلغ ثابت";
-            case "RENT" -> "إيجار قاعة";
-            default -> type;
-        };
     }
 
     private void loadPayouts() {
@@ -74,7 +68,7 @@ public class TeacherPayoutController {
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             totalPendingLabel.setText(MoneyUtils.formatWithCurrency(total));
             payButton.setDisable(true);
-        }, error -> AlertUtils.showError("خطأ", "تعذر تحميل المستحقات: " + FxAsync.messageOf(error)));
+        }, error -> Dialogs.error(I18n.format("payout.loadFailed", FxAsync.messageOf(error))));
     }
 
     @FXML
@@ -86,13 +80,12 @@ public class TeacherPayoutController {
     public void handlePayout(ActionEvent event) {
         SessionPayout selected = payoutsTable.getSelectionModel().getSelectedItem();
         if (selected == null) {
-            AlertUtils.showWarning("تنبيه", "يرجى تحديد الحصة المراد صرف مستحقاتها.");
+            Dialogs.warning(I18n.get("payout.selectSession"));
             return;
         }
 
         // الصرف لا يتكرر، فالتأكيد يعرض المبلغ والمعلم صراحةً قبل التنفيذ
-        boolean confirmed = AlertUtils.showConfirm("تأكيد الصرف", String.format(
-                "صرف %s للمعلم %s%nعن حصة %s بتاريخ %s (حضور %d طالب)؟%n%nلا يمكن التراجع عن هذه العملية.",
+        boolean confirmed = Dialogs.confirm(I18n.get("payout.confirmTitle"), I18n.format("payout.confirm",
                 MoneyUtils.formatWithCurrency(selected.payoutAmount()),
                 selected.teacherName(),
                 selected.groupName(),
@@ -102,8 +95,8 @@ public class TeacherPayoutController {
         if (!confirmed) return;
 
         FxAsync.run(() -> teacherService.processSessionPayout(selected.sessionId()), () -> {
-            AlertUtils.showSuccess("نجاح", "تم صرف المستحقات وتسجيلها في الخزينة.");
+            Dialogs.success(I18n.get("payout.done"));
             loadPayouts();
-        }, error -> AlertUtils.showError("خطأ", FxAsync.messageOf(error)));
+        }, error -> Dialogs.error(FxAsync.messageOf(error)));
     }
 }

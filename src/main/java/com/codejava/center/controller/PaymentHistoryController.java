@@ -4,6 +4,9 @@ import com.codejava.center.domain.Student;
 import com.codejava.center.domain.Transaction;
 import com.codejava.center.service.StudentService;
 import com.codejava.center.service.TransactionService;
+import com.codejava.center.util.Dialogs;
+import com.codejava.center.util.FxAsync;
+import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
@@ -20,7 +23,6 @@ import org.springframework.stereotype.Controller;
 import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 @Controller
 @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE) // نسخة جديدة لكل فتح للشاشة - يمنع تراكم الـ listeners والحالة القديمة
@@ -57,11 +59,14 @@ public class PaymentHistoryController {
         ));
 
         colGroup.setCellValueFactory(data -> new SimpleStringProperty(
-                data.getValue().getGroup() != null ? data.getValue().getGroup().getName() : "---"
+                data.getValue().getGroup() != null
+                        ? data.getValue().getGroup().getName() : I18n.get("common.none")
         ));
 
         colSession.setCellValueFactory(data -> new SimpleStringProperty(
-                data.getValue().getSession() != null ? data.getValue().getSession().getSessionDate().format(sessionDateFormatter) : "---"
+                data.getValue().getSession() != null
+                        ? data.getValue().getSession().getSessionDate().format(sessionDateFormatter)
+                        : I18n.get("common.none")
         ));
 
         colDescription.setCellValueFactory(data -> new SimpleStringProperty(
@@ -69,6 +74,9 @@ public class PaymentHistoryController {
         ));
 
         historyTable.setItems(transactionsList);
+
+        // نصوص الترويسة تُبنى هنا لا في FXML لأنها تدمج قيمة متغيّرة مع نص مترجَم
+        showEmptyHeader();
 
         // إعطاء التركيز لحقل البحث تلقائياً
         Platform.runLater(() -> barcodeSearchField.requestFocus());
@@ -80,53 +88,39 @@ public class PaymentHistoryController {
         if (barcode.isEmpty()) return;
 
         transactionsList.clear();
-        studentNameLabel.setText("جاري البحث...");
+        studentNameLabel.setText(I18n.get("payment.searching"));
         totalPaidLabel.setText("");
 
-        CompletableFuture.supplyAsync(() -> {
-            try {
-                Student student = studentService.findByBarcode(barcode);
-                List<Transaction> history = transactionService.getStudentTransactions(student.getId());
-                return new SearchResult(student, history);
-            } catch (Exception e) {
-                throw new RuntimeException(e.getMessage());
-            }
-        }).thenAccept(result -> Platform.runLater(() -> {
-            // عرض بيانات الطالب
-            studentNameLabel.setText("اسم الطالب: " + result.student().getName());
+        FxAsync.supply(() -> {
+            Student student = studentService.findByBarcode(barcode);
+            List<Transaction> history = transactionService.getStudentTransactions(student.getId());
+            return new SearchResult(student, history);
+        }, result -> {
+            studentNameLabel.setText(I18n.format("payment.studentName", result.student().getName()));
 
-            // حساب الإجمالي
             BigDecimal total = result.history().stream()
                     .map(Transaction::getAmount)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
-            totalPaidLabel.setText("إجمالي المدفوعات: " + MoneyUtils.formatWithCurrency(total));
+            totalPaidLabel.setText(I18n.format("payment.totalPaid", MoneyUtils.formatWithCurrency(total)));
 
-            // تعبئة الجدول
             transactionsList.setAll(result.history());
 
             if (result.history().isEmpty()) {
-                showAlert(Alert.AlertType.INFORMATION, "نتيجة البحث", "لا توجد مدفوعات سابقة مسجلة لهذا الطالب.");
+                Dialogs.info(I18n.get("payment.searchResult"), I18n.get("payment.noHistory"));
             }
 
             barcodeSearchField.selectAll();
-
-        })).exceptionally(ex -> {
-            Platform.runLater(() -> {
-                studentNameLabel.setText("اسم الطالب: ---");
-                totalPaidLabel.setText("إجمالي المدفوعات: 0 ج.م");
-                showAlert(Alert.AlertType.ERROR, "خطأ في البحث", "لم يتم العثور على طالب بهذا الباركود.");
-                barcodeSearchField.selectAll();
-            });
-            return null;
+        }, error -> {
+            showEmptyHeader();
+            Dialogs.error(I18n.get("common.searchError"), I18n.get("payment.notFound"));
+            barcodeSearchField.selectAll();
         });
     }
 
-    private void showAlert(Alert.AlertType type, String title, String content) {
-        Alert alert = new Alert(type);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(content);
-        alert.showAndWait();
+    private void showEmptyHeader() {
+        studentNameLabel.setText(I18n.format("payment.studentName", I18n.get("common.none")));
+        totalPaidLabel.setText(I18n.format("payment.totalPaid",
+                MoneyUtils.formatWithCurrency(BigDecimal.ZERO)));
     }
 
     // Record لنقل البيانات بين الـ Threads
