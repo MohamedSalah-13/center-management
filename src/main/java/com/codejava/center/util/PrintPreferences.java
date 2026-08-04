@@ -1,20 +1,29 @@
 package com.codejava.center.util;
 
+import javafx.print.Paper;
 import javafx.print.Printer;
+import javafx.print.PrinterAttributes;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
 /**
- * إعدادات الطباعة: الطابعة المختارة وأسلوب الطباعة.
+ * إعدادات الطباعة: طابعة ومقاس ورق لكل نوع مستند، وأسلوب الطباعة.
  *
  * <p><b>تُحفظ لكل جهاز</b> عبر {@link Preferences} لا في {@code CenterSettings}، لنفس سبب
- * {@link I18n}: الطابعات مُثبَّتة على الجهاز لا على السنتر. جهاز البوابة قد يكون موصولاً
- * بطابعة حرارية صغيرة للإيصالات، وجهاز الإدارة بطابعة A4 للتقارير، واسم الطابعة نفسه
- * لا معنى له على جهاز آخر. لهذا لا يوجد ملف ترحيل Flyway مقابل لهذه الميزة.</p>
+ * {@link I18n}: الطابعات مُثبَّتة على الجهاز لا على السنتر، واسم الطابعة لا معنى له على
+ * جهاز آخر. لهذا لا يوجد ملف ترحيل Flyway مقابل لهذه الميزة.</p>
  *
- * <p>ساكن لا bean من Spring لأن {@code ReportService} و{@code Printing} يستدعيانه من مواضع
- * لا حقن فيها، تماماً كـ {@link MoneyUtils} و{@link I18n}.</p>
+ * <p>الإعداد مفصول حسب {@link DocumentKind}: جهاز الإدارة قد يطبع التقارير على A4 والإيصالات
+ * على طابعة حرارية موصولة بنفس الجهاز، وهما مقاسان لا يجمعهما إعداد واحد. أما أسلوب الطباعة
+ * ({@link PrintMode}) فواحد للبرنامج كله لأنه تفضيل تشغيل لا خاصية ورق.</p>
+ *
+ * <p>مقاسات الورق تُقرأ من الطابعة المختارة نفسها ({@code getSupportedPapers}) لا من قائمة
+ * مكتوبة في الكود: الطابعة الحرارية تُعلن مقاس الرول الحقيقي (80mm) الذي لا يمكن تخمينه،
+ * وقائمة ثابتة قد تعرض مقاساً ترفضه الطابعة فتفشل الطباعة عند المستخدم.</p>
  */
 public final class PrintPreferences {
 
@@ -32,8 +41,13 @@ public final class PrintPreferences {
         }
     }
 
-    private static final String PRINTER_KEY = "print.printerName";
     private static final String MODE_KEY = "print.mode";
+
+    /**
+     * مفتاح الطابعة قبل فصل الإعداد حسب نوع المستند. يُقرأ كقيمة احتياطية للنوعين معاً
+     * حتى لا يفقد جهازٌ مضبوطٌ سلفاً اختياره لمجرد التحديث.
+     */
+    private static final String LEGACY_PRINTER_KEY = "print.printerName";
 
     /** الافتراضي هو سلوك النسخ السابقة من البرنامج: نافذة الطابعة عند كل طباعة */
     private static final PrintMode DEFAULT_MODE = PrintMode.DIALOG;
@@ -41,31 +55,100 @@ public final class PrintPreferences {
     private PrintPreferences() {
     }
 
-    /** اسم الطابعة المختارة، أو {@code null} أي "اترك الأمر لطابعة النظام الافتراضية" */
-    public static String printerName() {
-        try {
-            String saved = prefs().get(PRINTER_KEY, null);
-            return saved == null || saved.isBlank() ? null : saved;
-        } catch (SecurityException e) {
-            // بيئات ويندوز المقيَّدة تمنع قراءة سجل المستخدم؛ طابعة النظام الافتراضية تكفي
-            return null;
-        }
+    // ---------------------------------------------------------------- الطابعة
+
+    /** اسم الطابعة المختارة لهذا النوع، أو {@code null} أي "اترك الأمر لطابعة النظام الافتراضية" */
+    public static String printerName(DocumentKind kind) {
+        String saved = read(printerKey(kind));
+        return saved != null ? saved : read(LEGACY_PRINTER_KEY);
     }
 
     /** @param name اسم الطابعة، أو {@code null} للعودة إلى طابعة النظام الافتراضية */
-    public static void setPrinterName(String name) {
-        try {
-            Preferences prefs = prefs();
-            if (name == null || name.isBlank()) {
-                prefs.remove(PRINTER_KEY);
-            } else {
-                prefs.put(PRINTER_KEY, name);
-            }
-            prefs.flush();
-        } catch (SecurityException | BackingStoreException e) {
-            // فشل الحفظ يعني عودة الاختيار للافتراضي بعد إعادة التشغيل فقط، لا يستحق إسقاط العملية
-        }
+    public static void setPrinterName(DocumentKind kind, String name) {
+        write(printerKey(kind), name);
     }
+
+    /**
+     * الطابعة التي ستُستعمل فعلياً لهذا النوع.
+     *
+     * <p>الطابعة المحفوظة قد تكون فُصلت أو أُعيدت تسميتها، ولا يصح أن يعني ذلك توقّف
+     * الإيصالات: نعود إلى طابعة النظام الافتراضية بدل رمي استثناء، وتنبّه الشاشة إلى
+     * الغياب عبر {@link #savedPrinterIsMissing(DocumentKind)}.</p>
+     *
+     * @return الطابعة، أو {@code null} إن لم يكن على الجهاز أي طابعة أصلاً
+     */
+    public static Printer resolvePrinter(DocumentKind kind) {
+        String saved = printerName(kind);
+        if (saved != null) {
+            for (Printer printer : Printer.getAllPrinters()) {
+                if (printer.getName().equals(saved)) {
+                    return printer;
+                }
+            }
+        }
+        return Printer.getDefaultPrinter();
+    }
+
+    /** هل الطابعة المحفوظة لهذا النوع لم تعد موجودة على الجهاز */
+    public static boolean savedPrinterIsMissing(DocumentKind kind) {
+        String saved = printerName(kind);
+        return saved != null
+                && Printer.getAllPrinters().stream().noneMatch(printer -> printer.getName().equals(saved));
+    }
+
+    // ---------------------------------------------------------------- الورق
+
+    /** اسم مقاس الورق المختار لهذا النوع، أو {@code null} أي مقاس الطابعة الافتراضي */
+    public static String paperName(DocumentKind kind) {
+        return read(paperKey(kind));
+    }
+
+    public static void setPaperName(DocumentKind kind, String name) {
+        write(paperKey(kind), name);
+    }
+
+    /** المقاسات التي تعلن الطابعة دعمها، مرتَّبة بالاسم لتستقر القائمة بين الفتحات */
+    public static List<Paper> supportedPapers(Printer printer) {
+        if (printer == null) {
+            return List.of();
+        }
+        List<Paper> papers = new ArrayList<>(printer.getPrinterAttributes().getSupportedPapers());
+        papers.sort(Comparator.comparing(Paper::getName));
+        return papers;
+    }
+
+    /**
+     * مقاس الورق المستعمل فعلياً لهذا النوع.
+     * المقاس المحفوظ قد لا تدعمه الطابعة الحالية (تغيّرت الطابعة، أو نُقل الإعداد من جهاز
+     * آخر)، فنعود إلى مقاس الطابعة الافتراضي بدل إرسال مهمة ترفضها.
+     *
+     * @return المقاس، أو {@code null} إن لم تكن هناك طابعة
+     */
+    public static Paper resolvePaper(DocumentKind kind, Printer printer) {
+        if (printer == null) {
+            return null;
+        }
+        PrinterAttributes attributes = printer.getPrinterAttributes();
+        String saved = paperName(kind);
+        if (saved != null) {
+            for (Paper paper : attributes.getSupportedPapers()) {
+                if (paper.getName().equals(saved)) {
+                    return paper;
+                }
+            }
+        }
+        return attributes.getDefaultPaper();
+    }
+
+    /** هل المقاس المحفوظ لهذا النوع غير مدعوم من الطابعة المختارة */
+    public static boolean savedPaperIsMissing(DocumentKind kind, Printer printer) {
+        String saved = paperName(kind);
+        return saved != null && printer != null
+                && printer.getPrinterAttributes().getSupportedPapers().stream()
+                        .noneMatch(paper -> paper.getName().equals(saved));
+    }
+
+    // ---------------------------------------------------------------- الأسلوب
 
     public static PrintMode mode() {
         try {
@@ -78,43 +161,41 @@ public final class PrintPreferences {
     }
 
     public static void setMode(PrintMode mode) {
+        write(MODE_KEY, mode.name());
+    }
+
+    // ---------------------------------------------------------------- التخزين
+
+    private static String printerKey(DocumentKind kind) {
+        return "print." + kind.name() + ".printer";
+    }
+
+    private static String paperKey(DocumentKind kind) {
+        return "print." + kind.name() + ".paper";
+    }
+
+    private static String read(String key) {
+        try {
+            String saved = prefs().get(key, null);
+            return saved == null || saved.isBlank() ? null : saved;
+        } catch (SecurityException e) {
+            // بيئات ويندوز المقيَّدة تمنع قراءة سجل المستخدم؛ الافتراضيات تكفي للتشغيل
+            return null;
+        }
+    }
+
+    private static void write(String key, String value) {
         try {
             Preferences prefs = prefs();
-            prefs.put(MODE_KEY, mode.name());
+            if (value == null || value.isBlank()) {
+                prefs.remove(key);
+            } else {
+                prefs.put(key, value);
+            }
             prefs.flush();
         } catch (SecurityException | BackingStoreException e) {
-            // كما في setPrinterName: الأسلوب يعود للافتراضي بعد إعادة التشغيل فقط
+            // فشل الحفظ يعني عودة الاختيار للافتراضي بعد إعادة التشغيل فقط، لا يستحق إسقاط العملية
         }
-    }
-
-    /**
-     * الطابعة التي ستُستعمل فعلياً.
-     *
-     * <p>الطابعة المحفوظة قد تكون فُصلت أو أُعيدت تسميتها بعد اختيارها، ولا يصح أن يعني ذلك
-     * أن الإيصالات تتوقف: نعود إلى طابعة النظام الافتراضية بدل رمي استثناء. الشاشة تنبّه
-     * إلى الغياب عبر {@link #savedPrinterIsMissing()}.</p>
-     *
-     * @return الطابعة، أو {@code null} إن لم يكن على الجهاز أي طابعة أصلاً
-     */
-    public static Printer resolvePrinter() {
-        String saved = printerName();
-        if (saved != null) {
-            for (Printer printer : Printer.getAllPrinters()) {
-                if (printer.getName().equals(saved)) {
-                    return printer;
-                }
-            }
-        }
-        return Printer.getDefaultPrinter();
-    }
-
-    /** هل اختار المستخدم طابعة لم تعد موجودة على الجهاز */
-    public static boolean savedPrinterIsMissing() {
-        String saved = printerName();
-        if (saved == null) {
-            return false;
-        }
-        return Printer.getAllPrinters().stream().noneMatch(printer -> printer.getName().equals(saved));
     }
 
     private static Preferences prefs() {

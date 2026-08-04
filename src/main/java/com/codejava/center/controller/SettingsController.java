@@ -5,6 +5,7 @@ import com.codejava.center.service.BackupService;
 import com.codejava.center.service.NotificationService;
 import com.codejava.center.service.SettingsService;
 import com.codejava.center.util.Dialogs;
+import com.codejava.center.util.DocumentKind;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.LanguageSelector;
@@ -76,10 +77,17 @@ public class SettingsController {
 
     @FXML private ComboBox<Locale> languageCombo;
 
-    @FXML private ComboBox<String> printerCombo;
     @FXML private ComboBox<PrintPreferences.PrintMode> printModeCombo;
-    @FXML private Label printTargetLabel;
-    @FXML private Label printerWarningLabel;
+
+    @FXML private ComboBox<String> reportPrinterCombo;
+    @FXML private ComboBox<String> reportPaperCombo;
+    @FXML private Label reportTargetLabel;
+    @FXML private Label reportWarningLabel;
+
+    @FXML private ComboBox<String> receiptPrinterCombo;
+    @FXML private ComboBox<String> receiptPaperCombo;
+    @FXML private Label receiptTargetLabel;
+    @FXML private Label receiptWarningLabel;
 
     @FXML private TextField backupPathField;
     @FXML private CheckBox autoBackupCheckBox;
@@ -118,19 +126,6 @@ public class SettingsController {
      * تماماً كاللغة. راجع {@link PrintPreferences}.</p>
      */
     private void configurePrinting() {
-        printerCombo.setConverter(new StringConverter<>() {
-            @Override
-            public String toString(String printerName) {
-                // null يمثّل "اترك الأمر للنظام"، وهو أول خيار في القائمة
-                return printerName == null ? I18n.get("settings.printerSystemDefault") : printerName;
-            }
-
-            @Override
-            public String fromString(String string) {
-                return null;
-            }
-        });
-
         printModeCombo.setConverter(new StringConverter<>() {
             @Override
             public String toString(PrintPreferences.PrintMode mode) {
@@ -151,65 +146,136 @@ public class SettingsController {
             }
         });
 
-        loadPrinters();
+        configureKind(DocumentKind.REPORT, reportPrinterCombo, reportPaperCombo,
+                reportTargetLabel, reportWarningLabel);
+        configureKind(DocumentKind.RECEIPT, receiptPrinterCombo, receiptPaperCombo,
+                receiptTargetLabel, receiptWarningLabel);
+    }
+
+    /**
+     * يربط قائمتَي الطابعة والورق لنوع مستند واحد.
+     *
+     * <p>النوعان يتصرفان تصرفاً واحداً - نفس المحوّلات ونفس الحارس ونفس ترتيب "غيّر الطابعة
+     * فتتغيّر معها مقاسات الورق" - فكتابتهما مرتين كان يعني موضعين لنسيان الحارس.</p>
+     */
+    private void configureKind(DocumentKind kind, ComboBox<String> printerCombo,
+                               ComboBox<String> paperCombo, Label targetLabel, Label warningLabel) {
+        printerCombo.setConverter(nameConverter("settings.printerSystemDefault"));
+        paperCombo.setConverter(nameConverter("settings.paperPrinterDefault"));
+
+        loadKind(kind, printerCombo, paperCombo, targetLabel, warningLabel);
+
         printerCombo.valueProperty().addListener((observable, oldName, newName) -> {
             // إعادة تعبئة القائمة تُفرغ الاختيار ثم تعيده، فتُطلق الحدث مرتين: مرة بـ null
-            // تمحو الطابعة المحفوظة. الحارس يقصر الحفظ على اختيار المستخدم وحده.
+            // تمحو الاختيار المحفوظ. الحارس يقصر الحفظ على اختيار المستخدم وحده.
             if (reloadingPrinters) {
                 return;
             }
-            PrintPreferences.setPrinterName(newName);
-            showPrintTarget();
+            PrintPreferences.setPrinterName(kind, newName);
+            // مقاسات الورق تخصّ الطابعة، فتغييرها يُبطل القائمة المعروضة
+            loadKind(kind, printerCombo, paperCombo, targetLabel, warningLabel);
+            statusLabel.setText(I18n.get("settings.printSaved"));
+        });
+
+        paperCombo.valueProperty().addListener((observable, oldPaper, newPaper) -> {
+            if (reloadingPrinters) {
+                return;
+            }
+            PrintPreferences.setPaperName(kind, newPaper);
+            targetLabel.setText(Printing.describeTarget(kind));
             statusLabel.setText(I18n.get("settings.printSaved"));
         });
     }
 
-    /**
-     * تعبئة قائمة الطابعات. الطابعة المحفوظة قد تكون فُصلت عن الجهاز، فتبقى مختارة في
-     * الحفظ بينما تُنبّه الشاشة إلى غيابها بدل أن تُسقط الاختيار بصمت.
-     */
-    private void loadPrinters() {
-        String saved = PrintPreferences.printerName();
-        boolean savedIsMissing = PrintPreferences.savedPrinterIsMissing();
+    /** محوّل عرض يُظهر {@code null} باسم الخيار الافتراضي بدل أن يتركه فراغاً */
+    private StringConverter<String> nameConverter(String defaultKey) {
+        return new StringConverter<>() {
+            @Override
+            public String toString(String name) {
+                return name == null ? I18n.get(defaultKey) : name;
+            }
 
-        List<String> names = new ArrayList<>();
-        names.add(null); // خيار "الطابعة الافتراضية للنظام"
-        Printer.getAllPrinters().forEach(printer -> names.add(printer.getName()));
-        if (savedIsMissing) {
-            names.add(saved);
+            @Override
+            public String fromString(String string) {
+                return null;
+            }
+        };
+    }
+
+    /**
+     * تعبئة الطابعات ومقاسات الورق لنوع واحد.
+     *
+     * <p>المقاسات تأتي من الطابعة المختارة نفسها، فتظهر مقاسات الرول الحقيقية للطابعة
+     * الحرارية و A4/A5 لطابعة المكتب. الطابعة أو المقاس المحفوظ قد يكون قد اختفى، فيبقى
+     * مختاراً في القائمة بينما تُنبّه الشاشة إلى غيابه بدل أن تُسقطه بصمت.</p>
+     */
+    private void loadKind(DocumentKind kind, ComboBox<String> printerCombo,
+                          ComboBox<String> paperCombo, Label targetLabel, Label warningLabel) {
+        String savedPrinter = PrintPreferences.printerName(kind);
+        boolean printerMissing = PrintPreferences.savedPrinterIsMissing(kind);
+
+        List<String> printerNames = new ArrayList<>();
+        printerNames.add(null); // خيار "الطابعة الافتراضية للنظام"
+        Printer.getAllPrinters().forEach(printer -> printerNames.add(printer.getName()));
+        if (printerMissing) {
+            printerNames.add(savedPrinter);
+        }
+
+        Printer resolved = PrintPreferences.resolvePrinter(kind);
+        String savedPaper = PrintPreferences.paperName(kind);
+        boolean paperMissing = PrintPreferences.savedPaperIsMissing(kind, resolved);
+
+        List<String> paperNames = new ArrayList<>();
+        paperNames.add(null); // خيار "مقاس الطابعة الافتراضي"
+        PrintPreferences.supportedPapers(resolved).forEach(paper -> paperNames.add(paper.getName()));
+        if (paperMissing) {
+            paperNames.add(savedPaper);
         }
 
         reloadingPrinters = true;
         try {
-            printerCombo.getItems().setAll(names);
-            printerCombo.setValue(saved);
+            printerCombo.getItems().setAll(printerNames);
+            printerCombo.setValue(savedPrinter);
+            paperCombo.getItems().setAll(paperNames);
+            paperCombo.setValue(savedPaper);
         } finally {
             reloadingPrinters = false;
         }
 
-        showPrintTarget();
+        targetLabel.setText(Printing.describeTarget(kind));
 
         // التنبيه له مكانه في التبويب نفسه لا في شريط الحالة المشترك: شريط الحالة يُمسح
         // عند اكتمال تحميل بقية الإعدادات، فكان التنبيه يظهر ثم يختفي وحده
-        printerWarningLabel.setText(savedIsMissing ? I18n.format("settings.printerMissing", saved) : "");
-        printerWarningLabel.setVisible(savedIsMissing);
-        printerWarningLabel.setManaged(savedIsMissing);
-    }
-
-    private void showPrintTarget() {
-        printTargetLabel.setText(Printing.describeTarget());
+        String warning = printerMissing ? I18n.format("settings.printerMissing", savedPrinter)
+                : paperMissing ? I18n.format("settings.paperMissing", savedPaper)
+                : "";
+        warningLabel.setText(warning);
+        warningLabel.setVisible(!warning.isEmpty());
+        warningLabel.setManaged(!warning.isEmpty());
     }
 
     @FXML
     public void handleRefreshPrinters(ActionEvent event) {
-        loadPrinters();
+        loadKind(DocumentKind.REPORT, reportPrinterCombo, reportPaperCombo,
+                reportTargetLabel, reportWarningLabel);
+        loadKind(DocumentKind.RECEIPT, receiptPrinterCombo, receiptPaperCombo,
+                receiptTargetLabel, receiptWarningLabel);
     }
 
     @FXML
-    public void handlePrintTestPage(ActionEvent event) {
+    public void handlePrintReportTestPage(ActionEvent event) {
+        printTestPage(DocumentKind.REPORT, event);
+    }
+
+    @FXML
+    public void handlePrintReceiptTestPage(ActionEvent event) {
+        printTestPage(DocumentKind.RECEIPT, event);
+    }
+
+    private void printTestPage(DocumentKind kind, ActionEvent event) {
         try {
             // الطباعة تبقى على خيط الواجهة: شرط PrinterJob في JavaFX
-            Printing.printTestPage(windowOf(event));
+            Printing.printTestPage(kind, windowOf(event));
         } catch (Exception e) {
             Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(e));
         }

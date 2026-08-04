@@ -3,6 +3,7 @@ package com.codejava.center.i18n;
 import com.codejava.center.domain.enums.NotificationType;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.domain.enums.TransactionType;
+import com.codejava.center.util.DocumentKind;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.PrintPreferences;
 import org.junit.jupiter.api.Test;
@@ -129,6 +130,9 @@ class MessageBundleTest {
         }
         for (PrintPreferences.PrintMode mode : PrintPreferences.PrintMode.values()) {
             requireKey(declared, "printMode." + mode.name(), unresolved);
+        }
+        for (DocumentKind kind : DocumentKind.values()) {
+            requireKey(declared, "documentKind." + kind.name(), unresolved);
         }
         // نوع العمولة نص حر في قاعدة البيانات لا enum، والقيم الثلاث هي ما تعرضه الشاشة
         for (String commission : new String[]{"PERCENTAGE", "FIXED_AMOUNT", "RENT"}) {

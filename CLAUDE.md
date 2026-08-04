@@ -131,24 +131,53 @@ Arabic flips it a second time and pushes the text to the wrong edge. The old har
 
 ### Printing
 
-Every printed node goes through `util/Printing.print(node, owner)` — never
-`PrinterJob.createPrinterJob()` directly. It applies the two settings from
-`util/PrintPreferences`: which printer, and what happens on "print" (`PrintMode` —
-`PREVIEW`, `DIALOG`, `DIRECT`). `DIALOG` is the default because it is what every earlier
-release did.
+**Describe a printout as blocks, not as one node.** Build a `util/PrintDocument` —
+`PrintDocument.report()` or `.receipt()`, a `header(Supplier<Node>)`, then `add(...)` for
+each row — and hand it to `util/Printing.print(document, owner)`. Never call
+`PrinterJob.createPrinterJob()` directly.
 
-**Print settings are stored per machine** (`java.util.prefs`), like the language and for
-the same kind of reason: a printer belongs to the terminal, not to the centre, and the gate
-machine may drive a receipt printer while the office drives A4. No Flyway migration.
+The reason is not tidiness. `printPage` renders **one page** and silently drops whatever
+does not fit: an arrears report with 200 students printed the first 40 and nothing said so.
+`Printing` measures the blocks and packs them into pages, so a block is never cut in half.
+A block is therefore the unit that must not split — keep a heading and its first row in one
+block if they must stay together.
 
-A saved printer that has since been unplugged falls back to the system default rather than
-throwing — an unplugged printer must not stop receipts. `PrintPreferences.savedPrinterIsMissing()`
-is what lets the settings screen say so.
+The header is a `Supplier` because it repeats on every page and a JavaFX node cannot have
+two parents. Read whatever it needs (settings, logo) *outside* the lambda: it runs once per
+page, so a query inside it is one query per page.
 
-The preview window pins the document to `LEFT_TO_RIGHT` while its own toolbar follows the
-UI language. Printing happens on a node outside any scene, i.e. left-to-right; letting the
+`util/PrintPreferences` holds, **per machine** (`java.util.prefs`, no Flyway migration):
+
+- printer **and paper size per `DocumentKind`** — one machine may drive a thermal receipt
+  printer and an A4 printer at once;
+- `PrintMode` (`PREVIEW` / `DIALOG` / `DIRECT`), global, `DIALOG` by default because that is
+  what every earlier release did.
+
+Paper choices come from `printer.getPrinterAttributes().getSupportedPapers()`, not a list in
+code: only the printer knows its roll size, and offering a size it rejects fails at the
+customer. Anything saved but now missing — unplugged printer, unsupported paper — falls back
+to the printer's default instead of throwing; an unplugged printer must not stop receipts.
+`savedPrinterIsMissing` / `savedPaperIsMissing` are what let the settings screen say so.
+
+Two invariants worth keeping:
+
+- `REPORT` paginates and numbers its pages; `RECEIPT` is one page however long, because a
+  roll has no page breaks.
+- The print dialog is shown **before** pagination, since the user may pick another paper size
+  in it and a layout computed for A4 is wrong for A5.
+
+Content wider than the paper is scaled down by one factor for the whole document — never
+scaled up, and never cropped at the edge.
+
+`Printing.pageBreaks` is package-private and free of JavaFX on purpose: it is the decision
+that loses data when it is wrong, and `PaginationTest` covers it without a toolkit.
+
+The preview window pins the sheets to `LEFT_TO_RIGHT` while its own toolbar follows the UI
+language. Printing happens on a node outside any scene, i.e. left-to-right; letting the
 preview inherit the Arabic scene direction would show a mirrored version of what comes out
-of the printer, which is the one thing a preview must not do.
+of the printer, which is the one thing a preview must not do. For the same reason the
+stylesheet is loaded onto the off-screen layout scene too — measuring in one font and
+printing in another makes the computed page breaks wrong.
 
 ### Money
 
