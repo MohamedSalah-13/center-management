@@ -1,16 +1,13 @@
 package com.codejava.center.domain.enums;
 
+import com.codejava.center.util.I18n;
+
 public enum NotificationType {
-    ABSENCE("إشعار غياب"),
-    ARREARS("تذكير بمتأخرات");
+    ABSENCE,
+    ARREARS;
 
-    private final String arabicName;
-
-    NotificationType(String arabicName) {
-        this.arabicName = arabicName;
-    }
-
-    public String getArabicName() {
-        return arabicName;
+    /** الاسم المعروض بلغة الواجهة الحالية - المفتاح {@code notificationType.<NAME>} */
+    public String getDisplayName() {
+        return I18n.get("notificationType." + name());
     }
 }

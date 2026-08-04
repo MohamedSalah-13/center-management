@@ -9,6 +9,7 @@ import com.codejava.center.repository.CourseGroupRepository;
 import com.codejava.center.repository.StudentGroupRepository;
 import com.codejava.center.repository.StudentRepository;
 import com.codejava.center.repository.TeacherRepository;
+import com.codejava.center.util.I18n;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -67,7 +68,7 @@ class EnrollmentServiceTest {
 
         assertThatThrownBy(() -> enrollmentService.subscribe(student, group))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("مشترك بالفعل");
+                .hasMessage(I18n.get("error.enrollment.alreadyMember"));
     }
 
     @Test
@@ -77,7 +78,7 @@ class EnrollmentServiceTest {
 
         assertThatThrownBy(() -> enrollmentService.subscribe(persistStudent("STU-E5", "طالب 5"), group))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("مكتملة العدد");
+                .hasMessage(I18n.format("error.enrollment.groupFull", group.getMaxCapacity()));
     }
 
     /**

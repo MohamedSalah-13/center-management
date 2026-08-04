@@ -38,9 +38,14 @@ trap when MySQL runs in a container.
 
 `CenterApplication.main` calls `Application.launch(JavaFxApplication.class)`. `JavaFxApplication.init()`
 boots Spring, `start()` publishes a `StageReadyEvent`, and `PrimaryStageInitializer` listens
-for it and loads `Login.fxml`. Every FXML load sets
-`fxmlLoader.setControllerFactory(applicationContext::getBean)`, so controllers are Spring
-beans with constructor injection via `@RequiredArgsConstructor`.
+for it and shows `Login.fxml`.
+
+**Load FXML only through `util/ViewLoader`.** It sets three things that must never be
+forgotten together: the controller factory (so controllers are Spring beans with
+constructor injection via `@RequiredArgsConstructor`), the resource bundle (or the screen
+renders literal `%keys`), and the scene's node orientation. `showLogin` / `showDashboard`
+also own the window sizing, because switching language rebuilds the scene and needs exactly
+the same setup.
 
 **Controllers are `@Scope(SCOPE_PROTOTYPE)` and must stay that way.** `DashboardController.loadView`
 re-loads FXML on every navigation; as singletons they accumulated listeners and stale
@@ -75,6 +80,49 @@ Two constraints to respect when adding guards:
   SECRETARY hits `AccessDeniedException` on every open.
 
 Hiding buttons in the UI is presentation only; the service layer is the real boundary.
+
+### Language and direction
+
+The UI ships in Arabic and English. **No user-facing string belongs in code or FXML** — it
+goes in `src/main/resources/i18n/`:
+
+- `messages.properties` — Arabic, and the **base** bundle (no locale suffix).
+- `messages_en.properties` — English.
+
+Arabic being the base means a key forgotten in the English file falls back to Arabic
+instead of throwing `MissingResourceException` at the customer. `I18n` installs a
+`ResourceBundle.Control` returning `null` from `getFallbackLocale`: without it,
+`ResourceBundle` tries the **JVM default locale before the base bundle**, so asking for
+Arabic on an English Windows silently returned the whole English bundle.
+
+How to reach strings:
+
+- FXML: `text="%student.title"`, `promptText="%student.searchPrompt"`.
+- Java: `I18n.get(key)` or `I18n.format(key, args…)` (MessageFormat — double any `'`).
+- Enums: `Role`/`NotificationType`/`TransactionType` expose `getDisplayName()` reading
+  `role.ADMIN`, `notificationType.ABSENCE`, … Add the key when you add a constant.
+- Commission type is a `String` column, not an enum — use `util/CommissionTypes`.
+- Alerts: `util/Dialogs`, **not** `AlertUtils` from fx-commons. The vendored jar has no way
+  to set direction or button labels, so its dialogs rendered left-to-right with OK/Cancel
+  whatever the language.
+
+`I18n.setLocale` also calls `Locale.setDefault`, which is what localises `DatePicker` month
+names and other strings baked into JavaFX. Arabic uses `ar-EG-u-nu-latn` so amounts and
+dates keep Latin digits.
+
+**The language is stored per machine** (`java.util.prefs`), not in `CenterSettings`: the
+login screen needs it before there is a session, and terminals in one centre may differ.
+That is why this feature has no Flyway migration. Switching rebuilds the current scene via
+`ViewLoader`; the selector lives on the login screen, the sidebar and the settings screen,
+and is wired by `util/LanguageSelector` (whose re-entrancy guard is load-bearing).
+
+Direction is set on the `Scene` by `ViewLoader`, never hardcoded in FXML.
+
+**Do not write direction-specific CSS.** JavaFX mirrors RTL layout itself — the same
+`<left>` node renders on the right, and `-fx-alignment` is mirrored with it. So
+`center-left` means "start of the line" in both languages, and writing `center-right` for
+Arabic flips it a second time and pushes the text to the wrong edge. The old hardcoded
+`-fx-alignment: center-right` on `.sidebar-btn` was that bug.
 
 ### Money
 
@@ -123,6 +171,16 @@ The three test classes exist because these failure modes are invisible to the co
   getter is `isActive()`, a classic spot for resolution to fail.
 - AOP advice silently does not run if the starter is missing or the call is self-invocation,
   so unexercised security can look applied while doing nothing.
+- Translation fails silently, never at compile time: a key missing from the English bundle
+  shows Arabic, and a mistyped key shows `!some.key!` on screen. `MessageBundleTest` turns
+  both into build failures — it compares the two key sets, scans every FXML `%ref` and
+  literal `I18n.get`/`format` call, checks each enum constant has a display name, and
+  asserts both languages use the same `{n}` placeholders.
+
+**Never assert a user-facing string as a literal.** The UI language is stored per machine,
+so a test comparing against Arabic text starts failing the moment someone switches the app
+to English. Compare against the key instead — `hasMessage(I18n.get("error.session.notFound"))`,
+`isEqualTo(Role.ADMIN.getDisplayName())`, `contains(MoneyUtils.formatWithCurrency(…))`.
 
 Add coverage when touching any of those. `@DataJpaTest` needs `@Import(SecurityConfig.class)`
 because `CenterApplication` is itself a bean injecting `PasswordEncoder`.

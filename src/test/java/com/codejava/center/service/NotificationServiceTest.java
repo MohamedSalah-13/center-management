@@ -12,6 +12,8 @@ import com.codejava.center.service.dto.GroupAttendanceReport;
 import com.codejava.center.service.dto.NotificationCandidate;
 import com.codejava.center.service.dto.StudentBalance;
 import com.codejava.center.service.notification.MessageSender;
+import com.codejava.center.util.I18n;
+import com.codejava.center.util.MoneyUtils;
 import com.codejava.center.util.UserSession;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,7 +70,9 @@ class NotificationServiceTest {
         var candidates = notificationService.buildAbsenceNotifications(report);
 
         assertThat(candidates).extracting(NotificationCandidate::studentName).containsExactly("غائب");
-        assertThat(candidates.get(0).message()).contains("3 حصة من أصل 4");
+        // ثلاث غيابات من أربع حصص - النص يُبنى من نفس مفتاح الحزمة فلا يتعلّق بلغة الجهاز
+        assertThat(candidates.get(0).message()).isEqualTo(I18n.format("notify.message.absence",
+                I18n.get("settings.defaultCenterName"), "غائب", 3L, 4L, "مجموعة أ"));
         assertThat(candidates.get(0).sendable()).isTrue();
     }
 
@@ -83,7 +87,7 @@ class NotificationServiceTest {
 
         assertThat(candidate.phoneValid()).isFalse();
         assertThat(candidate.sendable()).isFalse();
-        assertThat(candidate.statusLabel()).isEqualTo("رقم غير صالح");
+        assertThat(candidate.statusLabel()).isEqualTo(I18n.get("notify.status.invalidPhone"));
     }
 
     /** بدون منع التكرار يصل ولي الأمر رسالة في كل مرة يُفتح فيها التقرير */
@@ -136,7 +140,8 @@ class NotificationServiceTest {
                 new StudentBalance(student.getId(), "مدين", "STU-N7", "0100", "01012345678",
                         new BigDecimal("-75.00"))));
 
-        assertThat(candidates.get(0).message()).contains("75.00 ج.م");
+        assertThat(candidates.get(0).message())
+                .contains(MoneyUtils.formatWithCurrency(new BigDecimal("75.00")));
         assertThat(candidates.get(0).sendable()).isTrue();
     }
 

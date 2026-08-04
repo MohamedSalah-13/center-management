@@ -8,9 +8,10 @@ import com.codejava.center.service.EnrollmentService;
 import com.codejava.center.service.ReportService;
 import com.codejava.center.service.StudentService;
 import com.codejava.center.service.TransactionService;
+import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
+import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
-import com.codejava.commons.fx.dialog.AlertUtils;
 import com.codejava.commons.fx.form.FormUtils;
 import com.codejava.commons.fx.validation.InputValidator;
 import javafx.application.Platform;
@@ -59,7 +60,8 @@ public class CashierController {
         groupsComboBox.setConverter(new StringConverter<>() {
             @Override
             public String toString(CourseGroup group) {
-                return group == null ? "" : group.getName() + " (المعلم: " + group.getTeacher().getName() + ")";
+                return group == null ? "" : I18n.format("cashier.groupWithTeacher",
+                        group.getName(), group.getTeacher().getName());
             }
 
             @Override
@@ -72,7 +74,7 @@ public class CashierController {
         groupsComboBox.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
                 amountField.setText(MoneyUtils.format(newVal.getSessionPrice()));
-                descriptionField.setText("اشتراك مجموعة: " + newVal.getName());
+                descriptionField.setText(I18n.format("cashier.subscriptionDescription", newVal.getName()));
             }
         });
 
@@ -114,12 +116,12 @@ public class CashierController {
             paymentSection.setDisable(false);
 
             if (groupsComboBox.getItems().isEmpty()) {
-                AlertUtils.showWarning("تنبيه", "هذا الطالب غير مشترك في أي مجموعة حالياً.");
+                Dialogs.warning(I18n.get("cashier.noGroups"));
             }
 
         }, error -> {
             resetUI();
-            AlertUtils.showError("خطأ في البحث", FxAsync.messageOf(error));
+            Dialogs.error(I18n.get("common.searchError"), FxAsync.messageOf(error));
             barcodeSearchField.selectAll();
         });
     }
@@ -130,7 +132,7 @@ public class CashierController {
 
         CourseGroup selectedGroup = groupsComboBox.getValue();
         if (selectedGroup == null) {
-            AlertUtils.showWarning("بيانات ناقصة", "يرجى اختيار المجموعة أولاً.");
+            Dialogs.warning(I18n.get("common.missingData"), I18n.get("cashier.selectGroupFirst"));
             return;
         }
 
@@ -138,7 +140,7 @@ public class CashierController {
         String description = descriptionField.getText().trim();
 
         if (amountStr.isEmpty() || description.isEmpty()) {
-            AlertUtils.showWarning("بيانات ناقصة", "يرجى التأكد من إدخال المبلغ والبيان.");
+            Dialogs.warning(I18n.get("common.missingData"), I18n.get("cashier.amountAndDescriptionRequired"));
             return;
         }
 
@@ -146,7 +148,7 @@ public class CashierController {
         try {
             amount = MoneyUtils.normalize(new BigDecimal(amountStr));
         } catch (NumberFormatException e) {
-            AlertUtils.showError("إدخال خاطئ", "يرجى إدخال المبلغ كأرقام صحيحة فقط.");
+            Dialogs.error(I18n.get("common.invalidInput"), I18n.get("cashier.amountMustBeNumeric"));
             return;
         }
 
@@ -159,11 +161,10 @@ public class CashierController {
             return transactionService.getStudentBalance(student.getId());
         }, newBalance -> {
             printReceipt(student, selectedGroup, amount, newBalance, description);
-            AlertUtils.showSuccess("نجاح العملية",
-                    "تم تسجيل مبلغ " + MoneyUtils.formatWithCurrency(amount) + " بنجاح لخزينة السنتر.\n"
-                            + "رصيد الطالب الآن: " + MoneyUtils.formatWithCurrency(newBalance));
+            Dialogs.success(I18n.get("cashier.paymentSuccessTitle"), I18n.format("cashier.paymentSuccess",
+                    MoneyUtils.formatWithCurrency(amount), MoneyUtils.formatWithCurrency(newBalance)));
             handleCancelAction(null); // إعادة تعيين الشاشة لاستقبال الطالب التالي
-        }, error -> AlertUtils.showError("خطأ في النظام", FxAsync.messageOf(error)));
+        }, error -> Dialogs.error(I18n.get("common.systemError"), FxAsync.messageOf(error)));
     }
 
     @FXML
@@ -178,7 +179,7 @@ public class CashierController {
             reportService.printPaymentReceipt(student.getName(), group.getName(), amount,
                     newBalance, description, paymentSection.getScene().getWindow());
         } catch (Exception e) {
-            AlertUtils.showError("خطأ في الطباعة", FxAsync.messageOf(e));
+            Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(e));
         }
     }
 
@@ -193,9 +194,10 @@ public class CashierController {
     private void resetUI() {
         currentStudent = null;
         barcodeSearchField.clear();
-        studentNameLabel.setText("---");
-        schoolLevelLabel.setText("---");
-        balanceLabel.setText("---");
+        String none = I18n.get("common.none");
+        studentNameLabel.setText(none);
+        schoolLevelLabel.setText(none);
+        balanceLabel.setText(none);
         balanceLabel.setStyle("");
         groupsComboBox.getItems().clear();
         amountField.clear();

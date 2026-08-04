@@ -8,8 +8,9 @@ import com.codejava.center.service.NotificationService;
 import com.codejava.center.service.StudentService;
 import com.codejava.center.service.dto.NotificationCandidate;
 import com.codejava.center.service.notification.MessageSender;
+import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
-import com.codejava.commons.fx.dialog.AlertUtils;
+import com.codejava.center.util.I18n;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -59,7 +60,7 @@ public class NotificationsController {
         typeComboBox.setConverter(new StringConverter<>() {
             @Override
             public String toString(NotificationType type) {
-                return type == null ? "" : type.getArabicName();
+                return type == null ? "" : type.getDisplayName();
             }
 
             @Override
@@ -84,7 +85,7 @@ public class NotificationsController {
 
         colName.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().studentName()));
         colPhone.setCellValueFactory(d -> new SimpleStringProperty(
-                d.getValue().rawPhone().isBlank() ? "لا يوجد" : d.getValue().rawPhone()));
+                d.getValue().rawPhone().isBlank() ? I18n.get("notify.noPhone") : d.getValue().rawPhone()));
         colStatus.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().statusLabel()));
         colMessage.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().message()));
 
@@ -99,9 +100,8 @@ public class NotificationsController {
         fromPicker.setValue(LocalDate.now().minusWeeks(1));
         toPicker.setValue(LocalDate.now());
 
-        channelNoteLabel.setText(notificationService.channelRequiresManualConfirmation()
-                ? "القناة الحالية تفتح محادثة واتساب لكل ولي أمر بالنص جاهزاً، وتضغط أنت \"إرسال\". لا تُرسَل أي رسالة دون رؤيتك لها."
-                : "القناة الحالية ترسل الرسائل مباشرةً دون تدخّل.");
+        channelNoteLabel.setText(I18n.get(notificationService.channelRequiresManualConfirmation()
+                ? "notify.channelManual" : "notify.channelAutomatic"));
 
         updateFieldVisibility();
         loadGroups();
@@ -120,7 +120,7 @@ public class NotificationsController {
     private void loadGroups() {
         FxAsync.supply(courseGroupService::getAllGroups,
                 groups -> groupComboBox.getItems().setAll(groups),
-                error -> AlertUtils.showError("خطأ", "تعذر تحميل المجموعات: " + FxAsync.messageOf(error)));
+                error -> Dialogs.error(I18n.format("attReport.groupsLoadFailed", FxAsync.messageOf(error))));
     }
 
     @FXML
@@ -133,21 +133,21 @@ public class NotificationsController {
             LocalDate to = toPicker.getValue();
 
             if (group == null || from == null || to == null) {
-                AlertUtils.showWarning("بيانات ناقصة", "يرجى اختيار المجموعة وتحديد الفترة.");
+                Dialogs.warning(I18n.get("common.missingData"), I18n.get("attReport.selectGroupAndPeriod"));
                 return;
             }
             if (from.isAfter(to)) {
-                AlertUtils.showWarning("فترة غير صحيحة", "تاريخ البداية يجب أن يسبق تاريخ النهاية.");
+                Dialogs.warning(I18n.get("attReport.invalidPeriodTitle"), I18n.get("attReport.invalidPeriod"));
                 return;
             }
 
             FxAsync.supply(() -> notificationService.buildAbsenceNotifications(
                     attendanceService.getGroupAttendance(group, from, to)), this::showCandidates,
-                    error -> AlertUtils.showError("خطأ", FxAsync.messageOf(error)));
+                    error -> Dialogs.error(FxAsync.messageOf(error)));
         } else {
             FxAsync.supply(() -> notificationService.buildArrearsNotifications(
                     studentService.getStudentsInArrears()), this::showCandidates,
-                    error -> AlertUtils.showError("خطأ", FxAsync.messageOf(error)));
+                    error -> Dialogs.error(FxAsync.messageOf(error)));
         }
     }
 
@@ -158,14 +158,13 @@ public class NotificationsController {
         long invalid = list.stream().filter(c -> !c.phoneValid()).count();
         long already = list.stream().filter(c -> c.phoneValid() && c.alreadyNotified()).count();
 
-        summaryLabel.setText(String.format("الإجمالي: %d   |   جاهز: %d   |   رقم غير صالح: %d   |   أُرسل مسبقاً: %d",
-                list.size(), ready, invalid, already));
+        summaryLabel.setText(I18n.format("notify.summary", list.size(), ready, invalid, already));
 
         sendSelectedButton.setDisable(ready == 0);
         sendAllButton.setDisable(ready == 0);
 
         if (list.isEmpty()) {
-            AlertUtils.showWarning("لا توجد نتائج", "لا يوجد من يستحق هذا الإشعار حالياً.");
+            Dialogs.warning(I18n.get("notify.noResultsTitle"), I18n.get("notify.noResults"));
         }
     }
 
@@ -175,7 +174,7 @@ public class NotificationsController {
                 candidatesTable.getSelectionModel().getSelectedItems());
 
         if (selected.isEmpty()) {
-            AlertUtils.showWarning("تنبيه", "يرجى تحديد صف واحد على الأقل.");
+            Dialogs.warning(I18n.get("notify.selectAtLeastOne"));
             return;
         }
         sendAll(selected.stream().filter(NotificationCandidate::sendable).toList());
@@ -188,19 +187,18 @@ public class NotificationsController {
 
     private void sendAll(List<NotificationCandidate> targets) {
         if (targets.isEmpty()) {
-            AlertUtils.showWarning("تنبيه", "لا يوجد مرسَل إليه جاهز ضمن ما حددته.");
+            Dialogs.warning(I18n.get("notify.noneReady"));
             return;
         }
 
         // الإرسال لأشخاص حقيقيين: تأكيد صريح بالعدد قبل التنفيذ.
         // ومع القناة اليدوية سيُفتح تبويب لكل ولي أمر، وهو ما يجب أن يعرفه المستخدم مسبقاً.
         String warning = notificationService.channelRequiresManualConfirmation()
-                ? String.format("%n%nستُفتح %d محادثة واتساب واحدة تلو الأخرى، وتضغط \"إرسال\" في كل منها.", targets.size())
+                ? I18n.format("notify.manualWarning", targets.size())
                 : "";
 
-        if (!AlertUtils.showConfirm("تأكيد الإرسال",
-                String.format("إرسال %s إلى %d ولي أمر؟%s",
-                        typeComboBox.getValue().getArabicName(), targets.size(), warning))) {
+        if (!Dialogs.confirm(I18n.get("notify.confirmTitle"), I18n.format("notify.confirm",
+                typeComboBox.getValue().getDisplayName(), targets.size(), warning))) {
             return;
         }
 
@@ -212,21 +210,21 @@ public class NotificationsController {
                 if (result.success()) {
                     sent++;
                 } else {
-                    failures.add(candidate.studentName() + ": " + result.failureReason());
+                    failures.add(I18n.format("notify.failureLine",
+                            candidate.studentName(), result.failureReason()));
                 }
             }
             return new SendOutcome(sent, failures);
         }, outcome -> {
             if (outcome.failures().isEmpty()) {
-                AlertUtils.showSuccess("تم", "تم إرسال " + outcome.sent() + " إشعاراً.");
+                Dialogs.success(I18n.get("notify.sentTitle"), I18n.format("notify.sent", outcome.sent()));
             } else {
-                AlertUtils.showError("اكتمل مع أخطاء", String.format(
-                        "نجح: %d   -   فشل: %d%n%n%s",
+                Dialogs.error(I18n.get("notify.partialTitle"), I18n.format("notify.partial",
                         outcome.sent(), outcome.failures().size(),
                         String.join("\n", outcome.failures())));
             }
             handleBuild(null); // إعادة التجهيز لتحديث حالة "أُرسل مسبقاً"
-        }, error -> AlertUtils.showError("خطأ", FxAsync.messageOf(error)));
+        }, error -> Dialogs.error(FxAsync.messageOf(error)));
     }
 
     private record SendOutcome(int sent, List<String> failures) {

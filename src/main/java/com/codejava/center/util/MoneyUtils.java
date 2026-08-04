@@ -27,8 +27,12 @@ public final class MoneyUtils {
         return normalize(value).toPlainString();
     }
 
-    /** تنسيق المبلغ مع إضافة العملة */
+    /**
+     * تنسيق المبلغ مع إضافة العملة.
+     * رمز العملة يأتي من حزمة النصوص (ج.م / EGP) لا مكتوباً هنا،
+     * وإلا ظهرت واجهة إنجليزية كاملة بمبالغ مذيَّلة برمز عربي.
+     */
     public static String formatWithCurrency(BigDecimal value) {
-        return format(value) + " ج.م";
+        return format(value) + " " + I18n.get("app.currency");
     }
 }

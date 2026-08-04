@@ -12,6 +12,7 @@ import com.codejava.center.service.dto.AttendanceResult;
 import com.codejava.center.service.dto.AttendanceSummary;
 import com.codejava.center.service.dto.DailyAttendance;
 import com.codejava.center.service.dto.GroupAttendanceReport;
+import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -47,13 +48,14 @@ public class AttendanceService {
         // 1. التحقق من وجود الطالب
         Optional<Student> studentOpt = studentRepository.findByBarcode(barcode);
         if (studentOpt.isEmpty()) {
-            return buildErrorResult("غير معروف", "باركود غير مسجل بالنظام");
+            return buildErrorResult(I18n.get("attendance.result.unknownStudent"),
+                    I18n.get("attendance.result.barcodeNotRegistered"));
         }
         Student student = studentOpt.get();
 
         // التحقق من إيقاف حساب الطالب
         if (!student.isActive()) {
-            return buildErrorResult(student.getName(), "حساب الطالب موقوف من الإدارة");
+            return buildErrorResult(student.getName(), I18n.get("attendance.result.suspended"));
         }
 
         // 2. تحديد الحصة التي سيُسجَّل عليها الحضور
@@ -61,21 +63,21 @@ public class AttendanceService {
         if (boundSessionId != null) {
             Optional<Session> bound = sessionRepository.findByIdWithGroup(boundSessionId);
             if (bound.isEmpty() || !bound.get().isActive()) {
-                return buildErrorResult(student.getName(), "الحصة المحددة لهذا الجهاز لم تعد مفتوحة");
+                return buildErrorResult(student.getName(), I18n.get("attendance.result.sessionClosed"));
             }
             currentSession = bound.get();
         } else {
             // جهاز واحد يخدم كل القاعات: نبحث عن حصة مفتوحة اليوم ينتمي الطالب لمجموعتها
             List<Session> candidates = sessionRepository.findActiveForStudent(student, LocalDate.now());
             if (candidates.isEmpty()) {
-                return buildErrorResult(student.getName(), "لا توجد حصة مفعلة اليوم لأي من مجموعات هذا الطالب");
+                return buildErrorResult(student.getName(), I18n.get("attendance.result.noActiveSession"));
             }
             if (candidates.size() > 1) {
                 String groupNames = candidates.stream()
                         .map(s -> s.getGroup().getName())
-                        .collect(Collectors.joining("، "));
+                        .collect(Collectors.joining(I18n.get("common.listSeparator") + " "));
                 return buildErrorResult(student.getName(),
-                        "الطالب مشترك في أكثر من حصة مفتوحة الآن (" + groupNames + "). يرجى تحديد الحصة من أعلى الشاشة.");
+                        I18n.format("attendance.result.ambiguousSession", groupNames));
             }
             currentSession = candidates.get(0);
         }
@@ -85,14 +87,15 @@ public class AttendanceService {
         // 3. التأكد من أن الطالب مشترك في هذه المجموعة تحديداً
         boolean isEnrolled = studentGroupRepository.existsByStudentAndGroupAndIsActiveTrue(student, currentGroup);
         if (!isEnrolled) {
-            return buildErrorResult(student.getName(), "الطالب غير مسجل في مجموعة: " + currentGroup.getName());
+            return buildErrorResult(student.getName(),
+                    I18n.format("attendance.result.notEnrolled", currentGroup.getName()));
         }
 
         // 4. التحقق من عدم تسجيل الدخول مسبقاً لنفس الحصة (منع تمرير الكارنيه مرتين)
         // يسبق الفحص المالي عمداً: الطالب الذي دخل بالفعل يجب ألا يُخصم منه مرتين
         // ولا أن يُقال له إن عليه متأخرات
         if (attendanceRepository.existsByStudentAndSession(student, currentSession)) {
-            return buildErrorResult(student.getName(), "تم تسجيل دخول هذا الطالب بالفعل للحصة الحالية");
+            return buildErrorResult(student.getName(), I18n.get("attendance.result.alreadyAttended"));
         }
 
         // 5. التحقق من الحالة المالية: هل رصيد الطالب يكفي رسوم هذه الحصة؟
@@ -100,8 +103,7 @@ public class AttendanceService {
         BigDecimal balance = transactionService.getStudentBalance(student.getId());
         if (balance.compareTo(sessionPrice) < 0) {
             BigDecimal shortfall = sessionPrice.subtract(balance);
-            return buildErrorResult(student.getName(), String.format(
-                    "مرفوض: الرصيد لا يكفي. المطلوب %s والرصيد %s (العجز %s)",
+            return buildErrorResult(student.getName(), I18n.format("attendance.result.insufficientBalance",
                     MoneyUtils.format(sessionPrice), MoneyUtils.format(balance), MoneyUtils.format(shortfall)));
         }
 
@@ -121,7 +123,7 @@ public class AttendanceService {
                 .studentName(student.getName())
                 .groupName(currentGroup.getName())
                 .remainingBalance(remaining)
-                .message("تم التسجيل بنجاح - الرصيد المتبقي: " + MoneyUtils.formatWithCurrency(remaining))
+                .message(I18n.format("attendance.result.success", MoneyUtils.formatWithCurrency(remaining)))
                 .build();
     }
 
@@ -151,7 +153,7 @@ public class AttendanceService {
         return AttendanceResult.builder()
                 .isSuccess(false)
                 .studentName(studentName)
-                .groupName("---")
+                .groupName(I18n.get("common.none"))
                 .remainingBalance(null)
                 .message(errorMessage)
                 .build();

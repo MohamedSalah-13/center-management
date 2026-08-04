@@ -2,28 +2,26 @@ package com.codejava.center.controller;
 
 import com.codejava.center.domain.User;
 import com.codejava.center.service.AuthService;
+import com.codejava.center.util.FxAsync;
+import com.codejava.center.util.I18n;
+import com.codejava.center.util.LanguageSelector;
 import com.codejava.center.util.UserSession;
-import javafx.application.Platform;
+import com.codejava.center.util.ViewLoader;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
-import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
-import javafx.scene.Parent;
-import javafx.scene.Scene;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
 import javafx.stage.Stage;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationContext;
-import org.springframework.core.io.Resource;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 
 import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
+import java.util.Locale;
 
 @Controller
 @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE) // نسخة جديدة لكل فتح للشاشة - يمنع تراكم الـ listeners والحالة القديمة
@@ -31,15 +29,19 @@ import java.util.concurrent.CompletableFuture;
 public class LoginController {
 
     private final AuthService authService;
-    private final ApplicationContext applicationContext;
     private final UserSession userSession;
-
-    @Value("classpath:/fxml/Dashboard.fxml")
-    private Resource dashboardFxml;
+    private final ViewLoader viewLoader;
 
     @FXML private TextField usernameField;
     @FXML private PasswordField passwordField;
     @FXML private Label errorLabel;
+    @FXML private ComboBox<Locale> languageCombo;
+
+    @FXML
+    public void initialize() {
+        // تبديل اللغة هنا يعيد بناء شاشة الدخول نفسها، فيرى المشغّل أثر اختياره فوراً
+        LanguageSelector.configure(languageCombo, this::reloadLoginScreen);
+    }
 
     @FXML
     public void handleLogin(ActionEvent event) {
@@ -47,54 +49,42 @@ public class LoginController {
         String password = passwordField.getText();
 
         if (username.isEmpty() || password.isEmpty()) {
-            showError("يرجى إدخال اسم المستخدم وكلمة المرور.");
+            showError(I18n.get("login.emptyFields"));
             return;
         }
 
         errorLabel.setVisible(false);
 
-        // تنفيذ التحقق في Thread منفصل لعدم تجميد واجهة المستخدم
-        CompletableFuture.supplyAsync(() -> authService.authenticate(username, password))
-                .thenAccept(user -> Platform.runLater(() -> loadDashboard(event, user)))
-                .exceptionally(ex -> {
-                    Platform.runLater(() -> showError(ex.getCause().getMessage()));
-                    return null;
-                });
+        // التحقق في الخلفية حتى لا تتجمّد الواجهة أثناء انتظار قاعدة البيانات
+        FxAsync.supply(() -> authService.authenticate(username, password),
+                user -> loadDashboard(event, user),
+                error -> showError(FxAsync.messageOf(error)));
     }
 
     private void loadDashboard(ActionEvent event, User user) {
         try {
-
-
-            // حفظ بيانات المستخدم في الجلسة
+            // حفظ بيانات المستخدم في الجلسة قبل بناء لوحة القيادة:
+            // متحكّم اللوحة يقرأ الدور فور إنشائه ليخفي ما لا يخص صلاحية المستخدم
             userSession.setCurrentUser(user);
 
-            FXMLLoader fxmlLoader = new FXMLLoader(dashboardFxml.getURL());
-            fxmlLoader.setControllerFactory(applicationContext::getBean);
-            Parent root = fxmlLoader.load();
-
-            // الحصول على الـ Stage الحالية واستبدال الـ Scene
-            Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
-            Scene scene = new Scene(root, 1280, 800);
-             // إضافة ملف التصميم ليطبق على لوحة القيادة وجميع الشاشات الفرعية داخلها
-            scene.getStylesheets().add(getClass().getResource("/css/style.css").toExternalForm());
-            stage.setScene(scene);
-            stage.setTitle("نظام إدارة السنتر");
-
-            // حد أدنى للنافذة: الجداول والمخططات تصبح غير قابلة للقراءة تحته،
-            // ولوحة القيادة تحتوي ثلاث بطاقات ومخططين جنباً إلى جنب
-            stage.setMinWidth(1100);
-            stage.setMinHeight(700);
-            stage.setMaximized(true);
-            stage.centerOnScreen();
-
-            // يمكن هنا حفظ بيانات المستخدم الجلسة (Session) لاستخدامها في باقي النظام
-            // SessionManager.setCurrentUser(user);
-
+            viewLoader.showDashboard(stageOf(event.getSource()));
         } catch (IOException e) {
-            showError("حدث خطأ أثناء تحميل لوحة القيادة.");
             e.printStackTrace();
+            showError(I18n.get("login.dashboardFailed"));
         }
+    }
+
+    private void reloadLoginScreen() {
+        try {
+            viewLoader.showLogin(stageOf(languageCombo));
+        } catch (IOException e) {
+            e.printStackTrace();
+            showError(FxAsync.messageOf(e));
+        }
+    }
+
+    private Stage stageOf(Object node) {
+        return (Stage) ((Node) node).getScene().getWindow();
     }
 
     private void showError(String message) {

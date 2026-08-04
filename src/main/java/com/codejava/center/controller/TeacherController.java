@@ -3,12 +3,13 @@ package com.codejava.center.controller;
 import com.codejava.center.domain.Teacher;
 import com.codejava.center.service.ReportService;
 import com.codejava.center.service.TeacherService;
+import com.codejava.center.util.CommissionTypes;
+import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
+import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
-import com.codejava.commons.fx.dialog.AlertUtils;
 import com.codejava.commons.fx.form.FormUtils;
 import com.codejava.commons.fx.validation.InputValidator;
-import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
@@ -16,18 +17,20 @@ import javafx.collections.transformation.SortedList;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
 import javafx.scene.control.*;
+import javafx.util.StringConverter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 
 import java.math.BigDecimal;
-import java.util.concurrent.CompletableFuture;
 
 @Controller
 @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE) // نسخة جديدة لكل فتح للشاشة - يمنع تراكم الـ listeners والحالة القديمة
 @RequiredArgsConstructor
 public class TeacherController {
+
+    private static final String[] COMMISSION_TYPES = {"PERCENTAGE", "FIXED_AMOUNT", "RENT"};
 
     private final ReportService reportService;
     private final TeacherService teacherService;
@@ -46,11 +49,25 @@ public class TeacherController {
 
     @FXML
     public void initialize() {
-        typeCombo.getItems().addAll("PERCENTAGE", "FIXED_AMOUNT", "RENT");
+        // القيمة المخزَّنة تبقى الرمز الإنجليزي؛ المعروض وحده هو المترجَم،
+        // وإلا لأصبح ما يُحفظ في قاعدة البيانات تابعاً للغة الشاشة وقت الإدخال
+        typeCombo.getItems().addAll(COMMISSION_TYPES);
+        typeCombo.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(String type) {
+                return type == null ? "" : CommissionTypes.displayName(type);
+            }
+
+            @Override
+            public String fromString(String string) {
+                return null;
+            }
+        });
 
         colName.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue().getName()));
         colSubject.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue().getSubject()));
-        colType.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue().getCommissionType()));
+        colType.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
+                CommissionTypes.displayName(d.getValue().getCommissionType())));
         colValue.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(MoneyUtils.format(d.getValue().getCommissionValue())));
 
         teacherTable.setItems(teachersList);
@@ -116,10 +133,10 @@ public class TeacherController {
                     try {
                         reportService.printTeacherStatement(target, sessions, window);
                     } catch (Exception e) {
-                        AlertUtils.showError("خطأ", "حدث خطأ أثناء الطباعة: " + FxAsync.messageOf(e));
+                        Dialogs.error(I18n.format("teacher.printFailed", FxAsync.messageOf(e)));
                     }
                 },
-                error -> AlertUtils.showError("خطأ", "تعذر تحميل حصص المعلم: " + FxAsync.messageOf(error)));
+                error -> Dialogs.error(I18n.format("teacher.sessionsLoadFailed", FxAsync.messageOf(error))));
     }
 
     @FXML
@@ -139,7 +156,7 @@ public class TeacherController {
     private void loadTeachers() {
         FxAsync.supply(teacherService::getAllTeachers,
                 teachers -> teachersList.setAll(teachers),
-                error -> AlertUtils.showError("خطأ", "تعذر تحميل المعلمين: " + FxAsync.messageOf(error)));
+                error -> Dialogs.error(I18n.format("teacher.loadFailed", FxAsync.messageOf(error))));
     }
 
     @FXML
@@ -161,7 +178,7 @@ public class TeacherController {
             teacher.setCommissionType(typeCombo.getValue());
             teacher.setCommissionValue(new BigDecimal(valueField.getText().trim()));
         } catch (NumberFormatException e) {
-            AlertUtils.showError("إدخال خاطئ", "قيمة العمولة يجب أن تكون رقماً.");
+            Dialogs.error(I18n.get("common.invalidInput"), I18n.get("teacher.commissionMustBeNumeric"));
             return;
         }
 
@@ -179,19 +196,20 @@ public class TeacherController {
                 }
             }
             clearFields();
-        }, error -> AlertUtils.showError("خطأ", FxAsync.messageOf(error)));
+        }, error -> Dialogs.error(FxAsync.messageOf(error)));
     }
 
     @FXML
     public void handleDeleteAction() {
         if (selectedTeacher == null) return;
 
-        if (AlertUtils.showConfirm("تأكيد الحذف", "حذف المعلم: " + selectedTeacher.getName() + "؟")) {
+        if (Dialogs.confirm(I18n.get("common.confirmDelete"),
+                I18n.format("teacher.deleteConfirm", selectedTeacher.getName()))) {
             Teacher target = selectedTeacher;
             FxAsync.run(() -> teacherService.deleteTeacher(target.getId()), () -> {
                 teachersList.remove(target);
                 clearFields();
-            }, error -> AlertUtils.showError("خطأ", "لا يمكن الحذف لارتباط المعلم بمجموعات دراسية."));
+            }, error -> Dialogs.error(I18n.get("teacher.deleteBlocked")));
         }
     }
 

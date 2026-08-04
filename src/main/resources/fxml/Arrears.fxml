@@ -8,43 +8,42 @@
       style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
 
     <HBox spacing="20.0" alignment="CENTER_LEFT">
-        <Label text="تقرير المتأخرات" textFill="#2c3e50">
+        <Label text="%arrears.title" textFill="#2c3e50">
             <font><Font name="System Bold" size="26.0" /></font>
         </Label>
         <Region HBox.hgrow="ALWAYS" />
-        <Button text="تحديث" onAction="#handleRefresh"
+        <Button text="%common.refresh" onAction="#handleRefresh"
                 style="-fx-background-color: #7f8c8d; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
-        <Button text="طباعة" onAction="#handlePrint"
+        <Button text="%common.print" onAction="#handlePrint"
                 style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
     </HBox>
 
-    <Label text="الطلاب النشطون الذين تجاوزت رسوم حصصهم ما دفعوه. البوابة ترفض دخولهم حتى يسددوا."
-           textFill="#7f8c8d" wrapText="true" />
+    <Label text="%arrears.note" textFill="#7f8c8d" wrapText="true" />
 
     <HBox spacing="15.0" alignment="CENTER_LEFT">
-        <TextField fx:id="searchField" promptText="بحث بالاسم أو الباركود أو الهاتف..." prefWidth="320.0" />
+        <TextField fx:id="searchField" promptText="%arrears.searchPrompt" prefWidth="320.0" />
         <Region HBox.hgrow="ALWAYS" />
-        <Label text="عدد المدينين:">
+        <Label text="%arrears.debtorCount">
             <font><Font name="System Bold" size="14.0" /></font>
         </Label>
         <Label fx:id="countLabel" text="0" textFill="#e74c3c">
             <font><Font name="System Bold" size="20.0" /></font>
         </Label>
-        <Label text="   إجمالي المتأخرات:">
+        <Label text="%arrears.totalDue">
             <font><Font name="System Bold" size="14.0" /></font>
         </Label>
-        <Label fx:id="totalDueLabel" text="0.00 ج.م" textFill="#e74c3c">
+        <Label fx:id="totalDueLabel" text="%common.empty" textFill="#e74c3c">
             <font><Font name="System Bold" size="20.0" /></font>
         </Label>
     </HBox>
 
     <TableView fx:id="arrearsTable" VBox.vgrow="ALWAYS">
         <columns>
-            <TableColumn fx:id="colName" text="اسم الطالب" prefWidth="220.0" />
-            <TableColumn fx:id="colBarcode" text="الباركود" prefWidth="130.0" />
-            <TableColumn fx:id="colPhone" text="هاتف الطالب" prefWidth="140.0" />
-            <TableColumn fx:id="colParentPhone" text="هاتف ولي الأمر" prefWidth="140.0" />
-            <TableColumn fx:id="colDue" text="المستحق عليه" prefWidth="150.0" />
+            <TableColumn fx:id="colName" text="%arrears.col.name" prefWidth="220.0" />
+            <TableColumn fx:id="colBarcode" text="%arrears.col.barcode" prefWidth="130.0" />
+            <TableColumn fx:id="colPhone" text="%arrears.col.phone" prefWidth="140.0" />
+            <TableColumn fx:id="colParentPhone" text="%arrears.col.parentPhone" prefWidth="140.0" />
+            <TableColumn fx:id="colDue" text="%arrears.col.due" prefWidth="150.0" />
         </columns>
     </TableView>
 </VBox>

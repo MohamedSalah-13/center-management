@@ -4,6 +4,7 @@ import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.repository.CourseGroupRepository;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.security.RequiresRole;
+import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,10 +22,10 @@ public class CourseGroupService {
     @RequiresRole(Role.ADMIN)
     public CourseGroup saveGroup(CourseGroup group) {
         if (group.getMaxCapacity() == null || group.getMaxCapacity() <= 0) {
-            throw new IllegalArgumentException("سعة القاعة يجب أن تكون أكبر من صفر.");
+            throw new IllegalArgumentException(I18n.get("error.group.capacityPositive"));
         }
         if (group.getSessionPrice() == null || group.getSessionPrice().signum() < 0) {
-            throw new IllegalArgumentException("سعر الحصة لا يمكن أن يكون سالباً.");
+            throw new IllegalArgumentException(I18n.get("error.group.priceNegative"));
         }
         group.setSessionPrice(MoneyUtils.normalize(group.getSessionPrice()));
         return courseGroupRepository.save(group);

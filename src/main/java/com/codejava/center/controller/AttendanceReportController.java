@@ -6,8 +6,9 @@ import com.codejava.center.service.CourseGroupService;
 import com.codejava.center.service.ReportService;
 import com.codejava.center.service.dto.AttendanceSummary;
 import com.codejava.center.service.dto.GroupAttendanceReport;
+import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
-import com.codejava.commons.fx.dialog.AlertUtils;
+import com.codejava.center.util.I18n;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -84,7 +85,7 @@ public class AttendanceReportController {
     }
 
     private String nullSafe(String value) {
-        return value == null ? "---" : value;
+        return value == null ? I18n.get("common.none") : value;
     }
 
     private long absencesOf(AttendanceSummary row) {
@@ -92,14 +93,14 @@ public class AttendanceReportController {
     }
 
     private String rateOf(AttendanceSummary row) {
-        if (totalSessions == 0) return "---";
+        if (totalSessions == 0) return I18n.get("common.none");
         return String.format("%.0f%%", (row.attended() * 100.0) / totalSessions);
     }
 
     private void loadGroups() {
         FxAsync.supply(courseGroupService::getAllGroups,
                 groups -> groupComboBox.getItems().setAll(groups),
-                error -> AlertUtils.showError("خطأ", "تعذر تحميل المجموعات: " + FxAsync.messageOf(error)));
+                error -> Dialogs.error(I18n.format("attReport.groupsLoadFailed", FxAsync.messageOf(error))));
     }
 
     @FXML
@@ -109,11 +110,11 @@ public class AttendanceReportController {
         LocalDate to = toPicker.getValue();
 
         if (group == null || from == null || to == null) {
-            AlertUtils.showWarning("بيانات ناقصة", "يرجى اختيار المجموعة وتحديد الفترة.");
+            Dialogs.warning(I18n.get("common.missingData"), I18n.get("attReport.selectGroupAndPeriod"));
             return;
         }
         if (from.isAfter(to)) {
-            AlertUtils.showWarning("فترة غير صحيحة", "تاريخ البداية يجب أن يسبق تاريخ النهاية.");
+            Dialogs.warning(I18n.get("attReport.invalidPeriodTitle"), I18n.get("attReport.invalidPeriod"));
             return;
         }
 
@@ -126,15 +127,15 @@ public class AttendanceReportController {
             printButton.setDisable(report.rows().isEmpty());
 
             if (totalSessions == 0) {
-                AlertUtils.showWarning("تنبيه", "لم تُسجَّل أي حصة لهذه المجموعة خلال الفترة المحددة.");
+                Dialogs.warning(I18n.get("attReport.noSessions"));
             }
-        }, error -> AlertUtils.showError("خطأ", "تعذر إنشاء التقرير: " + FxAsync.messageOf(error)));
+        }, error -> Dialogs.error(I18n.format("attReport.generateFailed", FxAsync.messageOf(error))));
     }
 
     @FXML
     public void handlePrint(ActionEvent event) {
         if (currentReport == null || currentReport.rows().isEmpty()) {
-            AlertUtils.showWarning("تنبيه", "لا يوجد تقرير لطباعته.");
+            Dialogs.warning(I18n.get("attReport.nothingToPrint"));
             return;
         }
 
@@ -143,7 +144,7 @@ public class AttendanceReportController {
                     fromPicker.getValue(), toPicker.getValue(),
                     ((Node) event.getSource()).getScene().getWindow());
         } catch (Exception e) {
-            AlertUtils.showError("خطأ في الطباعة", FxAsync.messageOf(e));
+            Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(e));
         }
     }
 }

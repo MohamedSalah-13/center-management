@@ -3,6 +3,7 @@ package com.codejava.center.service;
 import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Session;
 import com.codejava.center.repository.SessionRepository;
+import com.codejava.center.util.I18n;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,8 +26,7 @@ public class SessionService {
     public Session openSession(CourseGroup group, LocalDate date) {
         Optional<Session> alreadyOpen = sessionRepository.findByGroupAndIsActiveTrue(group);
         if (alreadyOpen.isPresent()) {
-            throw new IllegalStateException(String.format(
-                    "المجموعة \"%s\" لديها حصة مفتوحة بالفعل بتاريخ %s. يرجى إغلاقها أولاً.",
+            throw new IllegalStateException(I18n.format("error.session.alreadyOpen",
                     group.getName(), alreadyOpen.get().getSessionDate()));
         }
 
@@ -47,10 +47,10 @@ public class SessionService {
     @Transactional
     public void closeSession(Long sessionId) {
         Session session = sessionRepository.findById(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("الحصة غير موجودة."));
+                .orElseThrow(() -> new IllegalArgumentException(I18n.get("error.session.notFound")));
 
         if (!session.isActive()) {
-            throw new IllegalStateException("هذه الحصة مغلقة بالفعل.");
+            throw new IllegalStateException(I18n.get("error.session.alreadyClosed"));
         }
 
         session.setActive(false);

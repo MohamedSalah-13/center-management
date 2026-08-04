@@ -1,6 +1,7 @@
 package com.codejava.center;
 
 import com.codejava.center.config.StageReadyEvent;
+import com.codejava.center.util.I18n;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.stage.Stage;
@@ -13,6 +14,10 @@ public class JavaFxApplication extends Application {
 
     @Override
     public void init() {
+        // لغة الواجهة المحفوظة تصبح Locale الافتراضي للـ JVM قبل إقلاع أي شيء:
+        // أسماء الشهور في DatePicker ونصوص أزرار JavaFX الداخلية تقرأ الافتراضي وحده
+        I18n.installAsJvmDefault();
+
         // تشغيل Spring Boot
         String[] args = getParameters().getRaw().toArray(new String[0]);
         this.applicationContext = new SpringApplicationBuilder()

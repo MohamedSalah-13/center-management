@@ -2,6 +2,7 @@ package com.codejava.center.service;
 
 import com.codejava.center.domain.CenterSettings;
 import com.codejava.center.repository.CenterSettingsRepository;
+import com.codejava.center.util.I18n;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class SettingsService {
 
     private static final Long SETTINGS_ID = 1L;
-    private static final String DEFAULT_CENTER_NAME = "نظام إدارة السنتر";
 
     private final CenterSettingsRepository centerSettingsRepository;
 
@@ -33,7 +33,8 @@ public class SettingsService {
     @Transactional(readOnly = true)
     public String getCenterName() {
         String name = getSettings().getCenterName();
-        return name == null || name.isBlank() ? DEFAULT_CENTER_NAME : name;
+        // الاسم الافتراضي يتبع لغة الواجهة؛ الاسم المضبوط في الإعدادات يُعرض كما كتبه المستخدم
+        return name == null || name.isBlank() ? I18n.get("settings.defaultCenterName") : name;
     }
 
     /**

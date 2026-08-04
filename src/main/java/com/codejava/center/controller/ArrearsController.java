@@ -3,9 +3,10 @@ package com.codejava.center.controller;
 import com.codejava.center.service.ReportService;
 import com.codejava.center.service.StudentService;
 import com.codejava.center.service.dto.StudentBalance;
+import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
+import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
-import com.codejava.commons.fx.dialog.AlertUtils;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -62,7 +63,7 @@ public class ArrearsController {
     }
 
     private String nullSafe(String value) {
-        return value == null ? "---" : value;
+        return value == null ? I18n.get("common.none") : value;
     }
 
     private boolean matches(StudentBalance row, String filter) {
@@ -83,7 +84,7 @@ public class ArrearsController {
             arrears.setAll(list);
             countLabel.setText(String.valueOf(list.size()));
             totalDueLabel.setText(MoneyUtils.formatWithCurrency(totalDue(list)));
-        }, error -> AlertUtils.showError("خطأ", "تعذر تحميل تقرير المتأخرات: " + FxAsync.messageOf(error)));
+        }, error -> Dialogs.error(I18n.format("arrears.loadFailed", FxAsync.messageOf(error))));
     }
 
     private BigDecimal totalDue(List<StudentBalance> list) {
@@ -98,7 +99,7 @@ public class ArrearsController {
     @FXML
     public void handlePrint(ActionEvent event) {
         if (arrears.isEmpty()) {
-            AlertUtils.showWarning("تنبيه", "لا توجد متأخرات لطباعتها.");
+            Dialogs.warning(I18n.get("arrears.nothingToPrint"));
             return;
         }
 
@@ -107,7 +108,7 @@ public class ArrearsController {
             reportService.printArrearsReport(arrears, totalDue(arrears),
                     ((Node) event.getSource()).getScene().getWindow());
         } catch (Exception e) {
-            AlertUtils.showError("خطأ في الطباعة", FxAsync.messageOf(e));
+            Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(e));
         }
     }
 }

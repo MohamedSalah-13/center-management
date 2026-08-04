@@ -7,7 +7,7 @@
       fx:controller="com.codejava.center.controller.ExpensesController"
       style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
 
-    <Label text="مصروفات السنتر" textFill="#2c3e50">
+    <Label text="%expense.title" textFill="#2c3e50">
         <font><Font name="System Bold" size="26.0" /></font>
     </Label>
 
@@ -20,44 +20,44 @@
             <ColumnConstraints minWidth="300.0" hgrow="ALWAYS" />
         </columnConstraints>
 
-        <Label text="المبلغ:" GridPane.columnIndex="0" GridPane.rowIndex="0">
+        <Label text="%expense.amount" GridPane.columnIndex="0" GridPane.rowIndex="0">
             <font><Font name="System Bold" size="14.0" /></font>
         </Label>
         <TextField fx:id="amountField" promptText="0.00" GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
-        <Label text="البيان:" GridPane.columnIndex="2" GridPane.rowIndex="0">
+        <Label text="%expense.description" GridPane.columnIndex="2" GridPane.rowIndex="0">
             <font><Font name="System Bold" size="14.0" /></font>
         </Label>
-        <TextField fx:id="descriptionField" promptText="مثال: فاتورة كهرباء شهر أغسطس"
+        <TextField fx:id="descriptionField" promptText="%expense.descriptionPrompt"
                    GridPane.columnIndex="3" GridPane.rowIndex="0" />
 
         <HBox spacing="10.0" GridPane.columnIndex="3" GridPane.rowIndex="1" alignment="CENTER_RIGHT">
-            <Button text="مسح" onAction="#handleClear"
+            <Button text="%expense.clear" onAction="#handleClear"
                     style="-fx-background-color: #95a5a6; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
-            <Button text="تسجيل المصروف" onAction="#handleSave"
+            <Button text="%expense.save" onAction="#handleSave"
                     style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
         </HBox>
     </GridPane>
 
     <HBox spacing="15.0" alignment="CENTER_RIGHT">
-        <Label text="عرض مصروفات يوم:">
+        <Label text="%expense.showDay">
             <font><Font name="System Bold" size="14.0" /></font>
         </Label>
         <DatePicker fx:id="dayPicker" editable="false" />
         <Region HBox.hgrow="ALWAYS" />
-        <Label text="إجمالي اليوم:">
+        <Label text="%expense.dayTotal">
             <font><Font name="System Bold" size="15.0" /></font>
         </Label>
-        <Label fx:id="dailyTotalLabel" text="0.00 ج.م" textFill="#e74c3c">
+        <Label fx:id="dailyTotalLabel" text="%common.empty" textFill="#e74c3c">
             <font><Font name="System Bold" size="20.0" /></font>
         </Label>
     </HBox>
 
     <TableView fx:id="expensesTable" VBox.vgrow="ALWAYS">
         <columns>
-            <TableColumn fx:id="colTime" text="الوقت" prefWidth="120.0" />
-            <TableColumn fx:id="colAmount" text="المبلغ" prefWidth="130.0" />
-            <TableColumn fx:id="colDescription" text="البيان" prefWidth="500.0" />
+            <TableColumn fx:id="colTime" text="%expense.col.time" prefWidth="120.0" />
+            <TableColumn fx:id="colAmount" text="%expense.col.amount" prefWidth="130.0" />
+            <TableColumn fx:id="colDescription" text="%expense.col.description" prefWidth="500.0" />
         </columns>
     </TableView>
 </VBox>

@@ -3,9 +3,10 @@ package com.codejava.center.controller;
 import com.codejava.center.domain.Transaction;
 import com.codejava.center.domain.enums.TransactionType;
 import com.codejava.center.service.TransactionService;
+import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
+import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
-import com.codejava.commons.fx.dialog.AlertUtils;
 import com.codejava.commons.fx.validation.InputValidator;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -73,7 +74,7 @@ public class ExpensesController {
                 .toList(), list -> {
             expenses.setAll(list);
             dailyTotalLabel.setText(MoneyUtils.formatWithCurrency(sumOf(list)));
-        }, error -> AlertUtils.showError("خطأ", "تعذر تحميل المصروفات: " + FxAsync.messageOf(error)));
+        }, error -> Dialogs.error(I18n.format("expense.loadFailed", FxAsync.messageOf(error))));
     }
 
     private BigDecimal sumOf(List<Transaction> list) {
@@ -86,7 +87,7 @@ public class ExpensesController {
         String description = descriptionField.getText().trim();
 
         if (amountStr.isEmpty() || description.isEmpty()) {
-            AlertUtils.showWarning("بيانات ناقصة", "يرجى إدخال المبلغ والبيان.");
+            Dialogs.warning(I18n.get("common.missingData"), I18n.get("expense.amountAndDescriptionRequired"));
             return;
         }
 
@@ -94,12 +95,12 @@ public class ExpensesController {
         try {
             amount = MoneyUtils.normalize(new BigDecimal(amountStr));
         } catch (NumberFormatException e) {
-            AlertUtils.showError("إدخال خاطئ", "المبلغ يجب أن يكون رقماً.");
+            Dialogs.error(I18n.get("common.invalidInput"), I18n.get("expense.amountMustBeNumeric"));
             return;
         }
 
         FxAsync.supply(() -> transactionService.recordExpense(amount, description), saved -> {
-            AlertUtils.showSuccess("نجاح", "تم تسجيل مصروف بقيمة " + MoneyUtils.formatWithCurrency(amount));
+            Dialogs.success(I18n.format("expense.saved", MoneyUtils.formatWithCurrency(amount)));
             handleClear(null);
 
             // المصروف يُسجَّل بتاريخ اليوم، فلا يظهر في الجدول إن كان المعروض يوماً آخر
@@ -108,7 +109,7 @@ public class ExpensesController {
             } else {
                 dayPicker.setValue(LocalDate.now()); // المستمع يتولى إعادة التحميل
             }
-        }, error -> AlertUtils.showError("خطأ", FxAsync.messageOf(error)));
+        }, error -> Dialogs.error(FxAsync.messageOf(error)));
     }
 
     @FXML

@@ -11,7 +11,7 @@
       fx:controller="com.codejava.center.controller.GroupManagementController"
       style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
 
-    <Label text="إدارة المجموعات" textFill="#2c3e50">
+    <Label text="%group.title" textFill="#2c3e50">
         <font><Font name="System Bold" size="26.0" /></font>
     </Label>
 
@@ -24,45 +24,43 @@
             <ColumnConstraints hgrow="ALWAYS" minWidth="200.0" />
         </columnConstraints>
 
-        <Label text="اسم المجموعة:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
-        <TextField fx:id="groupNameField" promptText="مثال: سبت وثلاثاء 4 عصراً" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+        <Label text="%group.name" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+        <TextField fx:id="groupNameField" promptText="%group.namePrompt" GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
-        <Label text="المعلم:" GridPane.columnIndex="2" GridPane.rowIndex="0" />
-        <ComboBox fx:id="teacherComboBox" promptText="اختر المعلم" maxWidth="Infinity" GridPane.columnIndex="3" GridPane.rowIndex="0" />
+        <Label text="%group.teacher" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+        <ComboBox fx:id="teacherComboBox" promptText="%group.selectTeacherPrompt" maxWidth="Infinity" GridPane.columnIndex="3" GridPane.rowIndex="0" />
 
-        <Label text="السعة القصوى:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
-        <TextField fx:id="capacityField" promptText="عدد الطلاب الأقصى" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+        <Label text="%group.capacity" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+        <TextField fx:id="capacityField" promptText="%group.capacityPrompt" GridPane.columnIndex="1" GridPane.rowIndex="1" />
 
-        <Label text="سعر الحصة/الشهر:" GridPane.columnIndex="2" GridPane.rowIndex="1" />
-        <TextField fx:id="priceField" promptText="القيمة بالجنيه" GridPane.columnIndex="3" GridPane.rowIndex="1" />
+        <Label text="%group.price" GridPane.columnIndex="2" GridPane.rowIndex="1" />
+        <TextField fx:id="priceField" promptText="%group.pricePrompt" GridPane.columnIndex="3" GridPane.rowIndex="1" />
 
-        <!-- استبدل الـ HBox الخاصة بزر الحفظ بهذا الكود -->
         <HBox alignment="CENTER_LEFT" spacing="15.0" GridPane.columnIndex="1" GridPane.rowIndex="2" GridPane.columnSpan="3" style="-fx-padding: 10 0 0 0;">
-            <Button text="حفظ جديد" onAction="#handleSaveAction" style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
-            <Button fx:id="updateButton" text="تعديل" disable="true" onAction="#handleUpdateAction" style="-fx-background-color: #f39c12; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
-            <Button fx:id="deleteButton" text="حذف" disable="true" onAction="#handleDeleteAction" style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
-            <!-- الزر الجديد للطباعة -->
-            <Button fx:id="printButton" text="طباعة الكشف" disable="true" onAction="#handlePrintAction" style="-fx-background-color: #8e44ad; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
-            <Button text="إلغاء التحديد" onAction="#clearForm" style="-fx-background-color: #95a5a6; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+            <Button text="%common.saveNew" onAction="#handleSaveAction" style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+            <Button fx:id="updateButton" text="%common.edit" disable="true" onAction="#handleUpdateAction" style="-fx-background-color: #f39c12; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+            <Button fx:id="deleteButton" text="%common.delete" disable="true" onAction="#handleDeleteAction" style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+            <Button fx:id="printButton" text="%group.printList" disable="true" onAction="#handlePrintAction" style="-fx-background-color: #8e44ad; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+            <Button text="%common.clearSelection" onAction="#clearForm" style="-fx-background-color: #95a5a6; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
         </HBox>
     </GridPane>
 
     <!-- جدول المجموعات الحالية -->
     <VBox VBox.vgrow="ALWAYS" spacing="10.0" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
-        <Label text="المجموعات المسجلة بالنظام">
+        <Label text="%group.registered">
             <font><Font name="System Bold" size="16.0" /></font>
         </Label>
         <HBox spacing="10.0" alignment="CENTER_LEFT" style="-fx-padding: 0 0 10 0;">
-            <Label text="بحث عن مجموعة:" />
-            <TextField fx:id="searchField" promptText="ابحث باسم المجموعة أو المعلم..." prefWidth="300.0" />
+            <Label text="%group.searchLabel" />
+            <TextField fx:id="searchField" promptText="%group.searchPrompt" prefWidth="300.0" />
         </HBox>
         <TableView fx:id="groupsTable" VBox.vgrow="ALWAYS">
             <columns>
-                <TableColumn fx:id="colId" text="الرقم" prefWidth="50.0" />
-                <TableColumn fx:id="colName" text="اسم المجموعة" prefWidth="250.0" />
-                <TableColumn fx:id="colTeacher" text="المعلم" prefWidth="200.0" />
-                <TableColumn fx:id="colCapacity" text="السعة" prefWidth="100.0" />
-                <TableColumn fx:id="colPrice" text="السعر" prefWidth="100.0" />
+                <TableColumn fx:id="colId" text="%group.col.id" prefWidth="50.0" />
+                <TableColumn fx:id="colName" text="%group.col.name" prefWidth="250.0" />
+                <TableColumn fx:id="colTeacher" text="%group.col.teacher" prefWidth="200.0" />
+                <TableColumn fx:id="colCapacity" text="%group.col.capacity" prefWidth="100.0" />
+                <TableColumn fx:id="colPrice" text="%group.col.price" prefWidth="100.0" />
             </columns>
         </TableView>
     </VBox>

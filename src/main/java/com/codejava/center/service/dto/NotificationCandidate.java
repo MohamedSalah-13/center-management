@@ -1,6 +1,7 @@
 package com.codejava.center.service.dto;
 
 import com.codejava.center.domain.enums.NotificationType;
+import com.codejava.center.util.I18n;
 
 /**
  * مرشّح لإرسال إشعار: الطالب ورقم وليّه ونص الرسالة الجاهز.
@@ -25,8 +26,8 @@ public record NotificationCandidate(
     }
 
     public String statusLabel() {
-        if (!phoneValid) return "رقم غير صالح";
-        if (alreadyNotified) return "أُرسل مسبقاً";
-        return "جاهز";
+        if (!phoneValid) return I18n.get("notify.status.invalidPhone");
+        if (alreadyNotified) return I18n.get("notify.status.alreadySent");
+        return I18n.get("notify.status.ready");
     }
 }

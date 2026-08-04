@@ -8,8 +8,9 @@ import com.codejava.center.service.CourseGroupService;
 import com.codejava.center.service.ReportService;
 import com.codejava.center.service.EnrollmentService;
 import com.codejava.center.service.StudentService;
+import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
-import com.codejava.commons.fx.dialog.AlertUtils;
+import com.codejava.center.util.I18n;
 import com.codejava.commons.fx.form.FormUtils;
 import com.codejava.commons.fx.validation.InputValidator;
 import javafx.application.Platform;
@@ -37,6 +38,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class StudentRegistrationController {
 
+    private static final String[] SCHOOL_LEVEL_KEYS = {
+            "level.prep1", "level.prep2", "level.prep3",
+            "level.sec1", "level.sec2", "level.sec3"};
+
     private final StudentService studentService;
     private final ReportService reportService;
     // إضافة الخدمات الجديدة
@@ -62,7 +67,12 @@ public class StudentRegistrationController {
 
     @FXML
     public void initialize() {
-        schoolLevelCombo.getItems().addAll("الصف الأول الإعدادي", "الصف الثاني الإعدادي", "الصف الثالث الإعدادي", "الصف الأول الثانوي", "الصف الثاني الثانوي", "الصف الثالث الثانوي");
+        // المرحلة تُحفظ في قاعدة البيانات كنص حر، فتُملأ القائمة بالنص المترجَم مباشرةً.
+        // نتيجةً لذلك يظهر طالب سُجّل بواجهة عربية بمرحلته العربية حتى في الواجهة الإنجليزية،
+        // وهو السلوك الصحيح: بياناته المحفوظة لا تتغيّر بتغيّر لغة العرض.
+        for (String levelKey : SCHOOL_LEVEL_KEYS) {
+            schoolLevelCombo.getItems().add(I18n.get(levelKey));
+        }
 
         colBarcode.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getBarcode()));
         colName.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getName()));
@@ -125,7 +135,8 @@ public class StudentRegistrationController {
         groupComboBox.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
                 FxAsync.supply(() -> enrollmentService.countActiveMembers(newVal), currentStudents -> {
-                    groupCapacityLabel.setText(String.format("السعة: %d / %d", currentStudents, newVal.getMaxCapacity()));
+                    groupCapacityLabel.setText(I18n.format("student.capacity",
+                            currentStudents, newVal.getMaxCapacity()));
 
                     // تلوين النص بالأحمر إذا اكتملت السعة
                     if (currentStudents >= newVal.getMaxCapacity()) {
@@ -133,9 +144,9 @@ public class StudentRegistrationController {
                     } else {
                         groupCapacityLabel.setStyle("-fx-text-fill: #7f8c8d;");
                     }
-                }, error -> groupCapacityLabel.setText("السعة: تعذر الحساب"));
+                }, error -> groupCapacityLabel.setText(I18n.get("student.capacityFailed")));
             } else {
-                groupCapacityLabel.setText("السعة: ---");
+                groupCapacityLabel.setText(I18n.get("student.capacityUnknown"));
             }
         });
     }
@@ -158,7 +169,7 @@ public class StudentRegistrationController {
                 updateStudentGroupsLabel(selectedStudent);
             } else {
                 subscribeButton.setDisable(true);
-                subscribedGroupsLabel.setText("المجموعات المشترك بها: لم يتم تحديد طالب");
+                subscribedGroupsLabel.setText(I18n.get("student.subscribedGroupsNoStudent"));
             }
         });
     }
@@ -166,33 +177,34 @@ public class StudentRegistrationController {
     private void updateStudentGroupsLabel(Student student) {
         FxAsync.supply(() -> enrollmentService.getActiveGroupsOf(student), groups -> {
             if (groups.isEmpty()) {
-                subscribedGroupsLabel.setText("المجموعات المشترك بها: لا يوجد");
+                subscribedGroupsLabel.setText(I18n.get("student.subscribedGroupsNone"));
             } else {
                 String groupNames = groups.stream()
                         .map(sg -> sg.getGroup().getName())
-                        .collect(Collectors.joining("، "));
-                subscribedGroupsLabel.setText("المجموعات المشترك بها: " + groupNames);
+                        .collect(Collectors.joining(I18n.get("common.listSeparator") + " "));
+                subscribedGroupsLabel.setText(I18n.format("student.subscribedGroups", groupNames));
             }
-        }, error -> subscribedGroupsLabel.setText("تعذر تحميل المجموعات: " + FxAsync.messageOf(error)));
+        }, error -> subscribedGroupsLabel.setText(
+                I18n.format("student.groupsLoadFailed", FxAsync.messageOf(error))));
     }
 
     private void loadStudents() {
         FxAsync.supply(studentService::getAllStudents,
                 students -> studentsList.setAll(students),
-                error -> AlertUtils.showError("خطأ", "تعذر تحميل الطلاب: " + FxAsync.messageOf(error)));
+                error -> Dialogs.error(I18n.format("student.loadFailed", FxAsync.messageOf(error))));
     }
 
     private void loadGroups() {
         FxAsync.supply(courseGroupService::getAllGroups,
                 groups -> groupComboBox.getItems().setAll(groups),
-                error -> AlertUtils.showError("خطأ", "تعذر تحميل المجموعات: " + FxAsync.messageOf(error)));
+                error -> Dialogs.error(I18n.format("student.groupsLoadFailed", FxAsync.messageOf(error))));
     }
 
     // --- دالة الاشتراك في المجموعة الجديدة ---
     @FXML
     public void handleSubscribeAction(ActionEvent event) {
         if (selectedStudent == null || groupComboBox.getValue() == null) {
-            AlertUtils.showWarning("تنبيه", "يرجى تحديد طالب من الجدول واختيار مجموعة للاشتراك.");
+            Dialogs.warning(I18n.get("student.selectStudentAndGroup"));
             return;
         }
 
@@ -205,10 +217,11 @@ public class StudentRegistrationController {
             enrollmentService.subscribe(target, selectedGroup);
             return enrollmentService.countActiveMembers(selectedGroup);
         }, memberCount -> {
-            AlertUtils.showSuccess("نجاح", "تم تسجيل الطالب في المجموعة بنجاح.");
+            Dialogs.success(I18n.get("student.subscribed"));
             updateStudentGroupsLabel(target);
-            groupCapacityLabel.setText(String.format("السعة: %d / %d", memberCount, selectedGroup.getMaxCapacity()));
-        }, error -> AlertUtils.showError("خطأ", FxAsync.messageOf(error)));
+            groupCapacityLabel.setText(I18n.format("student.capacity",
+                    memberCount, selectedGroup.getMaxCapacity()));
+        }, error -> Dialogs.error(FxAsync.messageOf(error)));
     }
 
     @FXML
@@ -237,7 +250,7 @@ public class StudentRegistrationController {
         FxAsync.supply(() -> studentService.saveStudent(student), saved -> {
             if (isNew) {
                 studentsList.add(saved);
-                AlertUtils.showSuccess("نجاح", "تم الحفظ. الباركود: " + saved.getBarcode());
+                Dialogs.success(I18n.format("student.saved", saved.getBarcode()));
             } else {
                 // البحث عن الموضع في القائمة المصدر وليس في العرض (الجدول مربوط بـ SortedList/FilteredList
                 // ولذلك يختلف ترتيب صفوفه عن studentsList عند الفرز أو البحث)
@@ -245,23 +258,23 @@ public class StudentRegistrationController {
                 if (idx >= 0) {
                     studentsList.set(idx, saved);
                 }
-                AlertUtils.showSuccess("نجاح", "تم التعديل بنجاح.");
+                Dialogs.success(I18n.get("common.updated"));
             }
             handleClearAction(null);
-        }, error -> AlertUtils.showError("خطأ", FxAsync.messageOf(error)));
+        }, error -> Dialogs.error(FxAsync.messageOf(error)));
     }
 
     @FXML
     public void handleDeleteAction(ActionEvent event) {
         if (selectedStudent == null) return;
 
-        if (AlertUtils.showConfirm("تأكيد الحذف", "حذف الطالب: " + selectedStudent.getName() + "؟")) {
+        if (Dialogs.confirm(I18n.get("common.confirmDelete"),
+                I18n.format("student.deleteConfirm", selectedStudent.getName()))) {
             Student target = selectedStudent;
             FxAsync.run(() -> studentService.deleteStudent(target.getId()), () -> {
                 studentsList.remove(target);
                 handleClearAction(null);
-            }, error -> AlertUtils.showError("خطأ",
-                    "لا يمكن حذف الطالب بسبب وجود حركات مالية أو حضور مسجلة له."));
+            }, error -> Dialogs.error(I18n.get("student.deleteBlocked")));
         }
     }
 
@@ -279,14 +292,14 @@ public class StudentRegistrationController {
         deleteButton.setDisable(true);
         subscribeButton.setDisable(true);
         groupComboBox.setValue(null);
-        groupCapacityLabel.setText("السعة: ---");
-        subscribedGroupsLabel.setText("المجموعات المشترك بها: لم يتم تحديد طالب");
+        groupCapacityLabel.setText(I18n.get("student.capacityUnknown"));
+        subscribedGroupsLabel.setText(I18n.get("student.subscribedGroupsNoStudent"));
     }
 
     @FXML
     public void handleExportIdCards(ActionEvent event) {
         if (studentsList.isEmpty()) {
-            AlertUtils.showWarning("تنبيه", "لا يوجد طلاب في الجدول لتصدير كارنيهاتهم.");
+            Dialogs.warning(I18n.get("student.noStudentsToExport"));
             return;
         }
 
@@ -307,7 +320,7 @@ public class StudentRegistrationController {
                 throw new RuntimeException(e);
             }
         }).thenAccept(outputPath -> Platform.runLater(() -> {
-            AlertUtils.showSuccess("نجاح العملية", "تم تصدير الكارنيهات بنجاح إلى:\n" + outputPath);
+            Dialogs.success(I18n.format("student.idCardsExported", outputPath));
 
             // (اختياري) فتح الملف تلقائياً بعد إنشائه
             try {
@@ -318,7 +331,8 @@ public class StudentRegistrationController {
         })).exceptionally(ex -> {
             Platform.runLater(() -> {
                 ex.printStackTrace();
-                AlertUtils.showError("خطأ في التصدير", "فشلت عملية إنشاء الكارنيهات:\n" + ex.getCause().getMessage());
+                Dialogs.error(I18n.get("common.exportError"),
+                        I18n.format("student.idCardsFailed", FxAsync.messageOf(ex)));
             });
             return null;
         });
