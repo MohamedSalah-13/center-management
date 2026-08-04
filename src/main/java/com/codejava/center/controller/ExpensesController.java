@@ -7,7 +7,7 @@ import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
-import com.codejava.commons.fx.validation.InputValidator;
+import com.codejava.center.util.Forms;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -56,7 +56,7 @@ public class ExpensesController {
 
         expensesTable.setItems(expenses);
 
-        InputValidator.makeDecimalOnly(amountField);
+        Forms.decimalOnly(amountField);
 
         dayPicker.setValue(LocalDate.now());
         dayPicker.valueProperty().addListener((obs, oldVal, newVal) -> loadExpenses());

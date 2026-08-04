@@ -107,9 +107,9 @@ How to reach strings:
 - Enums: `Role`/`NotificationType`/`TransactionType` expose `getDisplayName()` reading
   `role.ADMIN`, `notificationType.ABSENCE`, … Add the key when you add a constant.
 - Commission type is a `String` column, not an enum — use `util/CommissionTypes`.
-- Alerts: `util/Dialogs`, **not** `AlertUtils` from fx-commons. The vendored jar has no way
-  to set direction or button labels, so its dialogs rendered left-to-right with OK/Cancel
-  whatever the language.
+- Alerts: `util/Dialogs`. It replaced `AlertUtils` from the old fx-commons dependency, whose
+  five static methods had no way to set direction or button labels, so its dialogs rendered
+  left-to-right with OK/Cancel whatever the language.
 
 `I18n.setLocale` also calls `Locale.setDefault`, which is what localises `DatePicker` month
 names and other strings baked into JavaFX. Arabic uses `ar-EG-u-nu-latn` so amounts and
@@ -252,7 +252,11 @@ codepage otherwise, which mangles the Arabic strings and breaks parsing.
 
 ## Dependencies
 
-`com.codejava.commons:fx-commons` (`AlertUtils`, `FormUtils`, `InputValidator`) is not on
-Maven Central. It is vendored in `lib/` and resolved through a `file://` repository declared
-in the POM — do not remove either, or the build breaks on every machine but the one where it
-was originally installed.
+Everything resolves from Maven Central. **Keep it that way** — no `<repositories>` block, no
+jar committed to the repo.
+
+The project used to depend on `com.codejava.commons:fx-commons`, which is not on Maven
+Central and was vendored under `lib/` behind a `file://` repository. `Dialogs` had already
+replaced its `AlertUtils` (see above), and the rest of it came down to three small helpers,
+now `util/Forms.java`. Reach for `util/Forms` — `numericOnly`, `decimalOnly`,
+`focusNextOnEnter` — when a form field needs an input restriction.

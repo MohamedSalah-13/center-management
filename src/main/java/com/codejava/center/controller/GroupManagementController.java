@@ -9,8 +9,7 @@ import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
-import com.codejava.commons.fx.form.FormUtils;
-import com.codejava.commons.fx.validation.InputValidator;
+import com.codejava.center.util.Forms;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -69,11 +68,11 @@ public class GroupManagementController {
         setupTableSelectionListener();
 
         // تأمين خانة السعة (أرقام صحيحة فقط)
-        InputValidator.makeNumericOnly(capacityField);
+        Forms.numericOnly(capacityField);
 
         // تأمين خانة السعر (أرقام وكسور عشرية للمبالغ)
-        InputValidator.makeDecimalOnly(priceField);
-        FormUtils.focusNextOnEnter(capacityField, priceField);
+        Forms.decimalOnly(priceField);
+        Forms.focusNextOnEnter(capacityField, priceField);
 
         FilteredList<CourseGroup> filteredData = new FilteredList<>(groupsList, b -> true);
 

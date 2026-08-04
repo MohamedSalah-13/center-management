@@ -24,23 +24,10 @@
     </properties>
 
     <!--
-        مستودع محلي داخل المشروع لمكتبة fx-commons غير المنشورة على Maven Central.
-        بدونه يفشل البناء على أي جهاز آخر أو على CI لأن المكتبة مثبتة يدوياً في ~/.m2 فقط.
-        عند نشر المكتبة على مستودع حقيقي (GitHub Packages / Nexus) يمكن حذف هذا القسم ومجلد lib.
+        كل الاعتمادات هنا تأتي من Maven Central. لا مستودعات إضافية ولا جرّات مُدرجة في
+        المستودع: كانت fx-commons تُستورد من مجلد lib عبر مستودع file://، ثم لم يبقَ منها
+        مستعملاً سوى ثلاث دوال صغيرة، فانتقلت إلى util/Forms.java وحُذفت المكتبة كلها.
     -->
-    <repositories>
-        <repository>
-            <id>project-local-libs</id>
-            <url>file://${project.basedir}/lib</url>
-            <releases>
-                <enabled>true</enabled>
-            </releases>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </repository>
-    </repositories>
-
     <dependencies>
         <!-- Spring Boot JPA -->
         <dependency>
@@ -86,13 +73,6 @@
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-fxml</artifactId>
             <version>${javafx.version}</version>
-        </dependency>
-
-        <!-- مكتبة أدوات JavaFX المشتركة بين المشاريع (فاليديشن، رسائل، مساعدات فورم) -->
-        <dependency>
-            <groupId>com.codejava.commons</groupId>
-            <artifactId>fx-commons</artifactId>
-            <version>1.0.0</version>
         </dependency>
 
         <!-- Lombok -->
