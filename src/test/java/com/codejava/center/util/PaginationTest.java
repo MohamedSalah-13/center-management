@@ -81,4 +81,27 @@ class PaginationTest {
     void stillProducesOnePageForAnEmptyDocument() {
         assertThat(Printing.pageBreaks(List.of(), HEADER, FOOTER, BUDGET)).containsExactly(0);
     }
+
+    /**
+     * الملاءمة تتم برصف المحتوى على عرض الورقة لا بتصغيره، فالمعامل يبقى 1 ما دام المحتوى
+     * داخلاً. تصغير محتوى يسع الورقة هو بالضبط ما كان يُخرج الإيصال الحراري ضئيلاً.
+     */
+    @Test
+    void doesNotShrinkContentThatAlreadyFits() {
+        // رول 80 مم ≈ 227 نقطة، وبعد الهامش الداخلي يبقى نحو 210
+        assertThat(Printing.fitScale(180, 210)).isEqualTo(1);
+        assertThat(Printing.fitScale(210, 210)).isEqualTo(1);
+    }
+
+    /** ولا يكبّر أبداً: مستند أضيق من الورقة يبقى بحجمه */
+    @Test
+    void neverEnlargesNarrowContent() {
+        assertThat(Printing.fitScale(50, 560)).isEqualTo(1);
+    }
+
+    /** ما يستعصي على الالتفاف - كلمة واحدة أطول من الورقة - يُصغَّر بقدر الفائض وحده */
+    @Test
+    void shrinksOnlyWhatOverflows() {
+        assertThat(Printing.fitScale(420, 210)).isEqualTo(0.5);
+    }
 }

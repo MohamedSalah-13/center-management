@@ -15,8 +15,10 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
@@ -58,10 +60,13 @@ public final class Printing {
     private static final String STYLESHEET = "/css/style.css";
 
     private static final double BLOCK_SPACING = 8;
-    private static final double REPORT_PADDING = 20;
 
-    // الرول ضيّق أصلاً (58 أو 80 مم)، وهامش التقرير يبتلع ربع عرضه
-    private static final double RECEIPT_PADDING = 6;
+    // الهوامش بالنقاط (1/72 بوصة) لأنها تُقاس على مساحة الطباعة القادمة من PageLayout.
+    // هامش الورقة نفسه من العتاد، وهذا فراغ إضافي داخلها ليتنفّس المحتوى: 36 نقطة ≈ 12 مم
+    private static final double REPORT_PADDING = 36;
+
+    // الرول ضيّق أصلاً (58 أو 80 مم)، وهامش التقرير يبتلع ثلث عرضه
+    private static final double RECEIPT_PADDING = 8;
 
     private static final double PREVIEW_WIDTH = 860;
     private static final double PREVIEW_HEIGHT = 900;
@@ -158,14 +163,22 @@ public final class Printing {
         return job;
     }
 
-    /** مقاس الورق المختار لهذا النوع، والعودة إلى تخطيط الطابعة الافتراضي إن رفضته */
+    /**
+     * مقاس الورق المختار لهذا النوع، والعودة إلى تخطيط الطابعة الافتراضي إن رفضته.
+     *
+     * <p><b>الهوامش من العتاد لا {@code MarginType.DEFAULT}.</b> الافتراضي في JavaFX هو
+     * ثلاثة أرباع البوصة على كل جانب - 54 نقطة - وهو رقم مكتوب لورق A4 لا يعرف شيئاً عن
+     * الرول. على رول 80 مم (227 نقطة) يبتلع الهامشان 108 نقاط فلا يبقى للطباعة إلا 42 مم،
+     * فيخرج الإيصال ضئيلاً في منتصف عرض الورقة. الهامش الفعلي يأتي من الطابعة نفسها،
+     * والفراغ حول المحتوى يضيفه {@link #newPage} داخل الورقة.</p>
+     */
     private static PageLayout pageLayoutFor(Printer printer, DocumentKind kind) {
         Paper paper = PrintPreferences.resolvePaper(kind, printer);
         if (paper == null) {
             return printer.getDefaultPageLayout();
         }
         PageLayout layout = printer.createPageLayout(
-                paper, PageOrientation.PORTRAIT, Printer.MarginType.DEFAULT);
+                paper, PageOrientation.PORTRAIT, Printer.MarginType.HARDWARE_MINIMUM);
         return layout != null ? layout : printer.getDefaultPageLayout();
     }
 
@@ -182,9 +195,23 @@ public final class Printing {
         boolean splitting = document.kind() == DocumentKind.REPORT;
         double padding = splitting ? REPORT_PADDING : RECEIPT_PADDING;
 
+        double pageWidth = layout.getPrintableWidth();
+        double contentWidth = Math.max(1, pageWidth - padding * 2);
+
+        // القطع تُهيَّأ لعرض الورقة قبل قياسها: النص يلتف والصورة تُقيَّد. بغير هذا يُقاس
+        // المحتوى بعرضه الطبيعي (نحو 450 نقطة) ثم يُصغَّر ليدخل في 227 نقطة من رول 80 مم،
+        // فيخرج الإيصال بنصف حجمه أو أقل. المطلوب أن يُبنى على مقاس الورقة لا أن يُكمَش إليه.
+        Node sampleHeader = document.headerFactory() == null ? null : document.headerFactory().get();
+        if (sampleHeader != null) {
+            fitToWidth(sampleHeader, contentWidth);
+        }
+        document.blocks().forEach(block -> fitToWidth(block, contentWidth));
+
         VBox measuring = new VBox(BLOCK_SPACING);
         measuring.setPadding(new Insets(padding));
-        Node sampleHeader = document.headerFactory() == null ? null : document.headerFactory().get();
+        measuring.setMinWidth(pageWidth);
+        measuring.setPrefWidth(pageWidth);
+        measuring.setMaxWidth(pageWidth);
         if (sampleHeader != null) {
             measuring.getChildren().add(sampleHeader);
         }
@@ -194,21 +221,21 @@ public final class Printing {
 
         Group holder = layoutOffScreen(measuring);
 
-        double naturalWidth = Math.max(1, measuring.prefWidth(-1));
         double headerHeight = sampleHeader == null ? 0 : heightOf(sampleHeader) + BLOCK_SPACING;
         double footerHeight = heightOf(sampleFooter) + BLOCK_SPACING;
 
         List<Double> blockHeights = new ArrayList<>(document.blocks().size());
+        double widest = 0;
         for (Node block : document.blocks()) {
             blockHeights.add(heightOf(block) + BLOCK_SPACING);
+            widest = Math.max(widest, block.getLayoutBounds().getWidth());
         }
 
         // تحرير القطع من حاوية القياس قبل نقلها إلى الصفحات - العقدة لا تقبل أبوين
         measuring.getChildren().clear();
         holder.getChildren().clear();
 
-        // معامل واحد لكل المستند: تصغير كل صفحة على حدة يجعل صفحةً بخط أصغر من أختها
-        double scale = Math.min(1, layout.getPrintableWidth() / naturalWidth);
+        double scale = fitScale(widest, contentWidth);
         double heightBudget = layout.getPrintableHeight() / scale - padding * 2;
 
         List<Integer> perPage = splitting
@@ -218,7 +245,7 @@ public final class Printing {
         List<VBox> pages = new ArrayList<>(perPage.size());
         int next = 0;
         for (int count : perPage) {
-            VBox page = newPage(document, naturalWidth, padding);
+            VBox page = newPage(document, pageWidth, padding);
             page.getChildren().addAll(document.blocks().subList(next, next + count));
             next += count;
             pages.add(page);
@@ -270,6 +297,52 @@ public final class Printing {
         // الصفحة الأخيرة تُضاف دائماً، ولو فارغة، حتى يخرج مستند بلا قطع بترويسته
         perPage.add(onPage);
         return perPage;
+    }
+
+    /**
+     * معامل التصغير، وهو <b>شبكة أمان لا وسيلة الملاءمة</b>.
+     *
+     * <p>الملاءمة تتم برصف المحتوى على عرض الورقة في {@link #fitToWidth}. هذا المعامل لما
+     * يستعصي على الالتفاف وحده: كلمة واحدة أطول من الورقة، أو صورة لا تُقيَّد. ولا يكبّر
+     * أبداً - مستند أضيق من الورقة يبقى بحجمه ولا يُمَطّ.</p>
+     */
+    static double fitScale(double widest, double contentWidth) {
+        if (widest <= contentWidth || widest <= 0) {
+            return 1;
+        }
+        return contentWidth / widest;
+    }
+
+    /**
+     * يهيّئ قطعة لعرض الورقة: النص يلتف والصورة تُقيَّد بالعرض المتاح.
+     *
+     * <p>هذا ما يجعل نفس المستند يصلح على A4 وعلى رول 80 مم: المحتوى يُعاد رصفه على عرض
+     * الورقة بخطّه كما هو، بدل أن يُبنى بعرض ثابت ثم يُصغَّر - والتصغير هو ما كان يُخرج
+     * الإيصال الحراري ضئيلاً في منتصف الورقة.</p>
+     *
+     * <p>لا ينزل داخل {@link Label} وأمثاله: أبناؤه من صنع الـ skin الداخلي، والتصرّف فيهم
+     * يُبطل ما يفعله {@code wrapText} نفسه.</p>
+     */
+    private static void fitToWidth(Node node, double contentWidth) {
+        if (node instanceof Label label) {
+            label.setWrapText(true);
+            label.setMaxWidth(contentWidth);
+            return;
+        }
+        if (node instanceof ImageView view) {
+            // مع preserveRatio يصير الحدّان معاً إطاراً تدخل الصورة فيه بلا تشويه
+            view.setPreserveRatio(true);
+            view.setFitWidth(contentWidth);
+            return;
+        }
+        if (node instanceof Region region) {
+            region.setMaxWidth(contentWidth);
+        }
+        if (node instanceof Pane pane) {
+            pane.getChildren().forEach(child -> fitToWidth(child, contentWidth));
+        } else if (node instanceof Group group) {
+            group.getChildren().forEach(child -> fitToWidth(child, contentWidth));
+        }
     }
 
     private static VBox newPage(PrintDocument document, double width, double padding) {

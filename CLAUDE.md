@@ -166,8 +166,15 @@ Two invariants worth keeping:
 - The print dialog is shown **before** pagination, since the user may pick another paper size
   in it and a layout computed for A4 is wrong for A5.
 
-Content wider than the paper is scaled down by one factor for the whole document — never
-scaled up, and never cropped at the edge.
+**Content is laid out at the paper's width, not shrunk to it.** `fitToWidth` turns on
+`wrapText` and caps widths to the printable area before measuring, so the same document sets
+itself on A4 and on an 80 mm roll at its designed font size. `fitScale` is only a safety net
+for what wrapping cannot break (one over-long word, an image) — it never enlarges.
+
+Margins come from `MarginType.HARDWARE_MINIMUM`, never `DEFAULT`. JavaFX's `DEFAULT` is 0.75
+inch per side, an A4 number: on a 227 pt roll the two margins eat 108 pt and leave 42 mm, so
+the receipt printed tiny in the middle of the paper. Breathing room is `REPORT_PADDING` /
+`RECEIPT_PADDING` inside the sheet instead.
 
 `Printing.pageBreaks` is package-private and free of JavaFX on purpose: it is the decision
 that loses data when it is wrong, and `PaginationTest` covers it without a toolkit.
