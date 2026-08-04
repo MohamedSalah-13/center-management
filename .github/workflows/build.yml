@@ -1,0 +1,47 @@
+name: Build and Test
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      # جافا 21: المشروع يستعمل مزايا اللغة الحديثة (records، switch expressions، pattern matching)
+      # وpom يضبط maven.compiler.source/target على 21
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      # لا -o هنا خلافاً للأمر المكتوب في CLAUDE.md:
+      # وضع عدم الاتصال يعمل على جهاز المطوّر لأن كل شيء مخزَّن في ~/.m2،
+      # أما هنا فالكاش فارغ في أول تشغيل وبعد كل تغيير في pom، فيفشل البناء فوراً.
+      #
+      # الاختبارات لا تحتاج MySQL ولا متغيرات بيئة: ملف
+      # src/test/resources/application.properties يحجب الرئيسي بالكامل ويستعمل H2 في الذاكرة.
+      # ولا تحتاج شاشة كذلك: لا اختبار يُقلع منصة JavaFX.
+      - name: Run tests
+        run: mvn --batch-mode clean test
+
+      # تقارير surefire هي الموضع الوحيد الذي يحمل رسالة الفشل كاملة،
+      # وسجل الخطوة يقتصر على أسماء الاختبارات الفاشلة
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: target/surefire-reports/
+          retention-days: 7

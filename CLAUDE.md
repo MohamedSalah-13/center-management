@@ -17,6 +17,11 @@ mvn -o compile             # compile only
 mvn spring-boot:run        # run the app (needs DB credentials, see below)
 ```
 
+`.github/workflows/build.yml` runs the same suite on every PR and push to `main`, but
+**without `-o`** — the runner's `~/.m2` starts empty, so offline mode fails there. It needs
+no database and no secrets: `src/test/resources/application.properties` shadows the main
+one and uses in-memory H2.
+
 Run a single test class or method:
 
 ```bash
