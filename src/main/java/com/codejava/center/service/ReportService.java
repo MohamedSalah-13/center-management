@@ -12,8 +12,8 @@ import com.codejava.center.service.dto.StudentBalance;
 import com.codejava.center.util.CommissionTypes;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
+import com.codejava.center.util.Printing;
 import javafx.geometry.Pos;
-import javafx.print.PrinterJob;
 import javafx.scene.control.Separator;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -242,25 +242,11 @@ public class ReportService {
     }
 
     /**
-     * إرسال عقدة للطباعة مع إنهاء المهمة في كل الحالات.
-     * ترك المهمة بلا endJob عند الفشل يُبقيها معلّقة في طابور الطابعة.
+     * كل مطبوعات هذا الصنف تمرّ من هنا إلى {@link Printing}، وهو الذي يعرف الطابعة
+     * المختارة وأسلوب الطباعة (معاينة / نافذة الطابعة / مباشرة) المضبوطَين في الإعدادات.
      */
     private void printNode(javafx.scene.Node node, Window ownerWindow) {
-        PrinterJob job = PrinterJob.createPrinterJob();
-        if (job == null) {
-            throw new IllegalStateException(I18n.get("error.printer.unavailable"));
-        }
-
-        if (!job.showPrintDialog(ownerWindow)) {
-            job.cancelJob();
-            return;
-        }
-
-        try {
-            job.printPage(node);
-        } finally {
-            job.endJob();
-        }
+        Printing.print(node, ownerWindow);
     }
 
     /**

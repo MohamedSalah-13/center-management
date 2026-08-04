@@ -129,6 +129,27 @@ Direction is set on the `Scene` by `ViewLoader`, never hardcoded in FXML.
 Arabic flips it a second time and pushes the text to the wrong edge. The old hardcoded
 `-fx-alignment: center-right` on `.sidebar-btn` was that bug.
 
+### Printing
+
+Every printed node goes through `util/Printing.print(node, owner)` — never
+`PrinterJob.createPrinterJob()` directly. It applies the two settings from
+`util/PrintPreferences`: which printer, and what happens on "print" (`PrintMode` —
+`PREVIEW`, `DIALOG`, `DIRECT`). `DIALOG` is the default because it is what every earlier
+release did.
+
+**Print settings are stored per machine** (`java.util.prefs`), like the language and for
+the same kind of reason: a printer belongs to the terminal, not to the centre, and the gate
+machine may drive a receipt printer while the office drives A4. No Flyway migration.
+
+A saved printer that has since been unplugged falls back to the system default rather than
+throwing — an unplugged printer must not stop receipts. `PrintPreferences.savedPrinterIsMissing()`
+is what lets the settings screen say so.
+
+The preview window pins the document to `LEFT_TO_RIGHT` while its own toolbar follows the
+UI language. Printing happens on a node outside any scene, i.e. left-to-right; letting the
+preview inherit the Arabic scene direction would show a mirrored version of what comes out
+of the printer, which is the one thing a preview must not do.
+
 ### Money
 
 All amounts are `BigDecimal` with `DECIMAL(12,2)`. Never introduce `Double` for money.

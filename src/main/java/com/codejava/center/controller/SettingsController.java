@@ -8,9 +8,12 @@ import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.LanguageSelector;
+import com.codejava.center.util.PrintPreferences;
+import com.codejava.center.util.Printing;
 import com.codejava.center.util.ViewLoader;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.print.Printer;
 import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
@@ -19,6 +22,7 @@ import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.Window;
+import javafx.util.StringConverter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
@@ -28,6 +32,8 @@ import org.springframework.stereotype.Controller;
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -39,6 +45,10 @@ import java.util.Locale;
  *
  * <p>تبويب اللغة هنا للاكتمال فقط: الاختيار متاح أيضاً من القائمة الجانبية ومن
  * شاشة الدخول، لأن هذه الشاشة مقصورة على المدير بينما اللغة تفضيل عرض لكل مشغّل.</p>
+ *
+ * <p>تبويبا اللغة والطباعة يُحفظان في تفضيلات الجهاز لحظة الاختيار، وبقية التبويبات
+ * تُحفظ في قاعدة البيانات بزر "حفظ الإعدادات". التقسيم مقصود: الأولان يخصّان الجهاز
+ * (لغة المشغّل، الطابعة الموصولة) والباقي يخصّ السنتر كله.</p>
  */
 @Controller
 @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
@@ -66,6 +76,11 @@ public class SettingsController {
 
     @FXML private ComboBox<Locale> languageCombo;
 
+    @FXML private ComboBox<String> printerCombo;
+    @FXML private ComboBox<PrintPreferences.PrintMode> printModeCombo;
+    @FXML private Label printTargetLabel;
+    @FXML private Label printerWarningLabel;
+
     @FXML private TextField backupPathField;
     @FXML private CheckBox autoBackupCheckBox;
 
@@ -81,14 +96,123 @@ public class SettingsController {
     private String loadedCenterName;
     private String loadedLogoPath;
 
+    /** يمنع إعادة تعبئة قائمة الطابعات من أن تُحفظ كاختيار من المستخدم */
+    private boolean reloadingPrinters;
+
     @FXML
     public void initialize() {
         // تبديل اللغة يعيد بناء لوحة القيادة، وهذه الشاشة تُعرض داخلها فتُغلق معها.
         // التعديلات غير المحفوظة في الحقول تضيع، ولهذا لا يُبدَّل قبل الحفظ عادةً.
         LanguageSelector.configure(languageCombo, this::reloadDashboard);
 
+        configurePrinting();
         showSystemInfo();
         loadSettings();
+    }
+
+    /**
+     * تبويب الطباعة.
+     *
+     * <p>لا يمرّ بزر "حفظ الإعدادات" لأنه لا يُحفظ في قاعدة البيانات أصلاً: الطابعة
+     * مُثبَّتة على الجهاز لا على السنتر، فالاختيار يُحفظ لحظة تغييره في تفضيلات الجهاز
+     * تماماً كاللغة. راجع {@link PrintPreferences}.</p>
+     */
+    private void configurePrinting() {
+        printerCombo.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(String printerName) {
+                // null يمثّل "اترك الأمر للنظام"، وهو أول خيار في القائمة
+                return printerName == null ? I18n.get("settings.printerSystemDefault") : printerName;
+            }
+
+            @Override
+            public String fromString(String string) {
+                return null;
+            }
+        });
+
+        printModeCombo.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(PrintPreferences.PrintMode mode) {
+                return mode == null ? "" : mode.getDisplayName();
+            }
+
+            @Override
+            public PrintPreferences.PrintMode fromString(String string) {
+                return null;
+            }
+        });
+        printModeCombo.getItems().setAll(PrintPreferences.PrintMode.values());
+        printModeCombo.setValue(PrintPreferences.mode());
+        printModeCombo.valueProperty().addListener((observable, oldMode, newMode) -> {
+            if (newMode != null) {
+                PrintPreferences.setMode(newMode);
+                statusLabel.setText(I18n.get("settings.printSaved"));
+            }
+        });
+
+        loadPrinters();
+        printerCombo.valueProperty().addListener((observable, oldName, newName) -> {
+            // إعادة تعبئة القائمة تُفرغ الاختيار ثم تعيده، فتُطلق الحدث مرتين: مرة بـ null
+            // تمحو الطابعة المحفوظة. الحارس يقصر الحفظ على اختيار المستخدم وحده.
+            if (reloadingPrinters) {
+                return;
+            }
+            PrintPreferences.setPrinterName(newName);
+            showPrintTarget();
+            statusLabel.setText(I18n.get("settings.printSaved"));
+        });
+    }
+
+    /**
+     * تعبئة قائمة الطابعات. الطابعة المحفوظة قد تكون فُصلت عن الجهاز، فتبقى مختارة في
+     * الحفظ بينما تُنبّه الشاشة إلى غيابها بدل أن تُسقط الاختيار بصمت.
+     */
+    private void loadPrinters() {
+        String saved = PrintPreferences.printerName();
+        boolean savedIsMissing = PrintPreferences.savedPrinterIsMissing();
+
+        List<String> names = new ArrayList<>();
+        names.add(null); // خيار "الطابعة الافتراضية للنظام"
+        Printer.getAllPrinters().forEach(printer -> names.add(printer.getName()));
+        if (savedIsMissing) {
+            names.add(saved);
+        }
+
+        reloadingPrinters = true;
+        try {
+            printerCombo.getItems().setAll(names);
+            printerCombo.setValue(saved);
+        } finally {
+            reloadingPrinters = false;
+        }
+
+        showPrintTarget();
+
+        // التنبيه له مكانه في التبويب نفسه لا في شريط الحالة المشترك: شريط الحالة يُمسح
+        // عند اكتمال تحميل بقية الإعدادات، فكان التنبيه يظهر ثم يختفي وحده
+        printerWarningLabel.setText(savedIsMissing ? I18n.format("settings.printerMissing", saved) : "");
+        printerWarningLabel.setVisible(savedIsMissing);
+        printerWarningLabel.setManaged(savedIsMissing);
+    }
+
+    private void showPrintTarget() {
+        printTargetLabel.setText(Printing.describeTarget());
+    }
+
+    @FXML
+    public void handleRefreshPrinters(ActionEvent event) {
+        loadPrinters();
+    }
+
+    @FXML
+    public void handlePrintTestPage(ActionEvent event) {
+        try {
+            // الطباعة تبقى على خيط الواجهة: شرط PrinterJob في JavaFX
+            Printing.printTestPage(windowOf(event));
+        } catch (Exception e) {
+            Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(e));
+        }
     }
 
     private void showSystemInfo() {
