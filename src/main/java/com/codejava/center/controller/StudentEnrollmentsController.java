@@ -1,0 +1,223 @@
+package com.codejava.center.controller;
+
+import com.codejava.center.domain.CourseGroup;
+import com.codejava.center.domain.Student;
+import com.codejava.center.domain.enums.SchoolLevel;
+import com.codejava.center.service.CourseGroupService;
+import com.codejava.center.service.EnrollmentService;
+import com.codejava.center.service.dto.MembershipRow;
+import com.codejava.center.util.Dialogs;
+import com.codejava.center.util.FxAsync;
+import com.codejava.center.util.I18n;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.event.ActionEvent;
+import javafx.fxml.FXML;
+import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.stage.Stage;
+import javafx.util.StringConverter;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Controller;
+
+/**
+ * إدارة اشتراكات طالب واحد، في نافذة مستقلة تُفتح من سطره في جدول الطلاب.
+ *
+ * <p>كانت هذه اللوحة قسماً داخل شاشة التسجيل يتبع الصف المحدَّد: نموذج البيانات والاشتراكات
+ * وجدول الطلاب في شاشة واحدة، فيُقرأ "إنهاء الاشتراك" وكأنه يخصّ ما في النموذج لا ما في
+ * الجدول. النافذة تُفتح باسم طالب مكتوب في ترويستها، فلا يبقى سؤال عمّن يُشترك.</p>
+ *
+ * <p>الطالب يصل عبر {@link #setStudent(Student)} قبل عرض النافذة لا عبر المُنشئ: المتحكّم
+ * يُبنى من Spring بحقن المُنشئ للخدمات، ولا سبيل لتمرير قيمة وقت التشغيل خلاله.</p>
+ */
+@Controller
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE) // نسخة جديدة لكل فتح للنافذة - يمنع تراكم الـ listeners والحالة القديمة
+@RequiredArgsConstructor
+public class StudentEnrollmentsController {
+
+    private final CourseGroupService courseGroupService;
+    private final EnrollmentService enrollmentService;
+
+    @FXML private Label studentNameLabel;
+    @FXML private Label studentLevelLabel;
+    @FXML private ComboBox<CourseGroup> groupComboBox;
+    @FXML private Label groupCapacityLabel;
+    @FXML private Label enrollmentHintLabel;
+    @FXML private Button subscribeButton;
+    @FXML private Button unsubscribeButton;
+
+    @FXML private TableView<MembershipRow> membershipsTable;
+    @FXML private TableColumn<MembershipRow, String> colMemGroup, colMemJoined, colMemLeft,
+            colMemHeld, colMemAttended, colMemRate;
+
+    private final ObservableList<MembershipRow> memberships = FXCollections.observableArrayList();
+    private Student student;
+
+    @FXML
+    public void initialize() {
+        setupGroupComboBox();
+        setupMembershipsTable();
+    }
+
+    /** موضوع النافذة: يُضبط مرة واحدة قبل عرضها، ومنه يُقرأ كل ما تعرضه */
+    public void setStudent(Student student) {
+        this.student = student;
+        studentNameLabel.setText(student.getName());
+        studentLevelLabel.setText(I18n.format("student.enrollmentsLevel",
+                student.getSchoolLevel() == null
+                        ? I18n.get("common.none") : student.getSchoolLevel().getDisplayName()));
+
+        loadGroupsForLevel(student.getSchoolLevel());
+        loadMemberships();
+    }
+
+    private void setupGroupComboBox() {
+        // عرض اسم المجموعة في قائمة الاختيار بدلاً من الكائن
+        groupComboBox.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(CourseGroup group) {
+                return group == null ? "" : group.getName();
+            }
+            @Override
+            public CourseGroup fromString(String string) { return null; }
+        });
+
+        // مراقبة التغيير في اختيار المجموعة لعرض السعة
+        groupComboBox.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null) {
+                FxAsync.supply(() -> enrollmentService.countActiveMembers(newVal), currentStudents -> {
+                    groupCapacityLabel.setText(I18n.format("student.capacity",
+                            currentStudents, newVal.getMaxCapacity()));
+
+                    // تلوين النص بالأحمر إذا اكتملت السعة
+                    if (currentStudents >= newVal.getMaxCapacity()) {
+                        groupCapacityLabel.setStyle("-fx-text-fill: #e74c3c;");
+                    } else {
+                        groupCapacityLabel.setStyle("-fx-text-fill: #7f8c8d;");
+                    }
+                }, error -> groupCapacityLabel.setText(I18n.get("student.capacityFailed")));
+            } else {
+                groupCapacityLabel.setText(I18n.get("student.capacityUnknown"));
+            }
+        });
+    }
+
+    /**
+     * جدول عضويات الطالب: المجموعة، مدة الاشتراك، وحصادها.
+     *
+     * <p>الحصص المعروضة هي حصص <b>مدة اشتراكه هو</b> لا حصص المجموعة كلها، ولذلك تصلح
+     * "حضر 4 من 5" للحكم على من التحق الأسبوع الماضي كما تصلح لمن معها من أول العام.</p>
+     */
+    private void setupMembershipsTable() {
+        String none = I18n.get("common.none");
+
+        colMemGroup.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().groupName()));
+        colMemJoined.setCellValueFactory(d -> new SimpleStringProperty(String.valueOf(d.getValue().joinDate())));
+        colMemLeft.setCellValueFactory(d -> new SimpleStringProperty(
+                d.getValue().active() ? I18n.get("student.membershipActive")
+                        : (d.getValue().leaveDate() == null ? none : String.valueOf(d.getValue().leaveDate()))));
+        colMemHeld.setCellValueFactory(d -> new SimpleStringProperty(String.valueOf(d.getValue().sessionsHeld())));
+        colMemAttended.setCellValueFactory(d -> new SimpleStringProperty(String.valueOf(d.getValue().sessionsAttended())));
+        colMemRate.setCellValueFactory(d -> new SimpleStringProperty(
+                d.getValue().attendanceRate() == null ? none : d.getValue().attendanceRate() + "%"));
+
+        membershipsTable.setItems(memberships);
+        membershipsTable.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) ->
+                unsubscribeButton.setDisable(newVal == null || !newVal.active()));
+    }
+
+    private void loadMemberships() {
+        FxAsync.supply(() -> enrollmentService.getMemberships(student.getId()),
+                rows -> {
+                    memberships.setAll(rows);
+                    unsubscribeButton.setDisable(true);
+                },
+                error -> {
+                    memberships.clear();
+                    Dialogs.error(I18n.format("student.groupsLoadFailed", FxAsync.messageOf(error)));
+                });
+    }
+
+    /**
+     * قائمة الاشتراك تعرض مجموعات صف الطالب وحدها.
+     *
+     * <p>عرض الكل ثم رفض الاختيار برسالة خطأ يجعل الموظف يجرّب حتى يصيب. والقيد نفسه
+     * مفروض في {@code EnrollmentService} على أي حال: هذه راحة في الاستخدام لا حماية.</p>
+     */
+    private void loadGroupsForLevel(SchoolLevel level) {
+        groupComboBox.setValue(null);
+        groupComboBox.getItems().clear();
+
+        if (level == null) {
+            // بلا مرحلة لا مجموعة تقبله: الاشتراك يُغلق بدل أن يُترك زراً يردّ برسالة خطأ
+            subscribeButton.setDisable(true);
+            enrollmentHintLabel.setText(I18n.get("student.levelMissingHint"));
+            return;
+        }
+
+        FxAsync.supply(() -> courseGroupService.getGroupsOfLevel(level),
+                groups -> {
+                    groupComboBox.getItems().setAll(groups);
+                    subscribeButton.setDisable(groups.isEmpty());
+                    enrollmentHintLabel.setText(groups.isEmpty()
+                            ? I18n.format("student.noGroupsForLevel", level.getDisplayName())
+                            : I18n.format("student.groupsOfLevel", level.getDisplayName(), groups.size()));
+                },
+                error -> Dialogs.error(I18n.format("student.groupsLoadFailed", FxAsync.messageOf(error))));
+    }
+
+    @FXML
+    public void handleSubscribeAction(ActionEvent event) {
+        CourseGroup selectedGroup = groupComboBox.getValue();
+        if (selectedGroup == null) {
+            Dialogs.warning(I18n.get("student.selectGroup"));
+            return;
+        }
+
+        // فحص السعة والحفظ داخل Transaction واحدة في EnrollmentService،
+        // وعدّ السعة بعد النجاح يجري في الخلفية لا على خيط الواجهة
+        FxAsync.supply(() -> {
+            enrollmentService.subscribe(student, selectedGroup);
+            return enrollmentService.countActiveMembers(selectedGroup);
+        }, memberCount -> {
+            Dialogs.success(I18n.get("student.subscribed"));
+            loadMemberships();
+            groupCapacityLabel.setText(I18n.format("student.capacity",
+                    memberCount, selectedGroup.getMaxCapacity()));
+        }, error -> Dialogs.error(FxAsync.messageOf(error)));
+    }
+
+    /**
+     * إنهاء اشتراك: يثبّت يوم الخروج ولا يحذف العضوية.
+     * الصف يبقى في الجدول بتاريخيه، لأنه هو ما يحدّ حساب حضور الطالب في تلك المجموعة.
+     */
+    @FXML
+    public void handleUnsubscribeAction(ActionEvent event) {
+        MembershipRow row = membershipsTable.getSelectionModel().getSelectedItem();
+        if (row == null || !row.active()) {
+            Dialogs.warning(I18n.get("student.selectMembership"));
+            return;
+        }
+
+        if (!Dialogs.confirm(I18n.get("common.confirm"),
+                I18n.format("student.unsubscribeConfirm", row.studentName(), row.groupName()))) {
+            return;
+        }
+
+        FxAsync.run(() -> enrollmentService.unsubscribe(student.getId(), row.groupId()), () -> {
+            Dialogs.success(I18n.get("student.unsubscribed"));
+            loadMemberships();
+        }, error -> Dialogs.error(FxAsync.messageOf(error)));
+    }
+
+    @FXML
+    public void handleCloseAction(ActionEvent event) {
+        ((Stage) membershipsTable.getScene().getWindow()).close();
+    }
+}

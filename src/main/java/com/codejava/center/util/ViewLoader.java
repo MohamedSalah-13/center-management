@@ -5,14 +5,17 @@ import javafx.geometry.NodeOrientation;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.stage.Modality;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.function.Consumer;
 
 /**
  * تحميل شاشات FXML في مكان واحد.
@@ -89,6 +92,37 @@ public class ViewLoader {
 
     public static NodeOrientation orientation() {
         return I18n.isRightToLeft() ? NodeOrientation.RIGHT_TO_LEFT : NodeOrientation.LEFT_TO_RIGHT;
+    }
+
+    /**
+     * يفتح شاشة في نافذة مستقلة تابعة للنافذة التي فتحتها، ويعود بعد إغلاقها.
+     *
+     * <p>النافذة المستقلة مشهدٌ آخر لا يرث من مشهد الشاشة التي فتحته شيئاً - لا اتجاهاً
+     * ولا تنسيقاً ولا حجم خط - وهو نفس سبب وجود {@code Dialogs.decorate}. المرور من هنا
+     * هو ما يضمن الثلاثة معاً، فلا يُنسى واحد منها.</p>
+     *
+     * <p>{@code prepare} تُستدعى على المتحكّم بعد بنائه وقبل عرض النافذة: النافذة تُفتح
+     * لصفٍّ بعينه، وتمرير موضوعها بعد العرض يعني ومضةً بشاشة فارغة.</p>
+     */
+    public <C> void showModal(String fxmlPath, String title, Window owner,
+                              double width, double height, Consumer<C> prepare) throws IOException {
+        FXMLLoader loader = loaderFor(fxmlPath);
+        Parent root = loader.load();
+        Tables.localizeEmptyPlaceholders(root);
+
+        if (prepare != null) {
+            prepare.accept(loader.getController());
+        }
+
+        Stage stage = new Stage();
+        stage.initOwner(owner);
+        stage.initModality(Modality.WINDOW_MODAL);
+        stage.setTitle(title);
+        stage.setScene(scene(root,
+                fitToScreen(UiScale.scaled(width), true),
+                fitToScreen(UiScale.scaled(height), false)));
+        stage.centerOnScreen();
+        stage.showAndWait();
     }
 
     /** يعرض شاشة الدخول في النافذة المعطاة بمقاسها الصغير */

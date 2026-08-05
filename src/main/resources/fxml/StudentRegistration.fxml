@@ -38,36 +38,14 @@
         <Button text="%student.exportIdCards" onAction="#handleExportIdCards" style="-fx-background-color: #8e44ad; -fx-text-fill: white;" />
     </HBox>
 
-    <!-- القسم الجديد: إدارة الاشتراك في المجموعات -->
-    <VBox spacing="10.0" style="-fx-padding: 15; -fx-background-color: white; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
-        <Label text="%student.enrollmentSection" textFill="#2c3e50" style="-fx-font-size: 1.14em; -fx-font-weight: bold;"/>
-
-        <HBox spacing="15.0" alignment="CENTER_LEFT">
-            <ComboBox fx:id="groupComboBox" promptText="%student.groupPrompt" prefWidth="250.0" />
-            <Label fx:id="groupCapacityLabel" text="%student.capacityUnknown" textFill="#7f8c8d" style="-fx-font-weight: bold;"/>
-            <Button fx:id="subscribeButton" text="%student.subscribe" disable="true" onAction="#handleSubscribeAction" style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold;" />
-            <Button fx:id="unsubscribeButton" text="%student.unsubscribe" disable="true" onAction="#handleUnsubscribeAction" style="-fx-background-color: #e67e22; -fx-text-fill: white; -fx-font-weight: bold;" />
-        </HBox>
-
-        <Label fx:id="enrollmentHintLabel" text="%student.subscribedGroupsNoStudent" textFill="#7f8c8d" wrapText="true" />
-
-        <TableView fx:id="membershipsTable" prefHeight="150.0">
-            <columns>
-                <TableColumn fx:id="colMemGroup" text="%student.col.group" prefWidth="230.0" />
-                <TableColumn fx:id="colMemJoined" text="%student.col.joined" prefWidth="110.0" />
-                <TableColumn fx:id="colMemLeft" text="%student.col.left" prefWidth="110.0" />
-                <TableColumn fx:id="colMemHeld" text="%student.col.sessionsHeld" prefWidth="110.0" />
-                <TableColumn fx:id="colMemAttended" text="%student.col.sessionsAttended" prefWidth="110.0" />
-                <TableColumn fx:id="colMemRate" text="%student.col.attendanceRate" prefWidth="90.0" />
-            </columns>
-        </TableView>
-    </VBox>
-
-    <!-- أضف هذا الجزء فوق تعريف الـ TableView -->
-    <HBox spacing="10.0" alignment="CENTER_LEFT" style="-fx-padding: 0 0 10 0;">
+    <!-- تصفية جدول الطلاب: نصّ حر ومرحلة دراسية -->
+    <FlowPane hgap="12.0" vgap="10.0" style="-fx-padding: 0 0 10 0;">
         <Label text="%student.searchLabel" />
         <TextField fx:id="searchField" promptText="%student.searchPrompt" prefWidth="300.0" styleClass="text-field" />
-    </HBox>
+        <Label text="%student.filterLevel" />
+        <ComboBox fx:id="levelFilterCombo" prefWidth="180.0" />
+        <Label fx:id="resultCountLabel" textFill="#7f8c8d" />
+    </FlowPane>
 
     <TableView fx:id="studentTable" VBox.vgrow="ALWAYS">
         <columns>
@@ -75,6 +53,7 @@
             <TableColumn fx:id="colName" text="%student.col.name" prefWidth="250.0" />
             <TableColumn fx:id="colPhone" text="%student.col.phone" prefWidth="120.0" />
             <TableColumn fx:id="colLevel" text="%student.col.level" prefWidth="150.0" />
+            <TableColumn fx:id="colEnrollments" text="%student.col.enrollments" prefWidth="140.0" sortable="false" />
         </columns>
     </TableView>
 </VBox>

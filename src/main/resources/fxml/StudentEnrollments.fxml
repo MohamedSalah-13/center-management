@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox spacing="15.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.codejava.center.controller.StudentEnrollmentsController"
+      style="-fx-background-color: #f4f4f4; -fx-padding: 20;">
+
+    <!-- اسم الطالب ومرحلته: النافذة منفصلة عن الجدول الذي فُتحت منه، فلا بدّ أن تقول لمن هي -->
+    <VBox spacing="4.0">
+        <Label fx:id="studentNameLabel" textFill="#2c3e50" style="-fx-font-size: 1.43em; -fx-font-weight: bold;"/>
+        <Label fx:id="studentLevelLabel" textFill="#7f8c8d" />
+    </VBox>
+
+    <VBox spacing="10.0" VBox.vgrow="ALWAYS"
+          style="-fx-padding: 15; -fx-background-color: white; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
+        <Label text="%student.enrollmentSection" textFill="#2c3e50" style="-fx-font-size: 1.14em; -fx-font-weight: bold;"/>
+
+        <FlowPane hgap="15.0" vgap="10.0">
+            <ComboBox fx:id="groupComboBox" promptText="%student.groupPrompt" prefWidth="250.0" />
+            <Label fx:id="groupCapacityLabel" text="%student.capacityUnknown" textFill="#7f8c8d" style="-fx-font-weight: bold;"/>
+            <Button fx:id="subscribeButton" text="%student.subscribe" onAction="#handleSubscribeAction" style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold;" />
+            <Button fx:id="unsubscribeButton" text="%student.unsubscribe" disable="true" onAction="#handleUnsubscribeAction" style="-fx-background-color: #e67e22; -fx-text-fill: white; -fx-font-weight: bold;" />
+        </FlowPane>
+
+        <Label fx:id="enrollmentHintLabel" textFill="#7f8c8d" wrapText="true" />
+
+        <TableView fx:id="membershipsTable" VBox.vgrow="ALWAYS">
+            <columns>
+                <TableColumn fx:id="colMemGroup" text="%student.col.group" prefWidth="230.0" />
+                <TableColumn fx:id="colMemJoined" text="%student.col.joined" prefWidth="110.0" />
+                <TableColumn fx:id="colMemLeft" text="%student.col.left" prefWidth="110.0" />
+                <TableColumn fx:id="colMemHeld" text="%student.col.sessionsHeld" prefWidth="130.0" />
+                <TableColumn fx:id="colMemAttended" text="%student.col.sessionsAttended" prefWidth="110.0" />
+                <TableColumn fx:id="colMemRate" text="%student.col.attendanceRate" prefWidth="90.0" />
+            </columns>
+        </TableView>
+    </VBox>
+
+    <HBox alignment="CENTER_LEFT" spacing="15.0">
+        <Button text="%common.close" onAction="#handleCloseAction" style="-fx-background-color: #95a5a6; -fx-text-fill: white; -fx-font-weight: bold;" />
+    </HBox>
+</VBox>
