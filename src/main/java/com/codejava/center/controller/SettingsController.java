@@ -142,6 +142,13 @@ public class SettingsController {
     /** يمنع إعادة تعبئة قائمة الطابعات من أن تُحفظ كاختيار من المستخدم */
     private boolean reloadingPrinters;
 
+    /** يمنع تعبئة حقول الجدولة من المحفوظ من أن تظهر كأنها تعديل لم يُحفظ بعد */
+    private boolean loadingSchedule;
+
+    /** حالة التشفير كما قُرئت من الجهاز، لنعرف هل غيّرها المستخدم فعلاً */
+    private boolean loadedEncryptionEnabled;
+    private String loadedPassphrase = "";
+
     private static final DateTimeFormatter MOMENT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     /** أدنى طول مقبول لكلمة مرور النسخة؛ ما دونه لا يصمد أمام تخمين آلي */
@@ -188,7 +195,7 @@ public class SettingsController {
         backupFrequencyCombo.getItems().setAll(BackupFrequency.values());
         backupFrequencyCombo.valueProperty().addListener((observable, oldValue, newValue) -> {
             showFieldsFor(newValue);
-            updateNextRunPreview();
+            scheduleFieldChanged();
         });
 
         backupDayOfWeekCombo.setConverter(new StringConverter<>() {
@@ -203,7 +210,7 @@ public class SettingsController {
             }
         });
         backupDayOfWeekCombo.getItems().setAll(1, 2, 3, 4, 5, 6, 7);
-        backupDayOfWeekCombo.valueProperty().addListener((observable, oldValue, newValue) -> updateNextRunPreview());
+        backupDayOfWeekCombo.valueProperty().addListener((observable, oldValue, newValue) -> scheduleFieldChanged());
 
         configureSpinner(backupHourSpinner, 0, 23, BackupSchedule.DEFAULT_TIME.getHour(), true);
         configureSpinner(backupMinuteSpinner, 0, 59, BackupSchedule.DEFAULT_TIME.getMinute(), true);
@@ -213,12 +220,15 @@ public class SettingsController {
         // بلا مجلد ولا تفعيل لا معنى لضبط موعد: الحقول تبقى ظاهرة لتُقرأ، لكنها معطَّلة
         scheduleGrid.disableProperty().bind(autoBackupCheckBox.selectedProperty().not());
 
-        backupEncryptCheckBox.setSelected(BackupPreferences.encryptionEnabled());
+        loadedEncryptionEnabled = BackupPreferences.encryptionEnabled();
+        backupEncryptCheckBox.setSelected(loadedEncryptionEnabled);
+
         char[] saved = BackupPreferences.passphrase();
         if (saved != null) {
             // تُملأ الحقول بالمحفوظ حتى لا يضطر المستخدم لإعادة كتابتها كلما حفظ إعداداً آخر
-            backupPassphraseField.setText(new String(saved));
-            backupPassphraseConfirmField.setText(new String(saved));
+            loadedPassphrase = new String(saved);
+            backupPassphraseField.setText(loadedPassphrase);
+            backupPassphraseConfirmField.setText(loadedPassphrase);
             java.util.Arrays.fill(saved, '\0');
         }
     }
@@ -241,7 +251,21 @@ public class SettingsController {
         spinner.getEditor().setTextFormatter(formatter);
         factory.valueProperty().bindBidirectional(formatter.valueProperty());
 
-        factory.valueProperty().addListener((observable, oldValue, newValue) -> updateNextRunPreview());
+        factory.valueProperty().addListener((observable, oldValue, newValue) -> scheduleFieldChanged());
+    }
+
+    /**
+     * تعديل في حقول الجدولة: يُحدَّث عرض الموعد القادم، ويُنبَّه المستخدم إلى أن التعديل
+     * لم يُحفظ بعد.
+     *
+     * <p>التنبيه ضروري لأن تبويبَي اللغة والطباعة في الشاشة نفسها يُحفظان لحظة الاختيار،
+     * فيسهل الظن أن الجدولة كذلك ثم إغلاق الشاشة قبل الضغط على "حفظ الإعدادات".</p>
+     */
+    private void scheduleFieldChanged() {
+        updateNextRunPreview();
+        if (!loadingSchedule) {
+            statusLabel.setText(I18n.get("settings.scheduleUnsaved"));
+        }
     }
 
     /** يوم الأسبوع يخصّ التكرار الأسبوعي وحده، ويوم الشهر الشهريَّ وحده */
@@ -279,16 +303,42 @@ public class SettingsController {
     }
 
     /**
-     * قيمة الـ Spinner مقصورة على مجالها.
-     * {@code IntegerSpinnerValueFactory} لا يقصّ ما يُكتب باليد، و"99" في خانة الساعة
-     * ترمي {@code DateTimeException} من {@link LocalTime#of} عند بناء الموعد.
+     * قيمة الـ Spinner مقصورة على مجالها، بعد تثبيت ما كُتب في مُحرِّره.
+     *
+     * <p><b>التثبيت هو جوهر الدالة.</b> {@code Spinner} لا ينقل ما يُكتب في حقله إلى قيمته
+     * إلا عند فقد التركيز أو ضغط Enter، ولا يكفي ربط {@code TextFormatter} به. فمن كتب
+     * الساعة ثم ضغط "حفظ الإعدادات" فوراً كان يحفظ القيمة القديمة، ثم تُعاد تعبئة الشاشة
+     * من المحفوظ فترجع إلى 2 - فيبدو للمستخدم أن الموعد لا يُحفظ إطلاقاً.</p>
+     *
+     * <p>والقصر على المجال ضروري بدوره: {@code IntegerSpinnerValueFactory} لا يقصّ ما
+     * يُكتب باليد، و"99" في خانة الساعة ترمي {@code DateTimeException} من
+     * {@link LocalTime#of} عند بناء الموعد.</p>
      */
     private int spinnerValue(Spinner<Integer> spinner, int min, int max, int fallback) {
+        commitTypedText(spinner, min, max);
+
         Integer value = spinner.getValue();
         if (value == null) {
             return fallback;
         }
         return Math.min(Math.max(value, min), max);
+    }
+
+    /**
+     * ينقل ما في حقل الـ Spinner إلى قيمته مقصوراً على المجال.
+     *
+     * <p>لا تتكرّر بلا نهاية رغم أن {@code setValue} يُطلق المستمع الذي يستدعيها: النداء
+     * الثاني يجد القيمة مطابقة للنص فلا يغيّر شيئاً.</p>
+     */
+    private void commitTypedText(Spinner<Integer> spinner, int min, int max) {
+        String text = spinner.getEditor().getText();
+        if (text == null || !text.matches("[0-9]{1,9}")) {
+            return;
+        }
+        int typed = Math.min(Math.max(Integer.parseInt(text), min), max);
+        if (!Integer.valueOf(typed).equals(spinner.getValue())) {
+            spinner.getValueFactory().setValue(typed);
+        }
     }
 
     /**
@@ -504,14 +554,20 @@ public class SettingsController {
     private void showBackupSchedule(CenterSettings settings) {
         BackupSchedule schedule = BackupSchedule.from(settings);
 
-        backupFrequencyCombo.setValue(schedule.frequency());
-        backupHourSpinner.getValueFactory().setValue(schedule.time().getHour());
-        backupMinuteSpinner.getValueFactory().setValue(schedule.time().getMinute());
-        backupDayOfWeekCombo.setValue(schedule.dayOfWeek());
-        backupDayOfMonthSpinner.getValueFactory().setValue(schedule.dayOfMonth());
-        backupRetentionSpinner.getValueFactory().setValue(
-                settings.getBackupRetentionCount() == null
-                        ? DEFAULT_RETENTION : settings.getBackupRetentionCount());
+        // التعبئة من المحفوظ ليست تعديلاً من المستخدم، فلا تُظهر تنبيه "لم يُحفظ بعد"
+        loadingSchedule = true;
+        try {
+            backupFrequencyCombo.setValue(schedule.frequency());
+            backupHourSpinner.getValueFactory().setValue(schedule.time().getHour());
+            backupMinuteSpinner.getValueFactory().setValue(schedule.time().getMinute());
+            backupDayOfWeekCombo.setValue(schedule.dayOfWeek());
+            backupDayOfMonthSpinner.getValueFactory().setValue(schedule.dayOfMonth());
+            backupRetentionSpinner.getValueFactory().setValue(
+                    settings.getBackupRetentionCount() == null
+                            ? DEFAULT_RETENTION : settings.getBackupRetentionCount());
+        } finally {
+            loadingSchedule = false;
+        }
 
         showFieldsFor(schedule.frequency());
         updateNextRunPreview();
@@ -631,12 +687,18 @@ public class SettingsController {
     /**
      * يحفظ تفضيلات التشفير على هذا الجهاز.
      *
-     * @return {@code false} إن كان الإدخال غير صالح، فلا يُكمَل الحفظ
+     * <p>التأكيد يظهر حين <b>يتغيّر</b> التشفير أو كلمته فقط. كان يظهر عند كل حفظ، فمن
+     * فعّل التشفير مرة صار كل تعديل لاحق - موعد نسخة، اسم سنتر - يسأله سؤالاً مخيفاً عن
+     * كلمة المرور، وضغطة "إلغاء" واحدة كانت تُلغي الحفظ كله بلا أي رسالة تقول ذلك.</p>
+     *
+     * @return {@code false} إن كان الإدخال غير صالح أو ألغى المستخدم، فلا يُكمَل الحفظ
      */
     private boolean saveEncryptionPreferences() {
         boolean enabled = backupEncryptCheckBox.isSelected();
         String passphrase = backupPassphraseField.getText();
         String confirmation = backupPassphraseConfirmField.getText();
+        boolean changed = enabled != loadedEncryptionEnabled
+                || !java.util.Objects.equals(passphrase, loadedPassphrase);
 
         if (enabled) {
             if (passphrase == null || passphrase.length() < MIN_PASSPHRASE_LENGTH) {
@@ -648,14 +710,21 @@ public class SettingsController {
                 return false;
             }
             // النسخ المأخوذة بكلمة قديمة لا تُفكّ بالجديدة، وهذا لا يمكن التراجع عنه بعد فقدانها
-            if (!Dialogs.confirm(I18n.get("settings.encryptionConfirmTitle"),
+            if (changed && !Dialogs.confirm(I18n.get("settings.encryptionConfirmTitle"),
                     I18n.get("settings.encryptionConfirm"))) {
+                statusLabel.setText(I18n.get("settings.saveCancelled"));
                 return false;
             }
         }
 
+        if (!changed) {
+            return true; // لا شيء ليُكتب في تفضيلات الجهاز
+        }
+
         try {
             BackupPreferences.set(enabled, enabled ? passphrase.toCharArray() : null);
+            loadedEncryptionEnabled = enabled;
+            loadedPassphrase = enabled ? passphrase : "";
             return true;
         } catch (RuntimeException e) {
             Dialogs.error(FxAsync.messageOf(e));
