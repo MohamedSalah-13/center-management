@@ -24,6 +24,7 @@ import com.codejava.center.util.MoneyUtils;
 import com.codejava.center.util.NotificationPreferences;
 import com.codejava.center.util.PrintPreferences;
 import com.codejava.center.util.Printing;
+import com.codejava.center.util.UiScaleSelector;
 import com.codejava.center.util.ViewLoader;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -97,6 +98,7 @@ public class SettingsController {
     @FXML private ComboBox<Currency> currencyCombo;
 
     @FXML private ComboBox<Locale> languageCombo;
+    @FXML private ComboBox<Double> fontScaleCombo;
 
     @FXML private ComboBox<PrintPreferences.PrintMode> printModeCombo;
 
@@ -217,6 +219,10 @@ public class SettingsController {
         // تبديل اللغة يعيد بناء لوحة القيادة، وهذه الشاشة تُعرض داخلها فتُغلق معها.
         // التعديلات غير المحفوظة في الحقول تضيع، ولهذا لا يُبدَّل قبل الحفظ عادةً.
         LanguageSelector.configure(languageCombo, this::reloadDashboard);
+
+        // حجم الخط لا يعيد البناء ولا يمرّ بزرّ الحفظ: تفضيل جهاز يسري لحظة اختياره،
+        // ولا يصحّ أن يُلزم من يريد قراءة الشاشة بحفظ إعدادات السنتر كلها معه
+        UiScaleSelector.configure(fontScaleCombo);
 
         configureCurrency();
         configurePrinting();

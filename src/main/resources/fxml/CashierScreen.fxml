@@ -6,21 +6,19 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<?import javafx.scene.text.Font?>
 <VBox spacing="20.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.codejava.center.controller.CashierController"
       style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
 
-    <Label text="%cashier.title" textFill="#2c3e50">
-        <font><Font name="System Bold" size="26.0" /></font>
-    </Label>
+    <Label text="%cashier.title" textFill="#2c3e50" style="-fx-font-size: 1.86em; -fx-font-weight: bold;"/>
 
     <!-- منطقة البحث بالباركود -->
     <HBox spacing="15.0" alignment="CENTER_LEFT" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
-        <Label text="%cashier.searchByBarcode">
-            <font><Font name="System Bold" size="16.0" /></font>
-        </Label>
-        <TextField fx:id="barcodeSearchField" onAction="#handleSearchAction" promptText="%cashier.scanHere" prefWidth="250.0" style="-fx-font-size: 16px;" />
+        <Label text="%cashier.searchByBarcode" style="-fx-font-size: 1.14em; -fx-font-weight: bold;"/>
+        <!-- العرض داخل style لا في prefWidth: القيمة المكتوبة سمةً لا يعلوها التنسيق،
+             فيبقى الحقل 250px بينما يكبر خطّه فلا يظهر منه إلا نصف الباركود -->
+        <TextField fx:id="barcodeSearchField" onAction="#handleSearchAction" promptText="%cashier.scanHere"
+                   style="-fx-font-size: 1.14em; -fx-pref-width: 17.86em;" />
         <Button text="%common.search" onAction="#handleSearchAction" style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
     </HBox>
 
@@ -31,33 +29,19 @@
             <ColumnConstraints hgrow="ALWAYS" minWidth="200.0" />
         </columnConstraints>
 
-        <Label text="%cashier.studentName" GridPane.columnIndex="0" GridPane.rowIndex="0">
-            <font><Font name="System Bold" size="14.0" /></font>
-        </Label>
-        <Label fx:id="studentNameLabel" text="%common.none" textFill="#7f8c8d" GridPane.columnIndex="1" GridPane.rowIndex="0">
-            <font><Font size="16.0" /></font>
-        </Label>
+        <Label text="%cashier.studentName" GridPane.columnIndex="0" GridPane.rowIndex="0" style="-fx-font-weight: bold;"/>
+        <Label fx:id="studentNameLabel" text="%common.none" textFill="#7f8c8d" GridPane.columnIndex="1" GridPane.rowIndex="0" style="-fx-font-size: 1.14em;"/>
 
-        <Label text="%cashier.schoolLevel" GridPane.columnIndex="0" GridPane.rowIndex="1">
-            <font><Font name="System Bold" size="14.0" /></font>
-        </Label>
-        <Label fx:id="schoolLevelLabel" text="%common.none" textFill="#7f8c8d" GridPane.columnIndex="1" GridPane.rowIndex="1">
-            <font><Font size="14.0" /></font>
-        </Label>
+        <Label text="%cashier.schoolLevel" GridPane.columnIndex="0" GridPane.rowIndex="1" style="-fx-font-weight: bold;"/>
+        <Label fx:id="schoolLevelLabel" text="%common.none" textFill="#7f8c8d" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
 
-        <Label text="%cashier.currentBalance" GridPane.columnIndex="0" GridPane.rowIndex="2">
-            <font><Font name="System Bold" size="14.0" /></font>
-        </Label>
-        <Label fx:id="balanceLabel" text="%common.none" GridPane.columnIndex="1" GridPane.rowIndex="2">
-            <font><Font name="System Bold" size="18.0" /></font>
-        </Label>
+        <Label text="%cashier.currentBalance" GridPane.columnIndex="0" GridPane.rowIndex="2" style="-fx-font-weight: bold;"/>
+        <Label fx:id="balanceLabel" text="%common.none" GridPane.columnIndex="1" GridPane.rowIndex="2" style="-fx-font-size: 1.29em; -fx-font-weight: bold;"/>
     </GridPane>
 
     <!-- منطقة الدفع (تكون معطلة حتى يتم اختيار طالب) -->
     <VBox fx:id="paymentSection" spacing="15.0" disable="true" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
-        <Label text="%cashier.paymentData">
-            <font><Font name="System Bold" size="18.0" /></font>
-        </Label>
+        <Label text="%cashier.paymentData" style="-fx-font-size: 1.29em; -fx-font-weight: bold;"/>
 
         <GridPane hgap="20.0" vgap="15.0">
             <columnConstraints>
@@ -76,8 +60,8 @@
         </GridPane>
 
         <HBox alignment="CENTER_LEFT" spacing="15.0" style="-fx-padding: 10 0 0 0;">
-            <Button text="%cashier.confirmPayment" onAction="#handlePaymentAction" style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 25; -fx-font-size: 16px;" />
-            <Button text="%common.cancel" onAction="#handleCancelAction" style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 25; -fx-font-size: 16px;" />
+            <Button text="%cashier.confirmPayment" onAction="#handlePaymentAction" style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 0.71em 1.79em; -fx-font-size: 1.14em;" />
+            <Button text="%common.cancel" onAction="#handleCancelAction" style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 0.71em 1.79em; -fx-font-size: 1.14em;" />
         </HBox>
     </VBox>
 

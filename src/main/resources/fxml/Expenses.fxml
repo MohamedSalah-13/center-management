@@ -1,15 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<?import javafx.scene.text.Font?>
 
 <VBox spacing="20.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.codejava.center.controller.ExpensesController"
       style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
 
-    <Label text="%expense.title" textFill="#2c3e50">
-        <font><Font name="System Bold" size="26.0" /></font>
-    </Label>
+    <Label text="%expense.title" textFill="#2c3e50" style="-fx-font-size: 1.86em; -fx-font-weight: bold;"/>
 
     <GridPane hgap="20.0" vgap="15.0"
               style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
@@ -20,14 +17,10 @@
             <ColumnConstraints minWidth="300.0" hgrow="ALWAYS" />
         </columnConstraints>
 
-        <Label text="%expense.amount" GridPane.columnIndex="0" GridPane.rowIndex="0">
-            <font><Font name="System Bold" size="14.0" /></font>
-        </Label>
+        <Label text="%expense.amount" GridPane.columnIndex="0" GridPane.rowIndex="0" style="-fx-font-weight: bold;"/>
         <TextField fx:id="amountField" promptText="0.00" GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
-        <Label text="%expense.description" GridPane.columnIndex="2" GridPane.rowIndex="0">
-            <font><Font name="System Bold" size="14.0" /></font>
-        </Label>
+        <Label text="%expense.description" GridPane.columnIndex="2" GridPane.rowIndex="0" style="-fx-font-weight: bold;"/>
         <TextField fx:id="descriptionField" promptText="%expense.descriptionPrompt"
                    GridPane.columnIndex="3" GridPane.rowIndex="0" />
 
@@ -40,17 +33,11 @@
     </GridPane>
 
     <HBox spacing="15.0" alignment="CENTER_RIGHT">
-        <Label text="%expense.showDay">
-            <font><Font name="System Bold" size="14.0" /></font>
-        </Label>
+        <Label text="%expense.showDay" style="-fx-font-weight: bold;"/>
         <DatePicker fx:id="dayPicker" editable="false" />
         <Region HBox.hgrow="ALWAYS" />
-        <Label text="%expense.dayTotal">
-            <font><Font name="System Bold" size="15.0" /></font>
-        </Label>
-        <Label fx:id="dailyTotalLabel" text="%common.empty" textFill="#e74c3c">
-            <font><Font name="System Bold" size="20.0" /></font>
-        </Label>
+        <Label text="%expense.dayTotal" style="-fx-font-size: 1.07em; -fx-font-weight: bold;"/>
+        <Label fx:id="dailyTotalLabel" text="%common.empty" textFill="#e74c3c" style="-fx-font-size: 1.43em; -fx-font-weight: bold;"/>
     </HBox>
 
     <TableView fx:id="expensesTable" VBox.vgrow="ALWAYS">

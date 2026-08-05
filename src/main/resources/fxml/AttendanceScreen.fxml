@@ -6,7 +6,6 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<?import javafx.scene.text.Font?>
 <BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.codejava.center.controller.AttendanceController"
             style="-fx-background-color: #f8f9fa;">
@@ -14,9 +13,7 @@
     <!-- شريط علوي -->
     <top>
         <HBox alignment="CENTER" style="-fx-background-color: #2c3e50; -fx-padding: 15;">
-            <Label text="%attendance.title" textFill="WHITE">
-                <font><Font name="System Bold" size="24.0" /></font>
-            </Label>
+            <Label text="%attendance.title" textFill="WHITE" style="-fx-font-size: 1.71em; -fx-font-weight: bold;"/>
         </HBox>
     </top>
 
@@ -32,27 +29,19 @@
 
             <Separator />
 
-            <Label text="%attendance.swipeNow" textFill="#7f8c8d">
-                <font><Font name="System Bold" size="18.0" /></font>
-            </Label>
+            <Label text="%attendance.swipeNow" textFill="#7f8c8d" style="-fx-font-size: 1.29em; -fx-font-weight: bold;"/>
 
             <!-- حقل الباركود (سيتم إخفاؤه برمجياً أو جعله شفافاً في النسخة النهائية) -->
             <TextField fx:id="barcodeScannerField" onAction="#handleBarcodeScan" promptText="%attendance.scannerPrompt"
-                       style="-fx-font-size: 18px; -fx-alignment: center;"/>
+                       style="-fx-font-size: 1.29em; -fx-alignment: center;"/>
 
             <Separator />
 
             <!-- منطقة عرض النتيجة -->
             <VBox fx:id="resultCard" alignment="CENTER" spacing="10.0" style="-fx-padding: 20; -fx-background-radius: 10;">
-                <Label fx:id="studentNameLabel" text="%attendance.studentName" wrapText="true" textAlignment="CENTER">
-                    <font><Font name="System Bold" size="28.0" /></font>
-                </Label>
-                <Label fx:id="groupNameLabel" text="%attendance.groupName">
-                    <font><Font size="18.0" /></font>
-                </Label>
-                <Label fx:id="statusLabel" text="%attendance.status" wrapText="true" textAlignment="CENTER">
-                    <font><Font name="System Bold" size="22.0" /></font>
-                </Label>
+                <Label fx:id="studentNameLabel" text="%attendance.studentName" wrapText="true" textAlignment="CENTER" style="-fx-font-size: 2.00em; -fx-font-weight: bold;"/>
+                <Label fx:id="groupNameLabel" text="%attendance.groupName" style="-fx-font-size: 1.29em;"/>
+                <Label fx:id="statusLabel" text="%attendance.status" wrapText="true" textAlignment="CENTER" style="-fx-font-size: 1.57em; -fx-font-weight: bold;"/>
             </VBox>
         </VBox>
     </right>
@@ -60,9 +49,7 @@
     <!-- جدول السجل اللحظي -->
     <center>
         <VBox style="-fx-padding: 20;" spacing="10.0">
-            <Label text="%attendance.liveLog">
-                <font><Font name="System Bold" size="16.0" /></font>
-            </Label>
+            <Label text="%attendance.liveLog" style="-fx-font-size: 1.14em; -fx-font-weight: bold;"/>
             <TableView fx:id="attendanceLogTable" VBox.vgrow="ALWAYS">
                 <columns>
                     <TableColumn fx:id="colTime" text="%attendance.col.time" prefWidth="100.0" />

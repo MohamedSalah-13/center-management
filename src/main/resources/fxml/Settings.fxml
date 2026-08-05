@@ -59,8 +59,10 @@
             </VBox>
         </Tab>
 
-        <!-- ============ اللغة ============ -->
-        <Tab text="%settings.tab.language">
+        <!-- ============ العرض: اللغة وحجم الخط ============
+             الاثنان تفضيلا جهاز لا إعدادَي سنتر، ولهذا هما معاً في تبويب واحد
+             ومكرَّران في القائمة الجانبية حيث يصل إليهما كل الأدوار -->
+        <Tab text="%settings.tab.display">
             <VBox spacing="18.0">
                 <padding><Insets top="24.0" bottom="24.0" left="26.0" right="26.0"/></padding>
 
@@ -74,9 +76,15 @@
                            GridPane.columnIndex="0" GridPane.rowIndex="0"/>
                     <ComboBox fx:id="languageCombo" maxWidth="Infinity"
                               GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+
+                    <Label text="%settings.fontSize" styleClass="sub-label"
+                           GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                    <ComboBox fx:id="fontScaleCombo" maxWidth="Infinity"
+                              GridPane.columnIndex="1" GridPane.rowIndex="1"/>
                 </GridPane>
 
                 <Label text="%settings.languageNote" styleClass="muted-text" wrapText="true"/>
+                <Label text="%settings.fontSizeNote" styleClass="muted-text" wrapText="true"/>
             </VBox>
         </Tab>
 

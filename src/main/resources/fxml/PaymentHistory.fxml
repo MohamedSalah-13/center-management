@@ -2,37 +2,29 @@
 
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<?import javafx.scene.text.Font?>
 
 <VBox spacing="20.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.codejava.center.controller.PaymentHistoryController"
       style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
 
-    <Label text="%payment.title" textFill="#2c3e50">
-        <font><Font name="System Bold" size="26.0" /></font>
-    </Label>
+    <Label text="%payment.title" textFill="#2c3e50" style="-fx-font-size: 1.86em; -fx-font-weight: bold;"/>
 
     <!-- منطقة البحث بالباركود -->
     <HBox spacing="15.0" alignment="CENTER_LEFT" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0;">
-        <Label text="%payment.searchByBarcode">
-            <font><Font name="System Bold" size="16.0" /></font>
-        </Label>
-        <TextField fx:id="barcodeSearchField" onAction="#handleSearchAction" promptText="%cashier.scanHere" prefWidth="250.0" style="-fx-font-size: 16px;" />
+        <Label text="%payment.searchByBarcode" style="-fx-font-size: 1.14em; -fx-font-weight: bold;"/>
+        <TextField fx:id="barcodeSearchField" onAction="#handleSearchAction" promptText="%cashier.scanHere"
+                   style="-fx-font-size: 1.14em; -fx-pref-width: 17.86em;" />
         <Button text="%common.search" onAction="#handleSearchAction" style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
     </HBox>
 
     <!-- بيانات الطالب: النصوص تُبنى في المتحكم لأنها تحمل قيماً متغيّرة -->
     <HBox spacing="40.0" style="-fx-background-color: white; -fx-padding: 15; -fx-background-radius: 8; -fx-border-color: #e0e0e0;">
-        <Label fx:id="studentNameLabel" textFill="#27ae60">
-            <font><Font name="System Bold" size="18.0" /></font>
-        </Label>
-        <Label fx:id="totalPaidLabel" textFill="#e74c3c">
-            <font><Font name="System Bold" size="18.0" /></font>
-        </Label>
+        <Label fx:id="studentNameLabel" textFill="#27ae60" style="-fx-font-size: 1.29em; -fx-font-weight: bold;"/>
+        <Label fx:id="totalPaidLabel" textFill="#e74c3c" style="-fx-font-size: 1.29em; -fx-font-weight: bold;"/>
     </HBox>
 
     <!-- جدول السجل -->
-    <TableView fx:id="historyTable" VBox.vgrow="ALWAYS" style="-fx-font-size: 14px;">
+    <TableView fx:id="historyTable" VBox.vgrow="ALWAYS" style="-fx-font-size: 1em;">
         <columns>
             <TableColumn fx:id="colDate" text="%payment.col.date" prefWidth="180.0" />
             <TableColumn fx:id="colAmount" text="%payment.col.amount" prefWidth="100.0" />

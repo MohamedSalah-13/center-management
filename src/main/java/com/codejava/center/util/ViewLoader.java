@@ -2,8 +2,10 @@ package com.codejava.center.util;
 
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.NodeOrientation;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationContext;
@@ -66,7 +68,7 @@ public class ViewLoader {
         return view;
     }
 
-    /** يبني مشهداً بالتنسيق والاتجاه الصحيحين للغة الحالية */
+    /** يبني مشهداً بالتنسيق والاتجاه والمقاس الصحيحين للغة الحالية وتفضيل هذا الجهاز */
     public Scene scene(Parent root, double width, double height) {
         Scene scene = new Scene(root, width, height);
 
@@ -78,6 +80,10 @@ public class ViewLoader {
         if (stylesheet != null) {
             scene.getStylesheets().add(stylesheet.toExternalForm());
         }
+
+        // وهذا السطر وحده يضبط مقاسها: حجم خط الجذر الذي تُقاس عليه كل em في الملف،
+        // ومعه اختصارات Ctrl + / - / 0 على كل شاشة بما فيها شاشة الدخول
+        UiScale.install(scene);
         return scene;
     }
 
@@ -95,10 +101,13 @@ public class ViewLoader {
         stage.setMinWidth(0);
         stage.setMinHeight(0);
 
-        stage.setScene(scene(root, LOGIN_WIDTH, LOGIN_HEIGHT));
+        double width = fitToScreen(UiScale.scaled(LOGIN_WIDTH), true);
+        double height = fitToScreen(UiScale.scaled(LOGIN_HEIGHT), false);
+
+        stage.setScene(scene(root, width, height));
         stage.setTitle(I18n.get("login.windowTitle"));
-        stage.setWidth(LOGIN_WIDTH);
-        stage.setHeight(LOGIN_HEIGHT);
+        stage.setWidth(width);
+        stage.setHeight(height);
         stage.centerOnScreen();
     }
 
@@ -108,9 +117,21 @@ public class ViewLoader {
 
         stage.setScene(scene(root, DASHBOARD_WIDTH, DASHBOARD_HEIGHT));
         stage.setTitle(I18n.get("app.title"));
-        stage.setMinWidth(DASHBOARD_MIN_WIDTH);
-        stage.setMinHeight(DASHBOARD_MIN_HEIGHT);
+        stage.setMinWidth(fitToScreen(UiScale.scaled(DASHBOARD_MIN_WIDTH), true));
+        stage.setMinHeight(fitToScreen(UiScale.scaled(DASHBOARD_MIN_HEIGHT), false));
         stage.setMaximized(true);
         stage.centerOnScreen();
+    }
+
+    /**
+     * يمنع أن يخرج مقاسٌ مكبَّر عن الشاشة.
+     *
+     * <p>المقاسات أعلاه تكبر مع حجم الخط وإلا ضاق الحدّ الأدنى عن محتواه، لكن 1100 عند
+     * 175% تصير 1925 بكسل: على شاشة 1366 يصير الحدّ الأدنى أكبر من الشاشة، فلا تُصغَّر
+     * النافذة ولا يُرى طرفها ولا زرّ الإغلاق. الشاشة هي السقف دائماً.</p>
+     */
+    private static double fitToScreen(double requested, boolean horizontal) {
+        Rectangle2D visual = Screen.getPrimary().getVisualBounds();
+        return Math.min(requested, horizontal ? visual.getWidth() : visual.getHeight());
     }
 }

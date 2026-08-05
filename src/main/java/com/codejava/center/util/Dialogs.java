@@ -133,7 +133,7 @@ public final class Dialogs {
         return alert;
     }
 
-    /** الاتجاه والأنماط: النافذة نافذة مستقلة ولا ترث شيئاً من المشهد الذي فتحها */
+    /** الاتجاه والأنماط والمقاس: النافذة نافذة مستقلة ولا ترث شيئاً من المشهد الذي فتحها */
     private static void decorate(DialogPane pane) {
         pane.setNodeOrientation(I18n.isRightToLeft()
                 ? NodeOrientation.RIGHT_TO_LEFT : NodeOrientation.LEFT_TO_RIGHT);
@@ -142,5 +142,9 @@ public final class Dialogs {
         if (stylesheet != null) {
             pane.getStylesheets().add(stylesheet.toExternalForm());
         }
+
+        // حجم الخط يُكتب هنا كما يُكتب على جذر المشهد: الـ DialogPane جذرُ مشهدِ نافذته،
+        // فبدونه تظهر رسالة الخطأ بحجمها الافتراضي فوق واجهة مكبَّرة إلى 175%
+        pane.setStyle(UiScale.fontSizeStyle());
     }
 }

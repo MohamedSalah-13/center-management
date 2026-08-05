@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<?import javafx.scene.text.Font?>
 
 <!--
   مركز التنبيهات: تبويب لما وقع، وتبويب لضبط ما يقع أصلاً.
@@ -14,9 +13,7 @@
       style="-fx-background-color: #f4f6f9; -fx-padding: 25;">
 
     <HBox spacing="20.0" alignment="CENTER_LEFT">
-        <Label text="%alerts.title" textFill="#2c3e50">
-            <font><Font name="System Bold" size="26.0"/></font>
-        </Label>
+        <Label text="%alerts.title" textFill="#2c3e50" style="-fx-font-size: 1.86em; -fx-font-weight: bold;"/>
         <Region HBox.hgrow="ALWAYS"/>
         <Label fx:id="masterStateLabel" text="" wrapText="true"/>
     </HBox>
@@ -29,24 +26,16 @@
 
                 <GridPane hgap="15.0" vgap="15.0"
                           style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
-                    <Label text="%audit.from" GridPane.columnIndex="0" GridPane.rowIndex="0">
-                        <font><Font name="System Bold" size="14.0"/></font>
-                    </Label>
+                    <Label text="%audit.from" GridPane.columnIndex="0" GridPane.rowIndex="0" style="-fx-font-weight: bold;"/>
                     <DatePicker fx:id="fromPicker" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
 
-                    <Label text="%audit.to" GridPane.columnIndex="2" GridPane.rowIndex="0">
-                        <font><Font name="System Bold" size="14.0"/></font>
-                    </Label>
+                    <Label text="%audit.to" GridPane.columnIndex="2" GridPane.rowIndex="0" style="-fx-font-weight: bold;"/>
                     <DatePicker fx:id="toPicker" editable="false" GridPane.columnIndex="3" GridPane.rowIndex="0"/>
 
-                    <Label text="%alerts.category" GridPane.columnIndex="4" GridPane.rowIndex="0">
-                        <font><Font name="System Bold" size="14.0"/></font>
-                    </Label>
+                    <Label text="%alerts.category" GridPane.columnIndex="4" GridPane.rowIndex="0" style="-fx-font-weight: bold;"/>
                     <ComboBox fx:id="categoryCombo" prefWidth="170.0" GridPane.columnIndex="5" GridPane.rowIndex="0"/>
 
-                    <Label text="%alerts.severity" GridPane.columnIndex="6" GridPane.rowIndex="0">
-                        <font><Font name="System Bold" size="14.0"/></font>
-                    </Label>
+                    <Label text="%alerts.severity" GridPane.columnIndex="6" GridPane.rowIndex="0" style="-fx-font-weight: bold;"/>
                     <ComboBox fx:id="severityCombo" prefWidth="150.0" GridPane.columnIndex="7" GridPane.rowIndex="0"/>
 
                     <HBox spacing="10.0" GridPane.columnIndex="1" GridPane.rowIndex="1" GridPane.columnSpan="7"
@@ -64,9 +53,7 @@
                     <Button fx:id="acknowledgeButton" text="%alerts.acknowledge" onAction="#handleAcknowledge"
                             style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;"/>
                     <Region HBox.hgrow="ALWAYS"/>
-                    <Label fx:id="summaryLabel" text="" textFill="#2c3e50">
-                        <font><Font name="System Bold" size="14.0"/></font>
-                    </Label>
+                    <Label fx:id="summaryLabel" text="" textFill="#2c3e50" style="-fx-font-weight: bold;"/>
                 </HBox>
 
                 <Label fx:id="truncationLabel" text="" textFill="#e67e22" wrapText="true"
@@ -95,9 +82,7 @@
                     <CheckBox fx:id="alertsEnabledCheck" text="%alerts.masterSwitch"
                               GridPane.columnIndex="0" GridPane.rowIndex="0" GridPane.columnSpan="4"/>
 
-                    <Label text="%alerts.scanTime" GridPane.columnIndex="0" GridPane.rowIndex="1">
-                        <font><Font name="System Bold" size="14.0"/></font>
-                    </Label>
+                    <Label text="%alerts.scanTime" GridPane.columnIndex="0" GridPane.rowIndex="1" style="-fx-font-weight: bold;"/>
                     <HBox spacing="8.0" alignment="CENTER_LEFT" GridPane.columnIndex="1" GridPane.rowIndex="1">
                         <Spinner fx:id="scanHourSpinner" editable="true" prefWidth="90.0"/>
                         <Label text=":"/>
@@ -124,8 +109,7 @@
                 <GridPane hgap="15.0" vgap="12.0"
                           style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
                     <Label text="%alerts.device.section" GridPane.columnIndex="0" GridPane.rowIndex="0"
-                           GridPane.columnSpan="4">
-                        <font><Font name="System Bold" size="15.0"/></font>
+                           GridPane.columnSpan="4" style="-fx-font-size: 1.07em; -fx-font-weight: bold;">
                     </Label>
 
                     <CheckBox fx:id="devicePopupCheck" text="%alerts.device.popup"
@@ -133,9 +117,7 @@
                     <CheckBox fx:id="deviceTrayCheck" text="%alerts.device.tray"
                               GridPane.columnIndex="2" GridPane.rowIndex="1" GridPane.columnSpan="2"/>
 
-                    <Label text="%alerts.device.minSeverity" GridPane.columnIndex="0" GridPane.rowIndex="2">
-                        <font><Font name="System Bold" size="14.0"/></font>
-                    </Label>
+                    <Label text="%alerts.device.minSeverity" GridPane.columnIndex="0" GridPane.rowIndex="2" style="-fx-font-weight: bold;"/>
                     <ComboBox fx:id="deviceSeverityCombo" prefWidth="180.0"
                               GridPane.columnIndex="1" GridPane.rowIndex="2"/>
 
@@ -166,39 +148,27 @@
                     <VBox spacing="12.0" prefWidth="420.0" minWidth="380.0"
                           style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
 
-                        <Label fx:id="ruleNameLabel" text="%alerts.selectRule" textFill="#2c3e50" wrapText="true">
-                            <font><Font name="System Bold" size="17.0"/></font>
-                        </Label>
+                        <Label fx:id="ruleNameLabel" text="%alerts.selectRule" textFill="#2c3e50" wrapText="true" style="-fx-font-size: 1.21em; -fx-font-weight: bold;"/>
                         <Label fx:id="ruleDescriptionLabel" text="" textFill="#7f8c8d" wrapText="true"/>
 
                         <Separator/>
 
                         <CheckBox fx:id="ruleEnabledCheck" text="%alerts.ruleEnabled"/>
 
-                        <Label text="%alerts.ruleAudience">
-                            <font><Font name="System Bold" size="14.0"/></font>
-                        </Label>
+                        <Label text="%alerts.ruleAudience" style="-fx-font-weight: bold;"/>
                         <ComboBox fx:id="ruleAudienceCombo" maxWidth="Infinity"/>
                         <Label fx:id="ruleAudienceNoteLabel" text="" textFill="#7f8c8d" wrapText="true"/>
 
-                        <Label text="%alerts.ruleSeverity">
-                            <font><Font name="System Bold" size="14.0"/></font>
-                        </Label>
+                        <Label text="%alerts.ruleSeverity" style="-fx-font-weight: bold;"/>
                         <ComboBox fx:id="ruleSeverityCombo" maxWidth="Infinity"/>
 
-                        <Label fx:id="ruleThresholdLabel" text="">
-                            <font><Font name="System Bold" size="14.0"/></font>
-                        </Label>
+                        <Label fx:id="ruleThresholdLabel" text="" style="-fx-font-weight: bold;"/>
                         <Spinner fx:id="ruleThresholdSpinner" editable="true" maxWidth="Infinity"/>
 
-                        <Label fx:id="ruleWindowLabel" text="">
-                            <font><Font name="System Bold" size="14.0"/></font>
-                        </Label>
+                        <Label fx:id="ruleWindowLabel" text="" style="-fx-font-weight: bold;"/>
                         <Spinner fx:id="ruleWindowSpinner" editable="true" maxWidth="Infinity"/>
 
-                        <Label fx:id="ruleCooldownLabel" text="%alerts.ruleCooldown">
-                            <font><Font name="System Bold" size="14.0"/></font>
-                        </Label>
+                        <Label fx:id="ruleCooldownLabel" text="%alerts.ruleCooldown" style="-fx-font-weight: bold;"/>
                         <Spinner fx:id="ruleCooldownSpinner" editable="true" maxWidth="Infinity"/>
 
                         <Label fx:id="ruleUpdatedLabel" text="" textFill="#7f8c8d" wrapText="true"/>

@@ -16,8 +16,26 @@
     -fx-font-family: 'Segoe UI', 'Tajawal', 'Arial';
 }
 
+/* =========================================
+   المقاس: كل شيء تحته نسبة من سطر واحد
+   =========================================
+
+   كل مقاس في هذا الملف مكتوب بـ em لا بـ px، وem تعني "نسبة من حجم خط العقدة".
+   وحجم الخط يُورَّث من الجذر، فهذا السطر وحده هو مقاس الواجهة كلها: الخطوط
+   والحشوات وأنصاف الأقطار وارتفاعات صفوف الجداول.
+
+   يكتب util/UiScale رقماً آخر مكانه على جذر المشهد حسب تفضيل هذا الجهاز
+   (Ctrl + / Ctrl - / Ctrl 0، أو قائمة الحجم في الإعدادات والقائمة الجانبية)،
+   فتتبعه الشجرة كلها بلا تحويل هندسي وبلا نص ضبابي.
+
+   قاعدتان عند إضافة أي قاعدة جديدة هنا:
+   - لا px لمقاس يخصّ النص أو ما يحيط به. الاستثناء المقبول سماكة حدّ أو ظِلّ:
+     حدّ 2px يبقى حدّاً عند كل الأحجام، وتكبيره يُسمِن الشاشة بلا فائدة.
+   - المطبوعات لا تمرّ من هنا: Printing يبني مشهداً خارج الشاشة لا يضع سطر الجذر،
+     فيبقى على 14px مهما كبّر المستخدم واجهته - وإلا تغيّرت فواصل الصفحات معه. */
 .root {
     -fx-background-color: -bg-color;
+    -fx-font-size: 14px;
 }
 
 /* =========================================
@@ -25,10 +43,10 @@
    ========================================= */
 .card {
     -fx-background-color: white;
-    -fx-padding: 20;
-    -fx-background-radius: 12;
+    -fx-padding: 1.43em;
+    -fx-background-radius: 0.86em;
     -fx-border-color: -border-soft;
-    -fx-border-radius: 12;
+    -fx-border-radius: 0.86em;
     -fx-effect: dropshadow(gaussian, rgba(34, 48, 63, 0.06), 12, 0, 0, 3);
 }
 
@@ -49,12 +67,12 @@
    النصوص والعناوين
    ========================================= */
 .header-label {
-    -fx-font-size: 25px;
+    -fx-font-size: 1.79em;
     -fx-font-weight: bold;
     -fx-text-fill: -primary-color;
 }
 .sub-label {
-    -fx-font-size: 16px;
+    -fx-font-size: 1.14em;
     -fx-font-weight: bold;
     -fx-text-fill: -primary-color;
 }
@@ -69,9 +87,9 @@
     -fx-background-color: -secondary-color;
     -fx-text-fill: white;
     -fx-font-weight: bold;
-    -fx-font-size: 14px;
-    -fx-padding: 9 22;
-    -fx-background-radius: 7;
+    -fx-font-size: 1em;
+    -fx-padding: 0.64em 1.57em;
+    -fx-background-radius: 0.5em;
     -fx-cursor: hand;
 }
 .button:hover { -fx-opacity: 0.88; }
@@ -88,45 +106,58 @@
    حقول الإدخال
    ========================================= */
 .text-field, .password-field, .combo-box, .date-picker, .text-area {
-    -fx-font-size: 14px;
-    -fx-padding: 8;
-    -fx-background-radius: 7;
+    -fx-font-size: 1em;
+    -fx-padding: 0.57em;
+    -fx-background-radius: 0.5em;
     -fx-border-color: #c7d0da;
-    -fx-border-radius: 7;
+    -fx-border-radius: 0.5em;
     -fx-background-color: white;
 }
+/* سماكة الحدّ تبقى بالبكسل: خطّ التركيز علامة لا مقاس، وتكبيره يُسمِن الحقل بلا فائدة */
 .text-field:focused, .password-field:focused, .combo-box:focused,
 .date-picker:focused, .text-area:focused {
     -fx-border-color: -secondary-color;
     -fx-border-width: 2;
 }
-.check-box { -fx-font-size: 14px; }
+
+/* النصّ داخل القائمة المنسدلة وحقل التاريخ: خلاياهما لا ترث حجم الحقل الحاوي
+   في modena، فيبقى المكتوب صغيراً داخل إطار كبير ما لم يُذكر هنا صراحةً */
+.combo-box > .list-cell,
+.combo-box-popup .list-cell,
+.date-picker > .text-field {
+    -fx-font-size: 1em;
+}
+
+.check-box { -fx-font-size: 1em; }
 .check-box .box {
-    -fx-background-radius: 4;
-    -fx-border-radius: 4;
+    -fx-background-radius: 0.29em;
+    -fx-border-radius: 0.29em;
     -fx-border-color: #c7d0da;
 }
 
 /* =========================================
    القائمة الجانبية
    ========================================= */
+/* العرض هنا لا في FXML: قيمة مكتوبة في FXML تُعدّ "ضبطاً من المستخدم" فلا يعلوها
+   التنسيق أبداً، وكانت القائمة تبقى 272px بينما نصّ أزرارها يكبر فيُقصّ بثلاث نقاط */
 .sidebar {
     -fx-background-color: linear-gradient(to bottom, -primary-deep, -primary-color);
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 14, 0, 3, 0);
+    -fx-pref-width: 19.43em;
 }
 
 .sidebar-title {
     -fx-text-fill: white;
-    -fx-font-size: 18px;
+    -fx-font-size: 1.29em;
     -fx-font-weight: bold;
 }
 .sidebar-user {
     -fx-text-fill: #cfd8e3;
-    -fx-font-size: 13px;
+    -fx-font-size: 0.93em;
 }
 .sidebar-role {
     -fx-text-fill: #8fa3b8;
-    -fx-font-size: 12px;
+    -fx-font-size: 0.86em;
 }
 .sidebar-separator .line {
     -fx-border-color: rgba(255,255,255,0.10);
@@ -136,18 +167,18 @@
 /* عنوان كل مجموعة شاشات */
 .sidebar-section {
     -fx-text-fill: #7f93a8;
-    -fx-font-size: 11px;
+    -fx-font-size: 0.79em;
     -fx-font-weight: bold;
-    -fx-padding: 12 12 4 12;
+    -fx-padding: 1.09em 1.09em 0.36em 1.09em;
 }
 
 .sidebar-btn {
     -fx-background-color: transparent;
     -fx-text-fill: #e6ecf3;
-    -fx-font-size: 14px;
+    -fx-font-size: 1em;
     -fx-font-weight: normal;
-    -fx-padding: 10 14;
-    -fx-background-radius: 8;
+    -fx-padding: 0.71em 1em;
+    -fx-background-radius: 0.57em;
     -fx-cursor: hand;
     /* center-left لكلتا اللغتين، لا center-right للعربية:
        JavaFX يعكس مواضع التخطيط بنفسه عند RIGHT_TO_LEFT - وهو ما ينقل القائمة
@@ -175,20 +206,22 @@
     -fx-background-color: #c0392b;
 }
 
-/* قائمة اختيار اللغة داخل القائمة الجانبية الداكنة:
+/* قوائم الاختيار داخل القائمة الجانبية الداكنة (اللغة وحجم الخط):
    الشكل الافتراضي أبيض بإطار فاتح فيبدو لصيقة غريبة فوق التدرّج الكحلي */
 .sidebar-combo {
     -fx-background-color: rgba(255,255,255,0.10);
     -fx-border-color: rgba(255,255,255,0.18);
-    -fx-background-radius: 7;
-    -fx-border-radius: 7;
-    -fx-padding: 4;
-    -fx-font-size: 13px;
+    -fx-background-radius: 0.5em;
+    -fx-border-radius: 0.5em;
+    -fx-padding: 0.29em;
+    -fx-font-size: 0.93em;
     -fx-cursor: hand;
 }
+/* 1em لا 0.93em: الخلية ترث خطّ القائمة المصغَّر أصلاً، وتصغيرها ثانيةً يضاعف النسبة */
 .sidebar-combo > .list-cell {
     -fx-text-fill: #e6ecf3;
     -fx-background-color: transparent;
+    -fx-font-size: 1em;
 }
 .sidebar-combo .arrow { -fx-background-color: #cfd8e3; }
 
@@ -203,11 +236,11 @@
 }
 .sidebar-scroll > .scroll-bar:vertical {
     -fx-background-color: transparent;
-    -fx-pref-width: 8;
+    -fx-pref-width: 0.57em;
 }
 .sidebar-scroll > .scroll-bar:vertical .thumb {
     -fx-background-color: rgba(255,255,255,0.18);
-    -fx-background-radius: 4;
+    -fx-background-radius: 0.29em;
 }
 .sidebar-scroll > .scroll-bar:vertical .thumb:hover {
     -fx-background-color: rgba(255,255,255,0.32);
@@ -226,24 +259,27 @@
    ========================================= */
 .table-view {
     -fx-background-color: white;
-    -fx-background-radius: 10;
+    -fx-background-radius: 0.71em;
     -fx-border-color: -border-soft;
-    -fx-border-radius: 10;
+    -fx-border-radius: 0.71em;
+    -fx-font-size: 1em;
 }
 .table-view .column-header-background {
     -fx-background-color: -primary-color;
-    -fx-background-radius: 9 9 0 0;
+    -fx-background-radius: 0.64em 0.64em 0 0;
 }
+/* ارتفاع الترويسة وارتفاع الصف بالـ em: خطٌّ أكبر داخل صفٍّ ثابت الارتفاع يُقصّ
+   من أعلاه وأسفله، وهو أول ما يظهر عند 150% */
 .table-view .column-header, .table-view .filler {
     -fx-background-color: transparent;
-    -fx-size: 44px;
+    -fx-size: 3.14em;
 }
 .table-view .column-header .label {
     -fx-text-fill: white;
     -fx-font-weight: bold;
-    -fx-font-size: 13px;
+    -fx-font-size: 0.93em;
 }
-.table-row-cell { -fx-cell-size: 38px; }
+.table-row-cell { -fx-cell-size: 2.71em; }
 .table-row-cell:odd { -fx-background-color: #fafbfd; }
 .table-row-cell:selected { -fx-background-color: -secondary-color; }
 .table-row-cell:selected .text { -fx-fill: white; }
@@ -256,19 +292,19 @@
     -fx-background-color: transparent;
 }
 .tab-pane > .tab-header-area {
-    -fx-padding: 0 0 4 0;
+    -fx-padding: 0 0 0.29em 0;
 }
 .tab-pane .tab {
     -fx-background-color: #e6ecf3;
-    -fx-background-radius: 8 8 0 0;
-    -fx-padding: 9 20;
+    -fx-background-radius: 0.57em 0.57em 0 0;
+    -fx-padding: 0.64em 1.43em;
 }
 .tab-pane .tab:selected {
     -fx-background-color: white;
 }
 .tab-pane .tab .tab-label {
     -fx-text-fill: -text-muted;
-    -fx-font-size: 14px;
+    -fx-font-size: 1em;
     -fx-font-weight: bold;
 }
 .tab-pane .tab:selected .tab-label {
@@ -276,7 +312,7 @@
 }
 .tab-pane > .tab-content-area {
     -fx-background-color: white;
-    -fx-background-radius: 0 10 10 10;
+    -fx-background-radius: 0 0.71em 0.71em 0.71em;
 }
 /* إخفاء الخط الافتراضي الذي يرسمه JavaFX أسفل التبويبات */
 .tab-pane:top > .tab-header-area > .headers-region > .tab:selected .focus-indicator {
@@ -287,18 +323,18 @@
    بطاقات الإحصائيات
    ========================================= */
 .stat-card {
-    -fx-padding: 22 24;
-    -fx-background-radius: 12;
-    -fx-spacing: 6;
+    -fx-padding: 1.57em 1.71em;
+    -fx-background-radius: 0.86em;
+    -fx-spacing: 0.43em;
     -fx-effect: dropshadow(gaussian, rgba(34,48,63,0.14), 10, 0, 0, 4);
 }
 .stat-caption {
     -fx-text-fill: rgba(255,255,255,0.92);
-    -fx-font-size: 14px;
+    -fx-font-size: 1em;
 }
 .stat-value {
     -fx-text-fill: white;
-    -fx-font-size: 30px;
+    -fx-font-size: 2.14em;
     -fx-font-weight: bold;
 }
 
@@ -309,25 +345,30 @@
 /* =========================================
    الرسوم البيانية
    ========================================= */
-.chart { -fx-padding: 6; }
+.chart { -fx-padding: 0.43em; }
 .chart-title {
-    -fx-font-size: 15px;
+    -fx-font-size: 1.07em;
     -fx-font-weight: bold;
     -fx-text-fill: -primary-color;
 }
 .chart-plot-background { -fx-background-color: transparent; }
 .chart-vertical-grid-lines { -fx-stroke: transparent; }
 .chart-horizontal-grid-lines { -fx-stroke: #eef2f6; }
-.axis { -fx-tick-label-fill: -text-muted; }
-.axis-label { -fx-text-fill: -text-muted; -fx-font-size: 12px; }
+/* أسماء الأيام على المحور تُضبط بالصيغة المختصرة للخط: JavaFX لا يعرف
+   -fx-tick-label-font-size وحدها، فتُهمَل بصمت ويبقى المحور بحجم ثابت */
+.axis {
+    -fx-tick-label-fill: -text-muted;
+    -fx-tick-label-font: 0.86em 'Segoe UI';
+}
+.axis-label { -fx-text-fill: -text-muted; -fx-font-size: 0.86em; }
 
 .chart-pie-label {
     -fx-fill: -text-dark;
-    -fx-font-size: 12px;
+    -fx-font-size: 0.86em;
 }
 .chart-legend {
     -fx-background-color: transparent;
-    -fx-padding: 6;
+    -fx-padding: 0.43em;
 }
 
 .default-color0.chart-pie { -fx-pie-color: #3498db; }
@@ -345,9 +386,9 @@
 .bell-btn {
     -fx-background-color: rgba(255,255,255,0.08);
     -fx-text-fill: #cfd8e3;
-    -fx-font-size: 13px;
-    -fx-padding: 4 14;
-    -fx-background-radius: 14;
+    -fx-font-size: 0.93em;
+    -fx-padding: 0.29em 1em;
+    -fx-background-radius: 1em;
     -fx-cursor: hand;
 }
 .bell-btn:hover {
@@ -360,4 +401,21 @@
 }
 .bell-btn-alert:hover {
     -fx-background-color: #e74c3c;
+}
+
+/* =========================================
+   نافذة الحوار (Dialogs)
+   =========================================
+   نافذة التنبيه مشهد مستقلّ لا يرث شيئاً من الشاشة التي فتحته، وDialogs يضع
+   عليها حجم الخط بنفسه؛ هذه القواعد تجعل نصّها ولوحة أزرارها تتبعه. */
+.dialog-pane {
+    -fx-font-size: 1em;
+    -fx-background-color: white;
+}
+.dialog-pane > .content.label,
+.dialog-pane .label {
+    -fx-font-size: 1em;
+}
+.dialog-pane > .button-bar > .container {
+    -fx-padding: 0.71em;
 }

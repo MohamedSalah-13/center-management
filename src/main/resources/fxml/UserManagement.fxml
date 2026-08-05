@@ -1,15 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<?import javafx.scene.text.Font?>
 
 <VBox spacing="20.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.codejava.center.controller.UserManagementController"
       style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
 
-    <Label text="%user.title" textFill="#2c3e50">
-        <font><Font name="System Bold" size="26.0" /></font>
-    </Label>
+    <Label text="%user.title" textFill="#2c3e50" style="-fx-font-size: 1.86em; -fx-font-weight: bold;"/>
 
     <!-- نموذج إضافة/تعديل المستخدم -->
     <GridPane hgap="20.0" vgap="15.0" styleClass="card">
@@ -39,9 +36,7 @@
 
     <!-- جدول المستخدمين -->
     <VBox VBox.vgrow="ALWAYS" spacing="10.0" styleClass="card">
-        <Label text="%user.registered">
-            <font><Font name="System Bold" size="16.0" /></font>
-        </Label>
+        <Label text="%user.registered" style="-fx-font-size: 1.14em; -fx-font-weight: bold;"/>
         <TableView fx:id="usersTable" VBox.vgrow="ALWAYS" styleClass="table-view">
             <columns>
                 <TableColumn fx:id="colId" text="%user.col.id" prefWidth="50.0" />

@@ -18,8 +18,10 @@
 
     <!-- القائمة الجانبية: ترويسة ثابتة + تنقّل قابل للتمرير + خروج ثابت أسفل.
          التمرير ضروري لأن عدد الشاشات تجاوز ارتفاع النافذة فكانت الأزرار الأخيرة تُقصّ. -->
+    <!-- لا prefWidth هنا: العرض في style.css بالـ em ليتبع حجم الخط، وقيمة مكتوبة
+         في FXML تُعدّ ضبطاً من المستخدم فلا يعلوها التنسيق ولا تكبر مع أزرارها -->
     <left>
-        <VBox styleClass="sidebar" prefWidth="272.0" BorderPane.alignment="CENTER">
+        <VBox styleClass="sidebar" BorderPane.alignment="CENTER">
 
             <VBox alignment="CENTER" spacing="8" styleClass="sidebar-header">
                 <padding><Insets top="22.0" bottom="16.0" left="12.0" right="12.0"/></padding>
@@ -117,6 +119,14 @@
                 <HBox alignment="CENTER_LEFT" spacing="8.0">
                     <Label text="%common.language" styleClass="sidebar-role"/>
                     <ComboBox fx:id="languageCombo" styleClass="sidebar-combo"
+                              maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                </HBox>
+
+                <!-- وحجم الخط كذلك: شاشة الإعدادات للمدير وحده، ومن يقضي يومه أمام
+                     شاشة الاستقبال هو أول من يحتاج تكبير ما يقرأه -->
+                <HBox alignment="CENTER_LEFT" spacing="8.0">
+                    <Label text="%common.fontSize" styleClass="sidebar-role"/>
+                    <ComboBox fx:id="fontScaleCombo" styleClass="sidebar-combo"
                               maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
                 </HBox>
 

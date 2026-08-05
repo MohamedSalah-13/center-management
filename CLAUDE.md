@@ -180,6 +180,54 @@ Direction is set on the `Scene` by `ViewLoader`, never hardcoded in FXML.
 Arabic flips it a second time and pushes the text to the wrong edge. The old hardcoded
 `-fx-alignment: center-right` on `.sidebar-btn` was that bug.
 
+### Size: the whole UI is a multiple of one number
+
+`util/UiScale` writes `-fx-font-size` in pixels onto the **scene root**, and every size in
+`style.css` is written in `em` — a fraction of the node's own font size, which is inherited.
+So that one line is the size of the interface: fonts, paddings, corner radii, table row
+heights, the sidebar's width. There is no second place to remember, and this is also how
+JavaFX's own `modena.css` is written.
+
+**Write `em`, not `px`, for anything around text.** A `px` value is a size that stays put
+while the text beside it grows, which is how a heading ends up clipped in its own row. The
+exception is a border width or a shadow: a 2px focus ring is a marker, not a measurement,
+and scaling it just fattens the screen.
+
+**A size written in FXML wins over CSS and can never scale.** `prefWidth="272.0"` on the
+sidebar, or a `<font><Font size="26.0"/></font>` child, is a value "set by the user" as far
+as the CSS engine is concerned, so the stylesheet never touches it — and a `<font>` element
+also blocks inheritance for that node's children. Both were removed: the sidebar's width is
+`-fx-pref-width` in `.sidebar`, and the 77 `<Font>` elements across the screens became
+`em` in the nodes' `style` attributes.
+
+Three surfaces get the number written on them explicitly, because a `Popup` and a
+`DialogPane` are separate scenes that inherit nothing from the window that opened them:
+`Dialogs.decorate`, `Toasts.card` and the bell dropdown in `DashboardController`. Everything
+inside them is `em` and follows.
+
+**Printing is deliberately outside all of it.** `Printing` lays its nodes out in an
+off-screen scene that never gets the root line, so a printout stays at the base 14px however
+large the operator's screen is — otherwise the page breaks computed in `Printing.pageBreaks`
+would change with a display preference. The preview window is unscaled for the same reason:
+it shows the very nodes that go to the printer, and a preview that does not match the paper
+is worse than none.
+
+**Stored per machine** (`java.util.prefs`, no Flyway migration), exactly like the language
+and the printer: the size is a property of the screen in front of someone — a 24" reception
+terminal beside a manager's laptop — not a policy of the centre like the currency or the
+backup schedule. It is changed from the login screen, the sidebar (all roles: the settings
+screen is admin-only, and the person reading a screen all day is usually not the admin), the
+settings screen, or `Ctrl` `+`/`-`/`0` on any scene. It takes effect without rebuilding
+anything, since it is one style line on the root — which is why `UiScaleSelector` needs no
+"reload" callback the way `LanguageSelector` does, and why unsaved form input survives it.
+
+Two details that look small and are not: `fontSizeStyle()` builds its number with
+`Locale.ROOT`, because the Arabic locale writes a decimal comma and JavaFX's CSS parser
+drops the whole declaration silently — a feature that works only in English. And the window
+sizes in `ViewLoader` grow with the factor but are clamped to the screen, since a minimum
+width of 1100 becomes 1925 at 175% and a window that cannot be made smaller than the display
+has no visible close button.
+
 ### Printing
 
 **Describe a printout as blocks, not as one node.** Build a `util/PrintDocument` —

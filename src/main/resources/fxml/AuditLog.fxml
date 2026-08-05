@@ -1,16 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<?import javafx.scene.text.Font?>
 
 <VBox spacing="20.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.codejava.center.controller.AuditLogController"
       style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
 
     <HBox spacing="20.0" alignment="CENTER_LEFT">
-        <Label text="%audit.title" textFill="#2c3e50">
-            <font><Font name="System Bold" size="26.0" /></font>
-        </Label>
+        <Label text="%audit.title" textFill="#2c3e50" style="-fx-font-size: 1.86em; -fx-font-weight: bold;"/>
         <Region HBox.hgrow="ALWAYS" />
         <Button text="%common.refresh" onAction="#handleRefresh"
                 style="-fx-background-color: #7f8c8d; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
@@ -22,24 +19,16 @@
 
     <GridPane hgap="15.0" vgap="15.0"
               style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
-        <Label text="%audit.from" GridPane.columnIndex="0" GridPane.rowIndex="0">
-            <font><Font name="System Bold" size="14.0" /></font>
-        </Label>
+        <Label text="%audit.from" GridPane.columnIndex="0" GridPane.rowIndex="0" style="-fx-font-weight: bold;"/>
         <DatePicker fx:id="fromPicker" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
-        <Label text="%audit.to" GridPane.columnIndex="2" GridPane.rowIndex="0">
-            <font><Font name="System Bold" size="14.0" /></font>
-        </Label>
+        <Label text="%audit.to" GridPane.columnIndex="2" GridPane.rowIndex="0" style="-fx-font-weight: bold;"/>
         <DatePicker fx:id="toPicker" editable="false" GridPane.columnIndex="3" GridPane.rowIndex="0" />
 
-        <Label text="%audit.actor" GridPane.columnIndex="4" GridPane.rowIndex="0">
-            <font><Font name="System Bold" size="14.0" /></font>
-        </Label>
+        <Label text="%audit.actor" GridPane.columnIndex="4" GridPane.rowIndex="0" style="-fx-font-weight: bold;"/>
         <ComboBox fx:id="actorCombo" prefWidth="180.0" GridPane.columnIndex="5" GridPane.rowIndex="0" />
 
-        <Label text="%audit.category" GridPane.columnIndex="6" GridPane.rowIndex="0">
-            <font><Font name="System Bold" size="14.0" /></font>
-        </Label>
+        <Label text="%audit.category" GridPane.columnIndex="6" GridPane.rowIndex="0" style="-fx-font-weight: bold;"/>
         <ComboBox fx:id="categoryCombo" prefWidth="180.0" GridPane.columnIndex="7" GridPane.rowIndex="0" />
 
         <HBox spacing="10.0" GridPane.columnIndex="1" GridPane.rowIndex="1" GridPane.columnSpan="7"
@@ -53,9 +42,7 @@
         <TextField fx:id="searchField" promptText="%audit.searchPrompt" prefWidth="320.0" />
         <CheckBox fx:id="failuresOnlyCheck" text="%audit.failuresOnly" />
         <Region HBox.hgrow="ALWAYS" />
-        <Label fx:id="summaryLabel" text="" textFill="#2c3e50">
-            <font><Font name="System Bold" size="14.0" /></font>
-        </Label>
+        <Label fx:id="summaryLabel" text="" textFill="#2c3e50" style="-fx-font-weight: bold;"/>
     </HBox>
 
     <Label fx:id="truncationLabel" text="" textFill="#e67e22" wrapText="true" visible="false" managed="false" />

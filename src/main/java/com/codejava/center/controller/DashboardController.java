@@ -23,6 +23,8 @@ import com.codejava.center.util.LanguageSelector;
 import com.codejava.center.util.MoneyUtils;
 import com.codejava.center.util.Toasts;
 import com.codejava.center.util.TrayNotifier;
+import com.codejava.center.util.UiScale;
+import com.codejava.center.util.UiScaleSelector;
 import com.codejava.center.util.UserSession;
 import com.codejava.center.util.ViewLoader;
 import javafx.application.Platform;
@@ -174,6 +176,8 @@ public class DashboardController {
     private Label userNameLabel;
     @FXML
     private ComboBox<Locale> languageCombo;
+    @FXML
+    private ComboBox<Double> fontScaleCombo;
     @FXML private PieChart revenuePieChart;
     @FXML private BarChart<String, Number> attendanceBarChart;
 
@@ -189,6 +193,9 @@ public class DashboardController {
         // تبديل اللغة يعيد بناء لوحة القيادة بالكامل؛ الجلسة محفوظة في UserSession
         // فلا يُطالَب المستخدم بتسجيل الدخول من جديد
         LanguageSelector.configure(languageCombo, this::reloadDashboard);
+
+        // حجم الخط لا يعيد البناء: سطر تنسيق على الجذر يسري على الشاشة المعروضة نفسها
+        UiScaleSelector.configure(fontScaleCombo);
 
         applyRolePermissions(currentUser);
         loadCenterBranding();
@@ -475,7 +482,7 @@ public class DashboardController {
         VBox rows = new VBox(2);
         if (open.isEmpty()) {
             Label empty = new Label(I18n.get("alerts.bellEmpty"));
-            empty.setStyle("-fx-text-fill: #7f8c8d; -fx-padding: 18;");
+            empty.setStyle("-fx-text-fill: #7f8c8d; -fx-padding: 1.29em;");
             rows.getChildren().add(empty);
         } else {
             open.forEach(alert -> rows.getChildren().add(dropdownRow(alert)));
@@ -483,23 +490,26 @@ public class DashboardController {
 
         ScrollPane scroll = new ScrollPane(rows);
         scroll.setFitToWidth(true);
-        scroll.setPrefHeight(Math.min(320, 74.0 * Math.max(1, open.size()) + 12));
+        scroll.setPrefHeight(UiScale.scaled(Math.min(320, 74.0 * Math.max(1, open.size()) + 12)));
         scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
 
         Button openCentre = new Button(I18n.get("alerts.bellOpenCentre"));
         openCentre.setMaxWidth(Double.MAX_VALUE);
-        openCentre.setStyle("-fx-background-color: #2c3e50; -fx-text-fill: white; -fx-padding: 8 16;");
+        openCentre.setStyle("-fx-background-color: #2c3e50; -fx-text-fill: white; -fx-padding: 0.57em 1.14em;");
         openCentre.setOnAction(e -> showAlerts(null));
 
         Label header = new Label(I18n.format("alerts.bellTitle", openAlertCount));
-        header.setStyle("-fx-font-weight: bold; -fx-font-size: 14px; -fx-padding: 12 14 8 14;");
+        header.setStyle("-fx-font-weight: bold; -fx-font-size: 1em; -fx-padding: 0.86em 1em 0.57em 1em;");
 
         VBox content = new VBox(8, header, new Separator(), scroll, openCentre);
-        content.setPrefWidth(380);
+        content.setPrefWidth(UiScale.scaled(380));
         content.setPadding(new Insets(0, 10, 10, 10));
+        // حجم الخط على الحاوية: القائمة المنسدلة Popup بمشهد مستقلّ لا يصله سطر الجذر،
+        // فترث منها الأسطر الداخلية مقاسها وتعمل الـ em المكتوبة فيها
         content.setStyle("-fx-background-color: white; -fx-background-radius: 8;"
                 + " -fx-border-color: #dfe4ea; -fx-border-radius: 8;"
-                + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.22), 14, 0, 0, 4);");
+                + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.22), 14, 0, 0, 4);"
+                + UiScale.fontSizeStyle());
         // الـ Popup ليس ابناً للمشهد فلا يرث اتجاهه
         content.setNodeOrientation(ViewLoader.orientation());
 
@@ -521,10 +531,10 @@ public class DashboardController {
 
         Label message = new Label(alert.describe());
         message.setWrapText(true);
-        message.setStyle("-fx-font-size: 12px; -fx-text-fill: #2c3e50;");
+        message.setStyle("-fx-font-size: 0.86em; -fx-text-fill: #2c3e50;");
 
         Label when = new Label(alert.getRaisedAt().format(BELL_TIMESTAMP));
-        when.setStyle("-fx-font-size: 11px; -fx-text-fill: #95a5a6;");
+        when.setStyle("-fx-font-size: 0.79em; -fx-text-fill: #95a5a6;");
 
         VBox text = new VBox(3, message, when);
         HBox.setHgrow(text, Priority.ALWAYS);

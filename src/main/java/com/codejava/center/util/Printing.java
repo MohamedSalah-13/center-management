@@ -463,6 +463,9 @@ public final class Printing {
         HBox header = new HBox(18, target, count);
         header.setStyle("-fx-padding: 12 18 0 18;");
 
+        // لا UiScale هنا - وليس سهواً: المعاينة تعرض نفس العقد التي تذهب إلى الطابعة،
+        // فتكبير خط الجذر يكبّر معها محتوى الورقة ويُظهر صفحةً غير التي ستخرج.
+        // نفس سبب تثبيت اتجاه الأوراق على اليسار-لليمين أسفل هذا الملف.
         Scene scene = new Scene(new BorderPane(scroll, header, null, actions, null),
                 PREVIEW_WIDTH, PREVIEW_HEIGHT);
         scene.setNodeOrientation(ViewLoader.orientation());

@@ -6,14 +6,11 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<?import javafx.scene.text.Font?>
 <VBox spacing="20.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.codejava.center.controller.TeacherController"
       style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
 
-    <Label text="%teacher.title" textFill="#2c3e50">
-        <font><Font name="System Bold" size="26.0" /></font>
-    </Label>
+    <Label text="%teacher.title" textFill="#2c3e50" style="-fx-font-size: 1.86em; -fx-font-weight: bold;"/>
 
     <GridPane hgap="20.0" vgap="15.0" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0;">
         <Label text="%teacher.name" GridPane.columnIndex="0" GridPane.rowIndex="0" />

@@ -5,6 +5,7 @@ import com.codejava.center.service.AuthService;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.LanguageSelector;
+import com.codejava.center.util.UiScaleSelector;
 import com.codejava.center.util.UserSession;
 import com.codejava.center.util.ViewLoader;
 import javafx.event.ActionEvent;
@@ -36,11 +37,15 @@ public class LoginController {
     @FXML private PasswordField passwordField;
     @FXML private Label errorLabel;
     @FXML private ComboBox<Locale> languageCombo;
+    @FXML private ComboBox<Double> fontScaleCombo;
 
     @FXML
     public void initialize() {
         // تبديل اللغة هنا يعيد بناء شاشة الدخول نفسها، فيرى المشغّل أثر اختياره فوراً
         LanguageSelector.configure(languageCombo, this::reloadLoginScreen);
+
+        // وحجم الخط يسري بلا إعادة بناء، وتتسع النافذة له إن ضاقت
+        UiScaleSelector.configure(fontScaleCombo);
     }
 
     @FXML

@@ -1,15 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<?import javafx.scene.text.Font?>
 
 <VBox spacing="20.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.codejava.center.controller.TeacherPayoutController"
       style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
 
-    <Label text="%payout.title" textFill="#2c3e50">
-        <font><Font name="System Bold" size="26.0" /></font>
-    </Label>
+    <Label text="%payout.title" textFill="#2c3e50" style="-fx-font-size: 1.86em; -fx-font-weight: bold;"/>
 
     <Label text="%payout.note" textFill="#7f8c8d" wrapText="true" />
 
@@ -28,12 +25,8 @@
 
     <HBox spacing="20.0" alignment="CENTER_RIGHT"
           style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
-        <Label text="%payout.totalPending">
-            <font><Font name="System Bold" size="15.0" /></font>
-        </Label>
-        <Label fx:id="totalPendingLabel" text="%common.empty" textFill="#e67e22">
-            <font><Font name="System Bold" size="20.0" /></font>
-        </Label>
+        <Label text="%payout.totalPending" style="-fx-font-size: 1.07em; -fx-font-weight: bold;"/>
+        <Label fx:id="totalPendingLabel" text="%common.empty" textFill="#e67e22" style="-fx-font-size: 1.43em; -fx-font-weight: bold;"/>
         <Region HBox.hgrow="ALWAYS" />
         <Button text="%common.refresh" onAction="#handleRefresh"
                 style="-fx-background-color: #7f8c8d; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />

@@ -1,15 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<?import javafx.scene.text.Font?>
 
 <VBox spacing="20.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.codejava.center.controller.StudentRegistrationController"
       style="-fx-background-color: #f4f4f4; -fx-padding: 30;">
 
-    <Label text="%student.title" textFill="#2c3e50">
-        <font><Font name="System Bold" size="24.0" /></font>
-    </Label>
+    <Label text="%student.title" textFill="#2c3e50" style="-fx-font-size: 1.71em; -fx-font-weight: bold;"/>
 
     <GridPane hgap="15.0" vgap="15.0">
         <columnConstraints>
@@ -43,15 +40,11 @@
 
     <!-- القسم الجديد: إدارة الاشتراك في المجموعات -->
     <VBox spacing="10.0" style="-fx-padding: 15; -fx-background-color: white; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
-        <Label text="%student.enrollmentSection" textFill="#2c3e50">
-            <font><Font name="System Bold" size="16.0" /></font>
-        </Label>
+        <Label text="%student.enrollmentSection" textFill="#2c3e50" style="-fx-font-size: 1.14em; -fx-font-weight: bold;"/>
 
         <HBox spacing="15.0" alignment="CENTER_LEFT">
             <ComboBox fx:id="groupComboBox" promptText="%student.groupPrompt" prefWidth="250.0" />
-            <Label fx:id="groupCapacityLabel" text="%student.capacityUnknown" textFill="#7f8c8d">
-                <font><Font name="System Bold" size="14.0" /></font>
-            </Label>
+            <Label fx:id="groupCapacityLabel" text="%student.capacityUnknown" textFill="#7f8c8d" style="-fx-font-weight: bold;"/>
             <Button fx:id="subscribeButton" text="%student.subscribe" disable="true" onAction="#handleSubscribeAction" style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold;" />
             <Button fx:id="unsubscribeButton" text="%student.unsubscribe" disable="true" onAction="#handleUnsubscribeAction" style="-fx-background-color: #e67e22; -fx-text-fill: white; -fx-font-weight: bold;" />
         </HBox>

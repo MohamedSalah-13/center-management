@@ -1,32 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<?import javafx.scene.text.Font?>
 
 <VBox spacing="20.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.codejava.center.controller.AttendanceReportController"
       style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
 
-    <Label text="%attReport.title" textFill="#2c3e50">
-        <font><Font name="System Bold" size="26.0" /></font>
-    </Label>
+    <Label text="%attReport.title" textFill="#2c3e50" style="-fx-font-size: 1.86em; -fx-font-weight: bold;"/>
 
     <GridPane hgap="15.0" vgap="15.0"
               style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
-        <Label text="%attReport.group" GridPane.columnIndex="0" GridPane.rowIndex="0">
-            <font><Font name="System Bold" size="14.0" /></font>
-        </Label>
+        <Label text="%attReport.group" GridPane.columnIndex="0" GridPane.rowIndex="0" style="-fx-font-weight: bold;"/>
         <ComboBox fx:id="groupComboBox" promptText="%attReport.selectGroupPrompt" prefWidth="240.0"
                   GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
-        <Label text="%attReport.from" GridPane.columnIndex="2" GridPane.rowIndex="0">
-            <font><Font name="System Bold" size="14.0" /></font>
-        </Label>
+        <Label text="%attReport.from" GridPane.columnIndex="2" GridPane.rowIndex="0" style="-fx-font-weight: bold;"/>
         <DatePicker fx:id="fromPicker" editable="false" GridPane.columnIndex="3" GridPane.rowIndex="0" />
 
-        <Label text="%attReport.to" GridPane.columnIndex="4" GridPane.rowIndex="0">
-            <font><Font name="System Bold" size="14.0" /></font>
-        </Label>
+        <Label text="%attReport.to" GridPane.columnIndex="4" GridPane.rowIndex="0" style="-fx-font-weight: bold;"/>
         <DatePicker fx:id="toPicker" editable="false" GridPane.columnIndex="5" GridPane.rowIndex="0" />
 
         <HBox spacing="10.0" GridPane.columnIndex="1" GridPane.rowIndex="1" GridPane.columnSpan="5"
@@ -39,12 +30,8 @@
     </GridPane>
 
     <HBox spacing="20.0" alignment="CENTER_LEFT">
-        <Label text="%attReport.totalSessions">
-            <font><Font name="System Bold" size="14.0" /></font>
-        </Label>
-        <Label fx:id="totalSessionsLabel" text="0" textFill="#2c3e50">
-            <font><Font name="System Bold" size="20.0" /></font>
-        </Label>
+        <Label text="%attReport.totalSessions" style="-fx-font-weight: bold;"/>
+        <Label fx:id="totalSessionsLabel" text="0" textFill="#2c3e50" style="-fx-font-size: 1.43em; -fx-font-weight: bold;"/>
         <Region HBox.hgrow="ALWAYS" />
         <CheckBox fx:id="absenteesOnlyCheck" text="%attReport.absenteesOnly" />
     </HBox>

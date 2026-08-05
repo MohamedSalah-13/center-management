@@ -36,6 +36,7 @@ public final class Toasts {
     private static final Duration VISIBLE = Duration.seconds(7);
     private static final Duration FADE = Duration.millis(280);
 
+    /** عرض البطاقة قبل التكبير؛ ما يُستعمل فعلاً هو {@link #cardWidth()} */
     private static final double WIDTH = 340;
     private static final double MARGIN = 18;
     private static final double GAP = 10;
@@ -101,12 +102,12 @@ public final class Toasts {
     private static Region card(String title, String message, String accentColor,
                                Popup popup, Runnable onClick) {
         Label titleLabel = new Label(title);
-        titleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #2c3e50;");
+        titleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 1em; -fx-text-fill: #2c3e50;");
         titleLabel.setWrapText(true);
 
         Label messageLabel = new Label(message);
         messageLabel.setWrapText(true);
-        messageLabel.setStyle("-fx-font-size: 13px; -fx-text-fill: #4a5568;");
+        messageLabel.setStyle("-fx-font-size: 0.93em; -fx-text-fill: #4a5568;");
 
         VBox text = new VBox(4, titleLabel, messageLabel);
         text.setPadding(new Insets(12, 14, 12, 14));
@@ -120,11 +121,14 @@ public final class Toasts {
 
         HBox card = new HBox(accent, text);
         card.setAlignment(Pos.CENTER_LEFT);
-        card.setPrefWidth(WIDTH);
-        card.setMaxWidth(WIDTH);
+        card.setPrefWidth(cardWidth());
+        card.setMaxWidth(cardWidth());
+        // حجم الخط على البطاقة نفسها لا على كل سطر فيها: الـ Popup مشهد مستقلّ لا يصله
+        // سطر الجذر، وأبناء البطاقة يرثونه فتعمل الـ em أعلاه كما تعمل في ملف التنسيق
         card.setStyle("-fx-background-color: white; -fx-background-radius: 8;"
                 + " -fx-border-color: #dfe4ea; -fx-border-radius: 8;"
-                + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.22), 12, 0, 0, 3);");
+                + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.22), 12, 0, 0, 3);"
+                + UiScale.fontSizeStyle());
 
         // الـ Popup ليس ابناً للمشهد فلا يرث اتجاهه؛ بدون هذا السطر تُرصّ
         // البطاقة العربية من اليسار والبرنامج كله من اليمين
@@ -159,9 +163,19 @@ public final class Toasts {
             popup.setY(y);
             popup.setX(I18n.isRightToLeft()
                     ? owner.getX() + MARGIN
-                    : owner.getX() + owner.getWidth() - WIDTH - MARGIN);
+                    : owner.getX() + owner.getWidth() - cardWidth() - MARGIN);
             y -= GAP;
         }
+    }
+
+    /**
+     * عرض البطاقة بمقاس هذا الجهاز.
+     *
+     * <p>نصٌّ أكبر داخل عرض ثابت يزيد عدد الأسطر حتى تصير البطاقة عموداً ضيقاً طويلاً،
+     * ولا بدّ أن يتبعه الموضع في {@code layoutAll} وإلا خرجت البطاقة من حافة النافذة.</p>
+     */
+    private static double cardWidth() {
+        return UiScale.scaled(WIDTH);
     }
 
     private static void animate(Popup popup) {
