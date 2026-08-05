@@ -1,10 +1,16 @@
 package com.codejava.center.util;
 
+import javafx.application.Platform;
+import javafx.geometry.Insets;
 import javafx.geometry.NodeOrientation;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
+import javafx.scene.control.Label;
+import javafx.scene.control.PasswordField;
+import javafx.scene.layout.VBox;
 
 import java.net.URL;
 import java.util.Optional;
@@ -78,6 +84,41 @@ public final class Dialogs {
         return answer.isPresent() && answer.get() == yes;
     }
 
+    /**
+     * سؤال عن كلمة مرور، بحقل يُخفي ما يُكتب فيه.
+     *
+     * <p>لا يوجد في JavaFX ما يقابل {@code TextInputDialog} بحقل مخفي، وكلمة مرور نسخة
+     * احتياطية لا يصحّ أن تُكتب ظاهرة على شاشة في استقبال السنتر.</p>
+     *
+     * @param initial قيمة مبدئية (كلمة المرور المحفوظة على الجهاز عادةً)، أو {@code null}
+     * @return ما أدخله المستخدم، أو {@link Optional#empty()} إن ألغى
+     */
+    public static Optional<String> password(String title, String content, String initial) {
+        Dialog<String> dialog = new Dialog<>();
+        dialog.setTitle(title);
+        dialog.setHeaderText(null);
+
+        ButtonType ok = new ButtonType(I18n.get("common.ok"), ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancel = new ButtonType(I18n.get("common.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE);
+
+        PasswordField field = new PasswordField();
+        field.setText(initial == null ? "" : initial);
+        field.setPromptText(I18n.get("settings.passphrasePrompt"));
+
+        VBox layout = new VBox(10, new Label(content), field);
+        layout.setPadding(new Insets(16));
+
+        DialogPane pane = dialog.getDialogPane();
+        pane.setContent(layout);
+        pane.getButtonTypes().setAll(ok, cancel);
+        decorate(pane);
+
+        dialog.setResultConverter(button -> button == ok ? field.getText() : null);
+        Platform.runLater(field::requestFocus);
+
+        return dialog.showAndWait();
+    }
+
     private static void show(Alert.AlertType type, String title, String content) {
         build(type, title, content).showAndWait();
     }
@@ -88,15 +129,18 @@ public final class Dialogs {
         alert.setHeaderText(null); // الترويسة الافتراضية تكرّر العنوان وتُطيل النافذة بلا فائدة
         alert.setContentText(content);
 
-        DialogPane pane = alert.getDialogPane();
+        decorate(alert.getDialogPane());
+        return alert;
+    }
+
+    /** الاتجاه والأنماط: النافذة نافذة مستقلة ولا ترث شيئاً من المشهد الذي فتحها */
+    private static void decorate(DialogPane pane) {
         pane.setNodeOrientation(I18n.isRightToLeft()
                 ? NodeOrientation.RIGHT_TO_LEFT : NodeOrientation.LEFT_TO_RIGHT);
 
-        // النافذة نافذة مستقلة ولا ترث أنماط المشهد الذي فتحها
         URL stylesheet = Dialogs.class.getResource(STYLESHEET);
         if (stylesheet != null) {
             pane.getStylesheets().add(stylesheet.toExternalForm());
         }
-        return alert;
     }
 }

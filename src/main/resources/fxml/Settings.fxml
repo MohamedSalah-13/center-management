@@ -174,38 +174,119 @@
 
         <!-- ============ النسخ الاحتياطي ============ -->
         <Tab text="%settings.tab.backup">
-            <VBox spacing="18.0">
-                <padding><Insets top="24.0" bottom="24.0" left="26.0" right="26.0"/></padding>
+            <ScrollPane fitToWidth="true">
+                <VBox spacing="16.0">
+                    <padding><Insets top="24.0" bottom="24.0" left="26.0" right="26.0"/></padding>
 
-                <GridPane hgap="16.0" vgap="16.0">
-                    <columnConstraints>
-                        <ColumnConstraints minWidth="130.0" halignment="RIGHT"/>
-                        <ColumnConstraints minWidth="320.0" hgrow="ALWAYS"/>
-                        <ColumnConstraints minWidth="120.0"/>
-                    </columnConstraints>
+                    <GridPane hgap="16.0" vgap="14.0">
+                        <columnConstraints>
+                            <ColumnConstraints minWidth="170.0" halignment="RIGHT"/>
+                            <ColumnConstraints minWidth="300.0" hgrow="ALWAYS"/>
+                            <ColumnConstraints minWidth="110.0"/>
+                        </columnConstraints>
 
-                    <Label text="%settings.backupPath" styleClass="sub-label"
-                           GridPane.columnIndex="0" GridPane.rowIndex="0"/>
-                    <TextField fx:id="backupPathField" promptText="%settings.backupPathPrompt" editable="false"
-                               GridPane.columnIndex="1" GridPane.rowIndex="0"/>
-                    <Button text="%common.browse" onAction="#handleBrowseBackupPath" styleClass="btn-secondary"
-                            GridPane.columnIndex="2" GridPane.rowIndex="0"/>
+                        <Label text="%settings.backupPath" styleClass="sub-label"
+                               GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                        <TextField fx:id="backupPathField" promptText="%settings.backupPathPrompt" editable="false"
+                                   GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                        <Button text="%common.browse" onAction="#handleBrowseBackupPath" styleClass="btn-secondary"
+                                GridPane.columnIndex="2" GridPane.rowIndex="0"/>
 
-                    <CheckBox fx:id="autoBackupCheckBox" text="%settings.autoBackup"
-                              GridPane.columnIndex="1" GridPane.rowIndex="1"/>
-                </GridPane>
+                        <CheckBox fx:id="autoBackupCheckBox" text="%settings.autoBackup"
+                                  GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                    </GridPane>
 
-                <Label text="%settings.backupNote" styleClass="muted-text" wrapText="true"/>
+                    <Separator/>
 
-                <Separator/>
+                    <!-- الموعد: كان مكتوباً في الكود (يومياً 2 صباحاً) ولا سبيل لتغييره -->
+                    <Label text="%settings.scheduleSection" styleClass="sub-label"/>
 
-                <HBox spacing="14.0">
-                    <Button text="%settings.backupNow" onAction="#handleManualBackup" styleClass="btn-success"/>
-                    <Button text="%settings.restore" onAction="#handleRestoreBackup" styleClass="btn-danger"/>
-                </HBox>
+                    <GridPane fx:id="scheduleGrid" hgap="16.0" vgap="14.0">
+                        <columnConstraints>
+                            <ColumnConstraints minWidth="170.0" halignment="RIGHT"/>
+                            <ColumnConstraints minWidth="300.0" hgrow="ALWAYS"/>
+                        </columnConstraints>
 
-                <Label text="%settings.restoreWarning" styleClass="danger-text" wrapText="true"/>
-            </VBox>
+                        <Label text="%settings.backupFrequency" styleClass="sub-label"
+                               GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                        <ComboBox fx:id="backupFrequencyCombo" maxWidth="Infinity"
+                                  GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+
+                        <Label text="%settings.backupTime" styleClass="sub-label"
+                               GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                        <HBox spacing="8.0" alignment="CENTER_LEFT"
+                              GridPane.columnIndex="1" GridPane.rowIndex="1">
+                            <Spinner fx:id="backupHourSpinner" editable="true" prefWidth="90.0"/>
+                            <Label text="%settings.timeSeparator"/>
+                            <Spinner fx:id="backupMinuteSpinner" editable="true" prefWidth="90.0"/>
+                        </HBox>
+
+                        <Label fx:id="backupDayOfWeekLabel" text="%settings.backupDayOfWeek" styleClass="sub-label"
+                               GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                        <ComboBox fx:id="backupDayOfWeekCombo" maxWidth="Infinity"
+                                  GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+
+                        <Label fx:id="backupDayOfMonthLabel" text="%settings.backupDayOfMonth" styleClass="sub-label"
+                               GridPane.columnIndex="0" GridPane.rowIndex="3"/>
+                        <Spinner fx:id="backupDayOfMonthSpinner" editable="true" prefWidth="90.0"
+                                 GridPane.columnIndex="1" GridPane.rowIndex="3"/>
+
+                        <Label text="%settings.backupRetention" styleClass="sub-label"
+                               GridPane.columnIndex="0" GridPane.rowIndex="4"/>
+                        <Spinner fx:id="backupRetentionSpinner" editable="true" prefWidth="90.0"
+                                 GridPane.columnIndex="1" GridPane.rowIndex="4"/>
+
+                        <Label text="%settings.backupNextRun" styleClass="sub-label"
+                               GridPane.columnIndex="0" GridPane.rowIndex="5"/>
+                        <Label fx:id="backupNextRunLabel" text="%common.empty" wrapText="true"
+                               GridPane.columnIndex="1" GridPane.rowIndex="5"/>
+
+                        <Label text="%settings.backupLastRun" styleClass="sub-label"
+                               GridPane.columnIndex="0" GridPane.rowIndex="6"/>
+                        <Label fx:id="backupLastRunLabel" text="%common.empty" wrapText="true"
+                               GridPane.columnIndex="1" GridPane.rowIndex="6"/>
+                    </GridPane>
+
+                    <Label text="%settings.backupNote" styleClass="muted-text" wrapText="true"/>
+                    <Label text="%settings.backupRetentionNote" styleClass="muted-text" wrapText="true"/>
+
+                    <Separator/>
+
+                    <!-- التشفير: الملف يخرج من الجهاز على فلاشة أو إلى Drive -->
+                    <Label text="%settings.encryptionSection" styleClass="sub-label"/>
+
+                    <CheckBox fx:id="backupEncryptCheckBox" text="%settings.encryptBackups"/>
+
+                    <GridPane hgap="16.0" vgap="14.0">
+                        <columnConstraints>
+                            <ColumnConstraints minWidth="170.0" halignment="RIGHT"/>
+                            <ColumnConstraints minWidth="300.0" hgrow="ALWAYS"/>
+                        </columnConstraints>
+
+                        <Label text="%settings.passphrase" styleClass="sub-label"
+                               GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                        <PasswordField fx:id="backupPassphraseField" promptText="%settings.passphrasePrompt"
+                                       GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+
+                        <Label text="%settings.passphraseConfirm" styleClass="sub-label"
+                               GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                        <PasswordField fx:id="backupPassphraseConfirmField" promptText="%settings.passphrasePrompt"
+                                       GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                    </GridPane>
+
+                    <Label text="%settings.encryptionNote" styleClass="muted-text" wrapText="true"/>
+                    <Label text="%settings.encryptionWarning" styleClass="danger-text" wrapText="true"/>
+
+                    <Separator/>
+
+                    <HBox spacing="14.0">
+                        <Button text="%settings.backupNow" onAction="#handleManualBackup" styleClass="btn-success"/>
+                        <Button text="%settings.restore" onAction="#handleRestoreBackup" styleClass="btn-danger"/>
+                    </HBox>
+
+                    <Label text="%settings.restoreWarning" styleClass="danger-text" wrapText="true"/>
+                </VBox>
+            </ScrollPane>
         </Tab>
 
         <!-- ============ دفتر الحسابات ============ -->
