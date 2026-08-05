@@ -354,7 +354,8 @@ public class AlertCenterController {
         configureSpinner(scanHourSpinner, 0, 23, AlertSchedule.DEFAULT_TIME.getHour());
         configureSpinner(scanMinuteSpinner, 0, 59, AlertSchedule.DEFAULT_TIME.getMinute());
 
-        setDetailEnabled(false);
+        // نفس ما يفعله showRule(null): لا حقول أرقام بلا عناوين قبل اختيار قاعدة
+        showRule(null);
     }
 
     private <T> StringConverter<T> converter(Function<T, String> display) {
@@ -419,6 +420,13 @@ public class AlertCenterController {
         if (rule == null) {
             ruleNameLabel.setText(I18n.get("alerts.selectRule"));
             ruleDescriptionLabel.setText("");
+
+            // المغيِّرات تُخفى لا تُعطَّل فقط: عنوانها يأتي من النوع المحدَّد، وقبل
+            // الاختيار كانت تظهر ثلاثة حقول أرقام فوقها عناوين فارغة لا تقول ما هي
+            showSpinner(ruleThresholdLabel, ruleThresholdSpinner, false, "", 0);
+            showSpinner(ruleWindowLabel, ruleWindowSpinner, false, "", 0);
+            showSpinner(ruleCooldownLabel, ruleCooldownSpinner, false, "", 0);
+
             setDetailEnabled(false);
             return;
         }

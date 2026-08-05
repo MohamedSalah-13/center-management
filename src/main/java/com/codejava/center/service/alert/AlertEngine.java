@@ -2,6 +2,7 @@ package com.codejava.center.service.alert;
 
 import com.codejava.center.domain.Alert;
 import com.codejava.center.domain.AlertRule;
+import com.codejava.center.domain.enums.AlertCadence;
 import com.codejava.center.domain.enums.AlertType;
 import com.codejava.center.repository.AlertRepository;
 import com.codejava.center.repository.NotificationLogRepository;
@@ -26,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 /**
  * محرّك التنبيهات: يسأل الفاحصين، ثم يقرّر لمن يذهب ما وجدوه وبأي نصّ.
@@ -101,13 +103,28 @@ public class AlertEngine {
      * في الحصيلة لا أن تُسقط أحد عشر تنبيهاً سليماً معها.</p>
      */
     public AlertScanResult scanAll() {
+        return scan(type -> true);
+    }
+
+    /**
+     * الأنواع التي دقّتها بالدقائق وحدها: قرب موعد حصة، وقرب انتهاء حصة مفتوحة.
+     *
+     * <p>تُستدعى من نبضة قصيرة لا من الفحص اليومي. تشغيلها ضمن الفحص اليومي ليس خطأً -
+     * لن تجد شيئاً في الثامنة صباحاً - لكنها لا تنفع بدون النبضة: تذكيرٌ بحصة تبدأ
+     * الرابعة عصراً يصل في الثامنة صباحاً ليس تذكيراً.</p>
+     */
+    public AlertScanResult scanFrequent() {
+        return scan(type -> type.getCadence() == AlertCadence.FREQUENT);
+    }
+
+    private AlertScanResult scan(Predicate<AlertType> selector) {
         int raised = 0;
         int messaged = 0;
         List<String> failures = new ArrayList<>();
 
         for (AlertRule rule : ruleRegistry.all()) {
             AlertDetector detector = detectors.get(rule.getType());
-            if (detector == null || !rule.isEnabled()) {
+            if (detector == null || !rule.isEnabled() || !selector.test(rule.getType())) {
                 continue;
             }
 
@@ -173,7 +190,12 @@ public class AlertEngine {
         List<String> failures = new ArrayList<>();
 
         for (AlertDraft draft : drafts) {
-            if (rule.notifiesInternally() && !recentlyRaised.contains(draft.entityId())
+            // الواقعة المسمّاة يحكمها اسمها وحده: نافذة التهدئة تقريبٌ بالأيام، وهي
+            // تعبير خاطئ عن "مرة واحدة لهذه الحصة" فتبتلع الموعد التالي على الحافّة
+            boolean withinCooldown = draft.occurrenceKey() == null
+                    && recentlyRaised.contains(draft.entityId());
+
+            if (rule.notifiesInternally() && !withinCooldown
                     && alertWriter.insertIfNew(toAlert(rule, draft, now, cooldown))) {
                 raised++;
             }
@@ -228,9 +250,15 @@ public class AlertEngine {
      */
     private String dedupeKey(AlertType type, AlertDraft draft, int cooldownDays, LocalDateTime now) {
         String entity = draft.entityId() == null ? "-" : draft.entityId().toString();
-        String window = cooldownDays <= 0
-                ? UUID.randomUUID().toString().substring(0, 12)
-                : Long.toString(now.toLocalDate().toEpochDay() / cooldownDays);
+
+        String window;
+        if (draft.occurrenceKey() != null) {
+            window = draft.occurrenceKey();
+        } else if (cooldownDays <= 0) {
+            window = UUID.randomUUID().toString().substring(0, 12);
+        } else {
+            window = Long.toString(now.toLocalDate().toEpochDay() / cooldownDays);
+        }
 
         return type.name() + ":" + entity + ":" + window;
     }

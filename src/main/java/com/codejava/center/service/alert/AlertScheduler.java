@@ -44,11 +44,21 @@ public class AlertScheduler {
      */
     private static final Duration CATCH_UP_DELAY = Duration.ofMinutes(6);
 
+    /**
+     * النبضة القصيرة للأنواع التي دقّتها بالدقائق.
+     *
+     * <p>خمس دقائق تحدّ دقّة كل تنبيه من هذه الأنواع: "نبّهني قبل الحصة بربع ساعة" تصل
+     * بين ١٥ و١٠ دقائق قبلها. أقصر من ذلك استعلامان لكل مجموعة كل دقيقتين على جهاز
+     * تشتغل عليه بوابة حضور، وأطول يجعل تذكيراً بربع ساعة يصل بعد بدء الحصة.</p>
+     */
+    private static final Duration FREQUENT_INTERVAL = Duration.ofMinutes(5);
+
     private final TaskScheduler taskScheduler;
     private final SettingsService settingsService;
     private final AlertEngine alertEngine;
 
     private ScheduledFuture<?> scheduled;
+    private ScheduledFuture<?> frequent;
 
     @EventListener(ApplicationReadyEvent.class)
     public void onApplicationReady() {
@@ -74,13 +84,24 @@ public class AlertScheduler {
         scheduled = taskScheduler.schedule(this::runScan,
                 trigger(schedule, settings.getLastAlertScanAt()));
 
+        // النبضة القصيرة بلا موعد ولا تعويض: ما تفحصه لا يُعوَّض أصلاً. تنبيهٌ بأن حصةً
+        // تبدأ بعد ربع ساعة، يصل بعد ساعتين من تشغيل البرنامج، خبرٌ لا تنبيه - وأسوأ من
+        // الصمت لأنه يُقرأ على أنه الآن
+        frequent = taskScheduler.scheduleWithFixedDelay(this::runFrequentScan,
+                Instant.now().plus(FREQUENT_INTERVAL), FREQUENT_INTERVAL);
+
         log.info("فحص التنبيهات التلقائي مجدول: {}", schedule.describe());
     }
 
     public synchronized void cancel() {
+        // false في الاثنين: فحص جارٍ الآن يُترك حتى يكتمل
         if (scheduled != null) {
-            scheduled.cancel(false); // false: فحص جارٍ الآن يُترك حتى يكتمل
+            scheduled.cancel(false);
             scheduled = null;
+        }
+        if (frequent != null) {
+            frequent.cancel(false);
+            frequent = null;
         }
     }
 
@@ -97,6 +118,29 @@ public class AlertScheduler {
             }
             return schedule.nextRunAfter(now).atZone(ZoneId.systemDefault()).toInstant();
         };
+    }
+
+    /**
+     * النبضة القصيرة.
+     *
+     * <p>لا تكتب {@code lastAlertScanAt}: ذاك علامةُ الفحص اليومي وعليها يقوم تعويض
+     * الموعد الفائت، وكتابتها هنا كل خمس دقائق تجعل الفحص اليومي يبدو دائماً وقد تمّ
+     * توّاً - فلا يُعوَّض أبداً ولا يقع أبداً على جهاز يُفتح بعد موعده.</p>
+     */
+    private void runFrequentScan() {
+        if (!settingsService.getSettings().isAlertsEnabled()) {
+            return;
+        }
+
+        try {
+            AlertScanResult result = alertEngine.scanFrequent();
+            if (result.raised() > 0 || result.messaged() > 0) {
+                log.info("النبضة القصيرة: {} تنبيهاً، {} رسالة", result.raised(), result.messaged());
+            }
+        } catch (RuntimeException e) {
+            // كل خمس دقائق: يُسجَّل ولا يُرمى، وإلا امتلأ السجل بنفس السطر ألف مرة في اليوم
+            log.warn("فشلت النبضة القصيرة للتنبيهات: {}", e.getMessage());
+        }
     }
 
     private void runScan() {

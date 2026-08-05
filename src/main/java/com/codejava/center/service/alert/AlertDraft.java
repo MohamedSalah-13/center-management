@@ -20,17 +20,36 @@ import java.util.List;
  * @param entityLabel اسمه وقت الاكتشاف، حتى يبقى السطر مقروءاً بعد حذف الصف
  * @param args        وسائط نصّ الرسالة بالترتيب
  * @param parentPhone هاتف ولي الأمر كما هو مخزَّن، أو {@code null} لواقعة لا تُرسل خارجاً
+ * @param occurrenceKey اسم الواقعة حين يكون لها اسم - راجع {@link #occurrence}
  */
-public record AlertDraft(Long entityId, String entityLabel, List<String> args, String parentPhone) {
+public record AlertDraft(Long entityId, String entityLabel, List<String> args, String parentPhone,
+                         String occurrenceKey) {
 
     /** واقعة داخلية بحتة: لا هاتف ولا إرسال */
     public static AlertDraft internal(Long entityId, String entityLabel, String... args) {
-        return new AlertDraft(entityId, entityLabel, List.of(args), null);
+        return new AlertDraft(entityId, entityLabel, List.of(args), null, null);
     }
 
     /** واقعة تخصّ طالباً، ومعها هاتف وليّه إن وُجد */
     public static AlertDraft forStudent(Long studentId, String studentName, String parentPhone,
                                         String... args) {
-        return new AlertDraft(studentId, studentName, List.of(args), parentPhone);
+        return new AlertDraft(studentId, studentName, List.of(args), parentPhone, null);
+    }
+
+    /**
+     * واقعة لها اسم يميّزها: حصةُ يومٍ بعينه، موعدُ مجموعةٍ في تاريخ بعينه.
+     *
+     * <p>حين يمرّ هذا الاسم يمنع المحرّك التكرار به مباشرةً بدل نافذة التهدئة. والفرق
+     * ليس تجميلاً: التهدئة تُقاس بالأيام وتُقرَّب إلى دلاء ثابتة، وهي تعبير خاطئ عن
+     * "مرة واحدة لهذه الحصة". مجموعةٌ تجتمع الإثنين والثلاثاء في نفس الساعة يفصل بين
+     * موعديها أربعٌ وعشرون ساعة بالضبط، فتهدئةُ يومٍ واحد تبتلع تنبيه الثلاثاء على
+     * حافّة الحساب - عطبٌ يقع مرة في الأسبوع ولا يشتكي منه أحد لأن غيابه غير مرئي.</p>
+     *
+     * <p>والاسم يخرج هو نفسه على كل جهاز في السنتر - تاريخٌ وساعة لا لحظة قراءة - وهو
+     * شرط أن يمنع القيد الفريد التكرار بين الأجهزة.</p>
+     */
+    public static AlertDraft occurrence(Long entityId, String entityLabel, String occurrenceKey,
+                                        String... args) {
+        return new AlertDraft(entityId, entityLabel, List.of(args), null, occurrenceKey);
     }
 }

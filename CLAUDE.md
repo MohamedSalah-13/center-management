@@ -474,10 +474,34 @@ confirming money cannot be unsent if the transaction later rolls back). Both go 
 `AlertEngine.raise`, which never throws: it runs on an exception path or after a successful
 sale, and its own error must not replace either.
 
-There is no "session reminder" type yet, though `CourseGroup` now carries `meetingDays` and
-`startTime`, so the next slot *is* derivable — see the groups section. What such a detector
-still needs is a rule for what a reminder means when the timetable and the sessions actually
-opened disagree.
+**Two types run on a short tick, not the daily scan.** `AlertCadence` on `AlertType` says
+which. A once-a-day scan cannot express "starts in fifteen minutes": the reminder would land
+at 08:00 for a class that meets at 16:00. `AlertScheduler` therefore runs a second, five-minute
+`scanFrequent()` — **with no catch-up**, because a reminder replayed two hours late is a false
+statement about the present, which is worse than silence.
+
+- `SESSION_STARTING_SOON` — a group is due today and no session is open for it. It goes quiet
+  the moment one is opened; without that check it nags the person who already did the work.
+  Window is `[start − threshold, start)` only: past the start it is no longer "soon", and
+  saying "starts at 16:00" at 16:30 is simply false.
+- `SESSION_ENDING_SOON` — an open session at or past its group's `endTime`. No upper bound, so
+  it covers both "about to end" and "ended an hour ago and is still open".
+
+**Their dedupe is by occurrence, not by cooldown** (`AlertDraft.occurrence`). The cooldown is
+measured in whole days and bucketed, which is the wrong shape for "once for this session": a
+group meeting Monday and Tuesday at the same hour is exactly 24 hours apart, so a one-day
+window swallows Tuesday's alert on the arithmetic boundary — a miss nobody reports, because a
+missing alert is invisible. The occurrence key (`groupId + date + time`, `sessionId + date`)
+is exact, and identical on every terminal, which is what lets the unique constraint still do
+its job. When a draft carries one, the engine skips the sliding-window check entirely.
+
+That is also what keeps the five-minute tick from becoming spam: a session open for two hours
+is scanned 24 times and alerted once. Deliberately once — repeating teaches the user to
+dismiss cards unread. The escalation for an ignored reminder is `SESSION_LEFT_OPEN`, which
+fires `CRITICAL` in the next morning's scan.
+
+Neither type reaches parents. A session-start reminder *to parents* is a different alert: these
+drafts are group-scoped, and a parent message needs a student and a phone number.
 
 #### Getting an alert in front of somebody
 

@@ -60,6 +60,14 @@ public enum AlertType {
     TEACHER_DUES_PENDING(AlertCategory.FINANCE, AlertSeverity.WARNING, false, 5, 14, 7),
 
     // ----------------------------------------------------------------- التشغيل
+    /** اقترب موعد مجموعة اليوم ولم تُفتح لها حصة بعد */
+    SESSION_STARTING_SOON(AlertCategory.OPERATIONS, AlertSeverity.WARNING, AlertCadence.FREQUENT,
+            false, 15, null, 1),
+
+    /** حصة مفتوحة اقترب - أو مضى - موعد انتهائها وما زالت مفتوحة */
+    SESSION_ENDING_SOON(AlertCategory.OPERATIONS, AlertSeverity.WARNING, AlertCadence.FREQUENT,
+            false, 10, null, 1),
+
     /** حصة بقيت مفتوحة بعد يومها: تمنع فتح حصة جديدة للمجموعة وتؤجّل صرف مستحقات معلمها */
     SESSION_LEFT_OPEN(AlertCategory.OPERATIONS, AlertSeverity.CRITICAL, false, null, 1, 1),
 
@@ -81,15 +89,31 @@ public enum AlertType {
 
     private final AlertCategory category;
     private final AlertSeverity defaultSeverity;
+    private final AlertCadence cadence;
     private final boolean parentCapable;
     private final Integer defaultThreshold;
     private final Integer defaultWindowDays;
     private final int defaultCooldownDays;
 
+    /**
+     * الصيغة المختصرة: وتيرة يومية.
+     *
+     * <p>الأغلبية الساحقة يومية، وسبع قيم في سطر واحد على حافة ما يُقرأ أصلاً. والنسيان
+     * هنا لا يُصمت نوعاً: أسوأ ما يفعله أن يُفحص الجديد مرة في اليوم بدل كل بضع دقائق،
+     * وهو ما يظهر في أول تجربة له لا عند العميل.</p>
+     */
     AlertType(AlertCategory category, AlertSeverity defaultSeverity, boolean parentCapable,
               Integer defaultThreshold, Integer defaultWindowDays, int defaultCooldownDays) {
+        this(category, defaultSeverity, AlertCadence.DAILY, parentCapable,
+                defaultThreshold, defaultWindowDays, defaultCooldownDays);
+    }
+
+    AlertType(AlertCategory category, AlertSeverity defaultSeverity, AlertCadence cadence,
+              boolean parentCapable, Integer defaultThreshold, Integer defaultWindowDays,
+              int defaultCooldownDays) {
         this.category = category;
         this.defaultSeverity = defaultSeverity;
+        this.cadence = cadence;
         this.parentCapable = parentCapable;
         this.defaultThreshold = defaultThreshold;
         this.defaultWindowDays = defaultWindowDays;
@@ -98,6 +122,11 @@ public enum AlertType {
 
     public AlertCategory getCategory() {
         return category;
+    }
+
+    /** مع أي نبضة يُسأل فاحص هذا النوع - راجع {@link AlertCadence} */
+    public AlertCadence getCadence() {
+        return cadence;
     }
 
     public AlertSeverity getDefaultSeverity() {
