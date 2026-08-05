@@ -103,7 +103,9 @@ public class CashierController {
             // تحديث الواجهة عند النجاح
             currentStudent = result.student();
             studentNameLabel.setText(currentStudent.getName());
-            schoolLevelLabel.setText(currentStudent.getSchoolLevel());
+            schoolLevelLabel.setText(currentStudent.getSchoolLevel() == null
+                    ? I18n.get("common.none")
+                    : currentStudent.getSchoolLevel().getDisplayName());
             showBalance(result.balance());
 
             // تعبئة المجموعات المشترك بها

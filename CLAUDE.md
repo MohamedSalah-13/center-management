@@ -426,8 +426,10 @@ confirming money cannot be unsent if the transaction later rolls back). Both go 
 `AlertEngine.raise`, which never throws: it runs on an exception path or after a successful
 sale, and its own error must not replace either.
 
-There is no "session reminder" type: `CourseGroup` carries no timetable, so the next session's
-time is not derivable. That needs group scheduling data first.
+There is no "session reminder" type yet, though `CourseGroup` now carries `meetingDays` and
+`startTime`, so the next slot *is* derivable — see the groups section. What such a detector
+still needs is a rule for what a reminder means when the timetable and the sessions actually
+opened disagree.
 
 #### Getting an alert in front of somebody
 
@@ -500,12 +502,70 @@ writes the attendance row and the charge in one transaction, and checks "already
 A cashier top-up is deliberately not tied to a session — repeat top-ups are legitimate. The
 duplicate guard lives on the charge side (`chargeSession`).
 
+### Groups: level, schedule, membership
+
+A group carries three things beyond its price: the **school level** it serves, the **days and
+hours** it meets, and a **name derived from both**. Each exists to stop a different mistake.
+
+**The level is an enrolment gate, not a label.** `SchoolLevel` replaced the free text that the
+student screen used to save — it stored the *translated* string it happened to display, so a
+student registered on an English terminal could never match a group created on an Arabic one.
+`V6` maps both languages' strings onto the constants and changes the column type; anything it
+cannot recognise becomes `NULL` rather than being guessed, because a wrong level puts a student
+in front of the wrong syllabus. `EnrollmentService.subscribe` refuses a mismatch, a student
+with no level, **and a group with no level** — the last one matters: groups created before this
+feature have none, and letting them accept everyone would mean the migration silently switched
+the constraint off for every existing group.
+
+Screens filter the group list to the student's level as a convenience. The rule is enforced in
+the service, same as `@RequiresRole`.
+
+**A teacher cannot be in two rooms at once.** `GroupSchedule` is the pure part — day overlap
+plus time overlap — kept free of Spring and JPA like `BackupSchedule`, because it is the
+decision that silently double-books a person. Two details it encodes: the comparison is scoped
+to *one teacher* (parallel rooms at the same hour are the normal case, and forbidding them would
+forbid half the timetable), and touching times do not overlap (`<` not `<=`, so a group ending at
+six and one starting at six are both valid). `CourseGroupService` skips the row being edited,
+without which an existing group conflicts with its own saved copy and its price can never change.
+
+`meetingDays` is a `Set<DayOfWeek>` behind an `AttributeConverter`, not a child table: element
+collections are lazy, and this app reads groups **outside** the transaction, so a side table
+meant a `LazyInitializationException` on every screen that lists groups. Names, not ordinals,
+are stored — `"1,3"` in a backup read a year later says nothing.
+
+**The name is composed, not typed.** `autoName` (default true) rebuilds it from level, teacher,
+days and start time on every save, so moving a group to another day cannot leave a name that
+lies. It is *stored* rather than composed at display time because the name appears in receipts,
+the audit trail and teacher statements — records of what was, not of what is now. An admin who
+wants "مجموعة المتفوقين" ticks the custom-name box, and the system stops touching it.
+
+**Membership has two ends.** `StudentGroup.leaveDate` (`null` = ongoing) is what makes "how many
+sessions did this student attend" answerable: without it the count is measured against every
+session the group ever held, and a student who joined last week reads as absent from twenty
+sessions held before the centre knew them. `MembershipRow` counts sessions **inside the
+membership window** on both sides of the fraction. Re-joining clears `leaveDate` and reuses the
+row — a second row for the same pair would double the group's occupied seats.
+
+The same window answers "how many were enrolled the day this session ran"
+(`countEnrolledOn`), which the payout screen shows beside the attendee count. It is
+**information, not arithmetic**: the payout stays governed by the teacher's agreement
+(percentage, fixed, rent). A membership ended before this feature (no `leaveDate`, inactive) is
+excluded from that count rather than assumed still open.
+
+Printing follows the same split as everywhere else: `ReportService.printGroupRoster` for one
+group (button per table row — the roster is asked for while looking at its line) and
+`printGroupsList` for whatever the filters currently show, with the filter description printed
+on the sheet so a page found later says what it is a list of.
+
 ### Sessions
 
 Several sessions may be open at once (parallel rooms). The only constraint is that one group
 cannot have two open sessions — `findByGroupAndIsActiveTrue`. The attendance screen either
 binds to one session (a terminal serving one room) or infers it from the student's enrolments
 via `findActiveForStudent`, reporting ambiguity by name rather than guessing.
+
+`CourseGroup` now carries a weekly timetable, but a `Session` is still opened by hand and has no
+time of its own — the timetable says when the group *should* meet, not when it did.
 
 ### Entities
 

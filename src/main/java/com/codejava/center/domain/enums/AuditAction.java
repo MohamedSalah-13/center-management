@@ -43,6 +43,9 @@ public enum AuditAction {
     STUDENT_DELETED(AuditCategory.DATA),
     STUDENT_ENROLLED(AuditCategory.DATA),
 
+    /** إنهاء اشتراك في مجموعة؛ يُسجَّل لأنه يوقف احتساب حضور الطالب فيها من يومه */
+    STUDENT_UNENROLLED(AuditCategory.DATA),
+
     GROUP_CREATED(AuditCategory.DATA),
     GROUP_UPDATED(AuditCategory.DATA),
     GROUP_DELETED(AuditCategory.DATA),

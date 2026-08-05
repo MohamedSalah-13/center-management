@@ -1,11 +1,12 @@
 package com.codejava.center.service;
 
 import com.codejava.center.domain.CenterSettings;
+import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Teacher;
 import com.codejava.center.domain.Transaction;
-import com.codejava.center.repository.CenterSettingsRepository;
 import com.codejava.center.service.dto.AttendanceSummary;
 import com.codejava.center.service.dto.GroupAttendanceReport;
+import com.codejava.center.service.dto.MembershipRow;
 import com.codejava.center.service.dto.SessionPayout;
 import com.codejava.center.service.dto.ShiftSummary;
 import com.codejava.center.service.dto.StudentBalance;
@@ -14,6 +15,7 @@ import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
 import com.codejava.center.util.PrintDocument;
 import com.codejava.center.util.Printing;
+import com.codejava.center.util.WeekDays;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Separator;
@@ -243,6 +245,80 @@ public class ReportService {
     }
 
     /**
+     * كشف مجموعة: بياناتها ثم مشتركوها الحاليون.
+     *
+     * <p>مع كل طالب حصص <b>مدة اشتراكه هو</b> وما حضره منها، لا حصص المجموعة كلها:
+     * الكشف يُقرأ ليُعرف من ينقطع، ومن التحق الأسبوع الماضي ليس منقطعاً.</p>
+     */
+    public void printGroupRoster(CourseGroup group, List<MembershipRow> members, Window ownerWindow) {
+        PrintDocument document = PrintDocument.report()
+                .header(headerFactory(I18n.format("report.group.title", group.getName())));
+
+        Label info = new Label(I18n.format("report.group.info",
+                group.getTeacher().getName(),
+                group.getSchoolLevel() == null
+                        ? I18n.get("common.none") : group.getSchoolLevel().getDisplayName(),
+                WeekDays.describe(group.getMeetingDays()),
+                WeekDays.describeRange(group.getStartTime(), group.getEndTime()),
+                MoneyUtils.formatWithCurrency(group.getSessionPrice()),
+                members.size(),
+                group.getMaxCapacity() == null ? I18n.get("common.none") : group.getMaxCapacity()));
+        info.setFont(Font.font("System", FontWeight.BOLD, 13));
+        document.add(info, new Separator());
+
+        String none = I18n.get("common.none");
+        if (members.isEmpty()) {
+            document.add(new Label(I18n.get("report.group.noMembers")));
+        }
+        int order = 1;
+        for (MembershipRow member : members) {
+            document.add(new Label(I18n.format("report.group.row",
+                    order++,
+                    member.studentName(),
+                    member.barcode() != null ? member.barcode() : none,
+                    member.parentPhone() != null ? member.parentPhone() : none,
+                    member.joinDate(),
+                    member.sessionsAttended(),
+                    member.sessionsHeld())));
+        }
+
+        document.add(new Separator(), stamp("report.issuedAt"));
+        Printing.print(document, ownerWindow);
+    }
+
+    /**
+     * كشف المجموعات كما تعرضها الشاشة بعد التصفية.
+     *
+     * <p>وصف التصفية يُطبع في أعلى الورقة: كشف يقول "مجموعات المعلم فلان يوم السبت"
+     * يُقرأ بعد شهر، وكشف بلا وصف يبدو أنه كل مجموعات السنتر وليس كذلك.</p>
+     */
+    public void printGroupsList(List<CourseGroup> groups, Map<Long, Long> memberCounts,
+                                String filterDescription, Window ownerWindow) {
+        PrintDocument document = PrintDocument.report()
+                .header(headerFactory(I18n.get("report.groups.title")));
+
+        Label scope = new Label(I18n.format("report.groups.scope", filterDescription, groups.size()));
+        scope.setFont(Font.font("System", FontWeight.BOLD, 14));
+        document.add(scope, new Separator());
+
+        String none = I18n.get("common.none");
+        for (CourseGroup group : groups) {
+            document.add(new Label(I18n.format("report.groups.row",
+                    group.getName(),
+                    group.getTeacher().getName(),
+                    group.getSchoolLevel() == null ? none : group.getSchoolLevel().getDisplayName(),
+                    WeekDays.describe(group.getMeetingDays()),
+                    WeekDays.describeRange(group.getStartTime(), group.getEndTime()),
+                    memberCounts.getOrDefault(group.getId(), 0L),
+                    group.getMaxCapacity() == null ? none : group.getMaxCapacity(),
+                    MoneyUtils.format(group.getSessionPrice()))));
+        }
+
+        document.add(new Separator(), stamp("report.issuedAt"));
+        Printing.print(document, ownerWindow);
+    }
+
+    /**
      * طباعة سجل المراقبة كما هو معروض على الشاشة.
      *
      * <p>الغرض منها المراجعة خارج الجهاز: ورقة يوقّعها المحاسب أو تُحفظ في ملف، لا يمسّها
@@ -377,8 +453,10 @@ public class ReportService {
 
             java.math.BigDecimal total = java.math.BigDecimal.ZERO;
             for (SessionPayout s : sessions) {
+                // عدد المشتركين بجانب الحاضرين: لا يدخل في المستحق، لكنه ما يجعل
+                // رقم الحضور قابلاً للقراءة - "12 من 30" لا "12"
                 document.add(new Label(I18n.format("report.teacher.row",
-                        s.sessionDate(), s.groupName(), s.attendees(),
+                        s.sessionDate(), s.groupName(), s.attendees(), s.enrolled(),
                         MoneyUtils.format(s.totalRevenue()), MoneyUtils.format(s.payoutAmount()))));
                 total = total.add(s.payoutAmount());
             }

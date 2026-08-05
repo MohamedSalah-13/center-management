@@ -16,51 +16,97 @@
     </Label>
 
     <!-- نموذج إضافة مجموعة جديدة -->
-    <GridPane hgap="20.0" vgap="15.0" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
-        <columnConstraints>
-            <ColumnConstraints halignment="RIGHT" minWidth="120.0" />
-            <ColumnConstraints hgrow="ALWAYS" minWidth="200.0" />
-            <ColumnConstraints halignment="RIGHT" minWidth="120.0" />
-            <ColumnConstraints hgrow="ALWAYS" minWidth="200.0" />
-        </columnConstraints>
+    <VBox spacing="15.0" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
+        <GridPane hgap="20.0" vgap="15.0">
+            <columnConstraints>
+                <ColumnConstraints halignment="RIGHT" minWidth="120.0" />
+                <ColumnConstraints hgrow="ALWAYS" minWidth="200.0" />
+                <ColumnConstraints halignment="RIGHT" minWidth="120.0" />
+                <ColumnConstraints hgrow="ALWAYS" minWidth="200.0" />
+            </columnConstraints>
 
-        <Label text="%group.name" GridPane.columnIndex="0" GridPane.rowIndex="0" />
-        <TextField fx:id="groupNameField" promptText="%group.namePrompt" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+            <Label text="%group.teacher" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+            <ComboBox fx:id="teacherComboBox" promptText="%group.selectTeacherPrompt" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
-        <Label text="%group.teacher" GridPane.columnIndex="2" GridPane.rowIndex="0" />
-        <ComboBox fx:id="teacherComboBox" promptText="%group.selectTeacherPrompt" maxWidth="Infinity" GridPane.columnIndex="3" GridPane.rowIndex="0" />
+            <Label text="%group.level" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+            <ComboBox fx:id="levelComboBox" promptText="%group.selectLevelPrompt" maxWidth="Infinity" GridPane.columnIndex="3" GridPane.rowIndex="0" />
 
-        <Label text="%group.capacity" GridPane.columnIndex="0" GridPane.rowIndex="1" />
-        <TextField fx:id="capacityField" promptText="%group.capacityPrompt" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+            <Label text="%group.capacity" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+            <TextField fx:id="capacityField" promptText="%group.capacityPrompt" GridPane.columnIndex="1" GridPane.rowIndex="1" />
 
-        <Label text="%group.price" GridPane.columnIndex="2" GridPane.rowIndex="1" />
-        <TextField fx:id="priceField" promptText="%group.pricePrompt" GridPane.columnIndex="3" GridPane.rowIndex="1" />
+            <Label text="%group.price" GridPane.columnIndex="2" GridPane.rowIndex="1" />
+            <TextField fx:id="priceField" promptText="%group.pricePrompt" GridPane.columnIndex="3" GridPane.rowIndex="1" />
 
-        <HBox alignment="CENTER_LEFT" spacing="15.0" GridPane.columnIndex="1" GridPane.rowIndex="2" GridPane.columnSpan="3" style="-fx-padding: 10 0 0 0;">
+            <Label text="%group.days" GridPane.columnIndex="0" GridPane.rowIndex="2" />
+            <FlowPane hgap="12.0" vgap="8.0" GridPane.columnIndex="1" GridPane.rowIndex="2" GridPane.columnSpan="3">
+                <CheckBox fx:id="daySaturday" />
+                <CheckBox fx:id="daySunday" />
+                <CheckBox fx:id="dayMonday" />
+                <CheckBox fx:id="dayTuesday" />
+                <CheckBox fx:id="dayWednesday" />
+                <CheckBox fx:id="dayThursday" />
+                <CheckBox fx:id="dayFriday" />
+            </FlowPane>
+
+            <Label text="%group.time" GridPane.columnIndex="0" GridPane.rowIndex="3" />
+            <HBox spacing="8.0" alignment="CENTER_LEFT" GridPane.columnIndex="1" GridPane.rowIndex="3" GridPane.columnSpan="3">
+                <Label text="%group.timeFrom" />
+                <Spinner fx:id="startHourSpinner" editable="true" prefWidth="70.0" />
+                <Label text=":" />
+                <Spinner fx:id="startMinuteSpinner" editable="true" prefWidth="70.0" />
+                <Label text="%group.timeTo" />
+                <Spinner fx:id="endHourSpinner" editable="true" prefWidth="70.0" />
+                <Label text=":" />
+                <Spinner fx:id="endMinuteSpinner" editable="true" prefWidth="70.0" />
+                <Label fx:id="timePreviewLabel" textFill="#7f8c8d" />
+            </HBox>
+
+            <Label text="%group.name" GridPane.columnIndex="0" GridPane.rowIndex="4" />
+            <HBox spacing="10.0" alignment="CENTER_LEFT" GridPane.columnIndex="1" GridPane.rowIndex="4" GridPane.columnSpan="3">
+                <TextField fx:id="groupNameField" promptText="%group.namePrompt" HBox.hgrow="ALWAYS" maxWidth="Infinity" />
+                <CheckBox fx:id="customNameCheck" text="%group.customName" />
+            </HBox>
+        </GridPane>
+
+        <Label text="%group.autoNameNote" textFill="#7f8c8d" wrapText="true" />
+
+        <HBox alignment="CENTER_LEFT" spacing="15.0">
             <Button text="%common.saveNew" onAction="#handleSaveAction" style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
             <Button fx:id="updateButton" text="%common.edit" disable="true" onAction="#handleUpdateAction" style="-fx-background-color: #f39c12; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
             <Button fx:id="deleteButton" text="%common.delete" disable="true" onAction="#handleDeleteAction" style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
-            <Button fx:id="printButton" text="%group.printList" disable="true" onAction="#handlePrintAction" style="-fx-background-color: #8e44ad; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
             <Button text="%common.clearSelection" onAction="#clearForm" style="-fx-background-color: #95a5a6; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
         </HBox>
-    </GridPane>
+    </VBox>
 
     <!-- جدول المجموعات الحالية -->
     <VBox VBox.vgrow="ALWAYS" spacing="10.0" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
         <Label text="%group.registered">
             <font><Font name="System Bold" size="16.0" /></font>
         </Label>
-        <HBox spacing="10.0" alignment="CENTER_LEFT" style="-fx-padding: 0 0 10 0;">
+
+        <FlowPane hgap="12.0" vgap="10.0" style="-fx-padding: 0 0 10 0;">
             <Label text="%group.searchLabel" />
-            <TextField fx:id="searchField" promptText="%group.searchPrompt" prefWidth="300.0" />
-        </HBox>
+            <TextField fx:id="searchField" promptText="%group.searchPrompt" prefWidth="220.0" />
+            <Label text="%group.filterTeacher" />
+            <ComboBox fx:id="teacherFilterCombo" prefWidth="180.0" />
+            <Label text="%group.filterDay" />
+            <ComboBox fx:id="dayFilterCombo" prefWidth="130.0" />
+            <Label text="%group.filterTime" />
+            <ComboBox fx:id="timeFilterCombo" prefWidth="130.0" />
+            <Button text="%group.printFiltered" onAction="#handlePrintFilteredAction" style="-fx-background-color: #8e44ad; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 6 16;" />
+        </FlowPane>
+
         <TableView fx:id="groupsTable" VBox.vgrow="ALWAYS">
             <columns>
                 <TableColumn fx:id="colId" text="%group.col.id" prefWidth="50.0" />
-                <TableColumn fx:id="colName" text="%group.col.name" prefWidth="250.0" />
-                <TableColumn fx:id="colTeacher" text="%group.col.teacher" prefWidth="200.0" />
-                <TableColumn fx:id="colCapacity" text="%group.col.capacity" prefWidth="100.0" />
-                <TableColumn fx:id="colPrice" text="%group.col.price" prefWidth="100.0" />
+                <TableColumn fx:id="colName" text="%group.col.name" prefWidth="230.0" />
+                <TableColumn fx:id="colTeacher" text="%group.col.teacher" prefWidth="140.0" />
+                <TableColumn fx:id="colLevel" text="%group.col.level" prefWidth="120.0" />
+                <TableColumn fx:id="colDays" text="%group.col.days" prefWidth="150.0" />
+                <TableColumn fx:id="colTime" text="%group.col.time" prefWidth="140.0" />
+                <TableColumn fx:id="colMembers" text="%group.col.members" prefWidth="90.0" />
+                <TableColumn fx:id="colPrice" text="%group.col.price" prefWidth="80.0" />
+                <TableColumn fx:id="colPrint" text="%group.col.print" prefWidth="110.0" sortable="false" />
             </columns>
         </TableView>
     </VBox>

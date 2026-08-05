@@ -53,11 +53,21 @@
                 <font><Font name="System Bold" size="14.0" /></font>
             </Label>
             <Button fx:id="subscribeButton" text="%student.subscribe" disable="true" onAction="#handleSubscribeAction" style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold;" />
+            <Button fx:id="unsubscribeButton" text="%student.unsubscribe" disable="true" onAction="#handleUnsubscribeAction" style="-fx-background-color: #e67e22; -fx-text-fill: white; -fx-font-weight: bold;" />
         </HBox>
 
-        <Label fx:id="subscribedGroupsLabel" text="%student.subscribedGroupsNoStudent" textFill="#27ae60" wrapText="true">
-            <font><Font name="System Bold" size="14.0" /></font>
-        </Label>
+        <Label fx:id="enrollmentHintLabel" text="%student.subscribedGroupsNoStudent" textFill="#7f8c8d" wrapText="true" />
+
+        <TableView fx:id="membershipsTable" prefHeight="150.0">
+            <columns>
+                <TableColumn fx:id="colMemGroup" text="%student.col.group" prefWidth="230.0" />
+                <TableColumn fx:id="colMemJoined" text="%student.col.joined" prefWidth="110.0" />
+                <TableColumn fx:id="colMemLeft" text="%student.col.left" prefWidth="110.0" />
+                <TableColumn fx:id="colMemHeld" text="%student.col.sessionsHeld" prefWidth="110.0" />
+                <TableColumn fx:id="colMemAttended" text="%student.col.sessionsAttended" prefWidth="110.0" />
+                <TableColumn fx:id="colMemRate" text="%student.col.attendanceRate" prefWidth="90.0" />
+            </columns>
+        </TableView>
     </VBox>
 
     <!-- أضف هذا الجزء فوق تعريف الـ TableView -->

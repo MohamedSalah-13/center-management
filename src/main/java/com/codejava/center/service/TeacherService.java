@@ -8,6 +8,7 @@ import com.codejava.center.domain.enums.Role;
 import com.codejava.center.security.RequiresRole;
 import com.codejava.center.repository.AttendanceRepository;
 import com.codejava.center.repository.SessionRepository;
+import com.codejava.center.repository.StudentGroupRepository;
 import com.codejava.center.repository.TeacherRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ public class TeacherService {
     private final TeacherRepository teacherRepository;
     private final SessionRepository sessionRepository;
     private final AttendanceRepository attendanceRepository;
+    private final StudentGroupRepository studentGroupRepository;
     private final TransactionService transactionService; // سنستخدمه لتسجيل عملية الدفع
     private final AuditService auditService;
 
@@ -137,6 +139,10 @@ public class TeacherService {
                             teacher.getName(),
                             session.getSessionDate(),
                             attendees,
+                            // معلومة تُقرأ بجانب الحضور لا مُدخل في الحساب:
+                            // المستحق يبقى محكوماً باتفاق المعلم وحده
+                            studentGroupRepository.countEnrolledOn(
+                                    session.getGroup().getId(), session.getSessionDate()),
                             teacher.getCommissionType(),
                             MoneyUtils.normalize(revenue),
                             calculatePayout(session, attendees));

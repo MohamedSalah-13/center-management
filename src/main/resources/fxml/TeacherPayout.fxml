@@ -19,6 +19,7 @@
             <TableColumn fx:id="colGroup" text="%payout.col.group" prefWidth="160.0" />
             <TableColumn fx:id="colTeacher" text="%payout.col.teacher" prefWidth="160.0" />
             <TableColumn fx:id="colAttendees" text="%payout.col.attendees" prefWidth="80.0" />
+            <TableColumn fx:id="colEnrolled" text="%payout.col.enrolled" prefWidth="110.0" />
             <TableColumn fx:id="colRevenue" text="%payout.col.revenue" prefWidth="120.0" />
             <TableColumn fx:id="colType" text="%payout.col.type" prefWidth="120.0" />
             <TableColumn fx:id="colPayout" text="%payout.col.payout" prefWidth="130.0" />

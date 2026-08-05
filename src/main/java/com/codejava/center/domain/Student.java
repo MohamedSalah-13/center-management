@@ -1,5 +1,6 @@
 package com.codejava.center.domain;
 
+import com.codejava.center.domain.enums.SchoolLevel;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -32,8 +33,9 @@ public class Student {
     @Column(length = 15)
     private String parentPhone;
 
-    @Column(length = 50)
-    private String schoolLevel;
+    /** الصف الدراسي: قيمة ثابتة تُخزَّن باسمها لا نصاً مترجَماً - انظر {@link SchoolLevel} */
+    @Enumerated(EnumType.STRING)
+    private SchoolLevel schoolLevel;
 
     @Column(nullable = false)
     @Builder.Default

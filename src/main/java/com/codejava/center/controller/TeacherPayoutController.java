@@ -36,7 +36,7 @@ public class TeacherPayoutController {
 
     @FXML private TableView<SessionPayout> payoutsTable;
     @FXML private TableColumn<SessionPayout, String> colDate, colGroup, colTeacher,
-            colAttendees, colRevenue, colType, colPayout;
+            colAttendees, colEnrolled, colRevenue, colType, colPayout;
     @FXML private Label totalPendingLabel;
     @FXML private Button payButton;
 
@@ -48,6 +48,13 @@ public class TeacherPayoutController {
         colGroup.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().groupName()));
         colTeacher.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().teacherName()));
         colAttendees.setCellValueFactory(d -> new SimpleStringProperty(String.valueOf(d.getValue().attendees())));
+        // عدد المشتركين ونسبة الحضور: معلومة للقراءة بجانب المستحق، لا مُدخل في حسابه.
+        // المستحق يبقى محكوماً باتفاق المعلم كما هو معروض في عمود نوع العمولة.
+        colEnrolled.setCellValueFactory(d -> new SimpleStringProperty(
+                d.getValue().attendanceRate() == null
+                        ? String.valueOf(d.getValue().enrolled())
+                        : I18n.format("payout.enrolledWithRate",
+                                d.getValue().enrolled(), d.getValue().attendanceRate())));
         colRevenue.setCellValueFactory(d -> new SimpleStringProperty(MoneyUtils.format(d.getValue().totalRevenue())));
         colType.setCellValueFactory(d -> new SimpleStringProperty(
                 CommissionTypes.displayName(d.getValue().commissionType())));

@@ -9,6 +9,7 @@ import com.codejava.center.domain.enums.BackupFrequency;
 import com.codejava.center.domain.enums.NotificationChannel;
 import com.codejava.center.domain.enums.AlertType;
 import com.codejava.center.domain.enums.Role;
+import com.codejava.center.domain.enums.SchoolLevel;
 import com.codejava.center.domain.enums.TransactionType;
 import com.codejava.center.service.notification.WhatsAppLinkStyle;
 import com.codejava.center.util.DocumentKind;
@@ -165,6 +166,11 @@ class MessageBundleTest {
         }
         for (TransactionType type : TransactionType.values()) {
             requireKey(declared, "transactionType." + type.name(), unresolved);
+        }
+        // الصف الدراسي قيد قبول لا مجرد بيان: قيمة بلا اسم معروض تظهر في قائمة
+        // الاختيار كـ !schoolLevel.X! فيختارها الموظف ولا يعرف ما اختار
+        for (SchoolLevel level : SchoolLevel.values()) {
+            requireKey(declared, "schoolLevel." + level.name(), unresolved);
         }
         for (PrintPreferences.PrintMode mode : PrintPreferences.PrintMode.values()) {
             requireKey(declared, "printMode." + mode.name(), unresolved);

@@ -5,6 +5,7 @@ import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Student;
 import com.codejava.center.domain.StudentGroup;
 import com.codejava.center.domain.Teacher;
+import com.codejava.center.domain.enums.SchoolLevel;
 import com.codejava.center.repository.CourseGroupRepository;
 import com.codejava.center.repository.StudentGroupRepository;
 import com.codejava.center.repository.StudentRepository;
@@ -18,6 +19,10 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
 
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -50,6 +55,9 @@ class EnrollmentServiceTest {
 
         group = courseGroupRepository.saveAndFlush(CourseGroup.builder()
                 .name("مجموعة أ").teacher(teacher)
+                .schoolLevel(SchoolLevel.PREP1)
+                .meetingDays(Set.of(DayOfWeek.SATURDAY))
+                .startTime(LocalTime.of(16, 0)).endTime(LocalTime.of(18, 0))
                 .maxCapacity(2).sessionPrice(new BigDecimal("50.00"))
                 .build());
     }
@@ -85,6 +93,55 @@ class EnrollmentServiceTest {
     }
 
     /**
+     * القيد الأساسي: المجموعة تخدم صفاً واحداً، ولا يُقبل فيها طالب من صف آخر.
+     * القبول هنا كان يعني حصةً كاملة يجلس فيها الطالب أمام منهج ليس منهجه.
+     */
+    @Test
+    void rejectsStudentFromAnotherLevel() {
+        Student secondary = studentRepository.saveAndFlush(Student.builder()
+                .barcode("STU-E8").name("طالب ثانوي")
+                .schoolLevel(SchoolLevel.SEC1).isActive(true).build());
+
+        assertThatThrownBy(() -> enrollmentService.subscribe(secondary, group))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage(I18n.format("error.enrollment.levelMismatch",
+                        secondary.getName(),
+                        SchoolLevel.SEC1.getDisplayName(),
+                        SchoolLevel.PREP1.getDisplayName()));
+
+        assertThat(enrollmentService.countActiveMembers(group)).isZero();
+    }
+
+    /** طالب بلا مرحلة لا يُقبل بالتخمين: البيانات الناقصة تُستكمل ولا تُتجاوَز */
+    @Test
+    void rejectsStudentWithoutLevel() {
+        Student unknown = studentRepository.saveAndFlush(Student.builder()
+                .barcode("STU-E9").name("طالب بلا مرحلة").isActive(true).build());
+
+        assertThatThrownBy(() -> enrollmentService.subscribe(unknown, group))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage(I18n.format("error.enrollment.studentLevelMissing", unknown.getName()));
+    }
+
+    /**
+     * مجموعة أُنشئت قبل هذه الميزة (بلا صف) لا تقبل أحداً حتى يُضبط صفها،
+     * وإلا كان الترحيل قد ألغى القيد بصمت عن كل مجموعة قائمة.
+     */
+    @Test
+    void rejectsSubscriptionToGroupWithoutLevel() {
+        CourseGroup legacy = courseGroupRepository.saveAndFlush(CourseGroup.builder()
+                .name("مجموعة قديمة").teacher(group.getTeacher())
+                .maxCapacity(10).sessionPrice(new BigDecimal("40.00"))
+                .build());
+
+        Student student = persistStudent("STU-E10", "طالب");
+
+        assertThatThrownBy(() -> enrollmentService.subscribe(student, legacy))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage(I18n.format("error.enrollment.groupLevelMissing", legacy.getName()));
+    }
+
+    /**
      * الاشتراك الملغى يجب ألا يشغل مقعداً في المجموعة.
      * قبل الإصلاح كانت countByGroup تعدّه فتمتلئ السعة بطلاب انسحبوا.
      */
@@ -100,6 +157,28 @@ class EnrollmentServiceTest {
         assertThat(studentGroupRepository.existsByStudentAndGroupAndIsActiveTrue(left, group)).isFalse();
     }
 
+    /** إنهاء الاشتراك يثبّت يوم الخروج - وهو ما يحدّ حساب حصص الطالب في المجموعة */
+    @Test
+    void unsubscribeRecordsLeaveDateAndFreesTheSeat() {
+        Student student = persistStudent("STU-E11", "طالب خارج");
+        enrollmentService.subscribe(student, group);
+
+        StudentGroup ended = enrollmentService.unsubscribe(student.getId(), group.getId());
+
+        assertThat(ended.isActive()).isFalse();
+        assertThat(ended.getLeaveDate()).isEqualTo(LocalDate.now());
+        assertThat(enrollmentService.countActiveMembers(group)).isZero();
+    }
+
+    @Test
+    void unsubscribeRejectsWhenThereIsNoLiveMembership() {
+        Student student = persistStudent("STU-E12", "طالب غير مشترك");
+
+        assertThatThrownBy(() -> enrollmentService.unsubscribe(student.getId(), group.getId()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage(I18n.get("error.enrollment.notMember"));
+    }
+
     /**
      * الطالب الذي انسحب يجب أن يستطيع العودة، وأن تُعاد تفعيل عضويته
      * بدل إنشاء صف مكرر لنفس الطالب ونفس المجموعة.
@@ -110,18 +189,20 @@ class EnrollmentServiceTest {
         StudentGroup first = enrollmentService.subscribe(student, group);
         Long originalId = first.getId();
 
-        first.setActive(false);
-        studentGroupRepository.saveAndFlush(first);
-
+        enrollmentService.unsubscribe(student.getId(), group.getId());
         StudentGroup rejoined = enrollmentService.subscribe(student, group);
 
         assertThat(rejoined.getId()).isEqualTo(originalId);
         assertThat(rejoined.isActive()).isTrue();
+        // تاريخ الخروج القديم يُمسح، وإلا انتهت مدة احتساب حصصه عند خروجه الأول
+        assertThat(rejoined.getLeaveDate()).isNull();
         assertThat(studentGroupRepository.count()).isEqualTo(1);
     }
 
     private Student persistStudent(String barcode, String name) {
         return studentRepository.saveAndFlush(Student.builder()
-                .barcode(barcode).name(name).isActive(true).build());
+                .barcode(barcode).name(name)
+                .schoolLevel(SchoolLevel.PREP1)
+                .isActive(true).build());
     }
 }

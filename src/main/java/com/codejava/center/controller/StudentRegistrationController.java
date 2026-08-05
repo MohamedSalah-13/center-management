@@ -2,12 +2,12 @@ package com.codejava.center.controller;
 
 import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Student;
-import com.codejava.center.domain.StudentGroup;
-import com.codejava.center.repository.StudentGroupRepository;
+import com.codejava.center.domain.enums.SchoolLevel;
 import com.codejava.center.service.CourseGroupService;
 import com.codejava.center.service.ReportService;
 import com.codejava.center.service.EnrollmentService;
 import com.codejava.center.service.StudentService;
+import com.codejava.center.service.dto.MembershipRow;
 import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
@@ -27,19 +27,13 @@ import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 
-import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 @Controller
 @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE) // نسخة جديدة لكل فتح للشاشة - يمنع تراكم الـ listeners والحالة القديمة
 @RequiredArgsConstructor
 public class StudentRegistrationController {
-
-    private static final String[] SCHOOL_LEVEL_KEYS = {
-            "level.prep1", "level.prep2", "level.prep3",
-            "level.sec1", "level.sec2", "level.sec3"};
 
     private final StudentService studentService;
     private final ReportService reportService;
@@ -48,7 +42,7 @@ public class StudentRegistrationController {
     private final EnrollmentService enrollmentService;
 
     @FXML private TextField nameField, phoneField, parentPhoneField, barcodeField;
-    @FXML private ComboBox<String> schoolLevelCombo;
+    @FXML private ComboBox<SchoolLevel> schoolLevelCombo;
 
     @FXML private TableView<Student> studentTable;
     @FXML private TableColumn<Student, String> colBarcode, colName, colPhone, colLevel;
@@ -57,34 +51,37 @@ public class StudentRegistrationController {
     // عناصر واجهة الاشتراك الجديدة
     @FXML private ComboBox<CourseGroup> groupComboBox;
     @FXML private Label groupCapacityLabel;
-    @FXML private Label subscribedGroupsLabel;
+    @FXML private Label enrollmentHintLabel;
     @FXML private Button subscribeButton;
+    @FXML private Button unsubscribeButton;
     @FXML private TextField searchField;
 
+    @FXML private TableView<MembershipRow> membershipsTable;
+    @FXML private TableColumn<MembershipRow, String> colMemGroup, colMemJoined, colMemLeft,
+            colMemHeld, colMemAttended, colMemRate;
+
     private final ObservableList<Student> studentsList = FXCollections.observableArrayList();
+    private final ObservableList<MembershipRow> memberships = FXCollections.observableArrayList();
     private Student selectedStudent = null;
 
     @FXML
     public void initialize() {
-        // المرحلة تُحفظ في قاعدة البيانات كنص حر، فتُملأ القائمة بالنص المترجَم مباشرةً.
-        // نتيجةً لذلك يظهر طالب سُجّل بواجهة عربية بمرحلته العربية حتى في الواجهة الإنجليزية،
-        // وهو السلوك الصحيح: بياناته المحفوظة لا تتغيّر بتغيّر لغة العرض.
-        for (String levelKey : SCHOOL_LEVEL_KEYS) {
-            schoolLevelCombo.getItems().add(I18n.get(levelKey));
-        }
+        // المرحلة قيمة ثابتة تُخزَّن باسمها ويُترجَم عرضها: طالب سُجّل بواجهة إنجليزية
+        // تظهر مرحلته بالعربية في الواجهة العربية، ويطابق قيد مجموعة أُنشئت بأيٍّ من اللغتين
+        setupLevelCombo();
 
         colBarcode.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getBarcode()));
         colName.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getName()));
         colPhone.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getPhone()));
-        colLevel.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getSchoolLevel()));
+        colLevel.setCellValueFactory(d -> new SimpleStringProperty(levelName(d.getValue().getSchoolLevel())));
 
         studentTable.setItems(studentsList);
 
         setupGroupComboBox();
+        setupMembershipsTable();
         setupTableSelectionListener();
 
         loadStudents();
-        loadGroups();
         Forms.numericOnly(phoneField, parentPhoneField);
         Forms.focusNextOnEnter(nameField, phoneField, parentPhoneField);
 
@@ -119,6 +116,23 @@ public class StudentRegistrationController {
         studentTable.setItems(sortedData);
     }
 
+    /** قائمة المراحل: القيم كلها، معروضة بأسمائها المترجَمة */
+    private void setupLevelCombo() {
+        schoolLevelCombo.getItems().setAll(SchoolLevel.values());
+        schoolLevelCombo.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(SchoolLevel level) {
+                return levelName(level);
+            }
+            @Override
+            public SchoolLevel fromString(String string) { return null; }
+        });
+    }
+
+    private String levelName(SchoolLevel level) {
+        return level == null ? "" : level.getDisplayName();
+    }
+
     private void setupGroupComboBox() {
         // عرض اسم المجموعة في قائمة الاختيار بدلاً من الكائن
         groupComboBox.setConverter(new StringConverter<>() {
@@ -150,6 +164,30 @@ public class StudentRegistrationController {
         });
     }
 
+    /**
+     * جدول عضويات الطالب: المجموعة، مدة الاشتراك، وحصادها.
+     *
+     * <p>الحصص المعروضة هي حصص <b>مدة اشتراكه هو</b> لا حصص المجموعة كلها، ولذلك تصلح
+     * "حضر 4 من 5" للحكم على من التحق الأسبوع الماضي كما تصلح لمن معها من أول العام.</p>
+     */
+    private void setupMembershipsTable() {
+        String none = I18n.get("common.none");
+
+        colMemGroup.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().groupName()));
+        colMemJoined.setCellValueFactory(d -> new SimpleStringProperty(String.valueOf(d.getValue().joinDate())));
+        colMemLeft.setCellValueFactory(d -> new SimpleStringProperty(
+                d.getValue().active() ? I18n.get("student.membershipActive")
+                        : (d.getValue().leaveDate() == null ? none : String.valueOf(d.getValue().leaveDate()))));
+        colMemHeld.setCellValueFactory(d -> new SimpleStringProperty(String.valueOf(d.getValue().sessionsHeld())));
+        colMemAttended.setCellValueFactory(d -> new SimpleStringProperty(String.valueOf(d.getValue().sessionsAttended())));
+        colMemRate.setCellValueFactory(d -> new SimpleStringProperty(
+                d.getValue().attendanceRate() == null ? none : d.getValue().attendanceRate() + "%"));
+
+        membershipsTable.setItems(memberships);
+        membershipsTable.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) ->
+                unsubscribeButton.setDisable(newVal == null || !newVal.active()));
+    }
+
     private void setupTableSelectionListener() {
         studentTable.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
@@ -164,27 +202,27 @@ public class StudentRegistrationController {
                 deleteButton.setDisable(false);
                 subscribeButton.setDisable(false); // تفعيل زر الاشتراك
 
-                // جلب وعرض المجموعات المشترك بها هذا الطالب
-                updateStudentGroupsLabel(selectedStudent);
+                loadGroupsForLevel(selectedStudent.getSchoolLevel());
+                loadMemberships(selectedStudent);
             } else {
                 subscribeButton.setDisable(true);
-                subscribedGroupsLabel.setText(I18n.get("student.subscribedGroupsNoStudent"));
+                unsubscribeButton.setDisable(true);
+                memberships.clear();
+                enrollmentHintLabel.setText(I18n.get("student.subscribedGroupsNoStudent"));
             }
         });
     }
 
-    private void updateStudentGroupsLabel(Student student) {
-        FxAsync.supply(() -> enrollmentService.getActiveGroupsOf(student), groups -> {
-            if (groups.isEmpty()) {
-                subscribedGroupsLabel.setText(I18n.get("student.subscribedGroupsNone"));
-            } else {
-                String groupNames = groups.stream()
-                        .map(sg -> sg.getGroup().getName())
-                        .collect(Collectors.joining(I18n.get("common.listSeparator") + " "));
-                subscribedGroupsLabel.setText(I18n.format("student.subscribedGroups", groupNames));
-            }
-        }, error -> subscribedGroupsLabel.setText(
-                I18n.format("student.groupsLoadFailed", FxAsync.messageOf(error))));
+    private void loadMemberships(Student student) {
+        FxAsync.supply(() -> enrollmentService.getMemberships(student.getId()),
+                rows -> {
+                    memberships.setAll(rows);
+                    unsubscribeButton.setDisable(true);
+                },
+                error -> {
+                    memberships.clear();
+                    Dialogs.error(I18n.format("student.groupsLoadFailed", FxAsync.messageOf(error)));
+                });
     }
 
     private void loadStudents() {
@@ -193,9 +231,28 @@ public class StudentRegistrationController {
                 error -> Dialogs.error(I18n.format("student.loadFailed", FxAsync.messageOf(error))));
     }
 
-    private void loadGroups() {
-        FxAsync.supply(courseGroupService::getAllGroups,
-                groups -> groupComboBox.getItems().setAll(groups),
+    /**
+     * قائمة الاشتراك تعرض مجموعات صف الطالب وحدها.
+     *
+     * <p>عرض الكل ثم رفض الاختيار برسالة خطأ يجعل الموظف يجرّب حتى يصيب. والقيد نفسه
+     * مفروض في {@code EnrollmentService} على أي حال: هذه راحة في الاستخدام لا حماية.</p>
+     */
+    private void loadGroupsForLevel(SchoolLevel level) {
+        groupComboBox.setValue(null);
+        groupComboBox.getItems().clear();
+
+        if (level == null) {
+            enrollmentHintLabel.setText(I18n.get("student.levelMissingHint"));
+            return;
+        }
+
+        FxAsync.supply(() -> courseGroupService.getGroupsOfLevel(level),
+                groups -> {
+                    groupComboBox.getItems().setAll(groups);
+                    enrollmentHintLabel.setText(groups.isEmpty()
+                            ? I18n.format("student.noGroupsForLevel", level.getDisplayName())
+                            : I18n.format("student.groupsOfLevel", level.getDisplayName(), groups.size()));
+                },
                 error -> Dialogs.error(I18n.format("student.groupsLoadFailed", FxAsync.messageOf(error))));
     }
 
@@ -217,9 +274,33 @@ public class StudentRegistrationController {
             return enrollmentService.countActiveMembers(selectedGroup);
         }, memberCount -> {
             Dialogs.success(I18n.get("student.subscribed"));
-            updateStudentGroupsLabel(target);
+            loadMemberships(target);
             groupCapacityLabel.setText(I18n.format("student.capacity",
                     memberCount, selectedGroup.getMaxCapacity()));
+        }, error -> Dialogs.error(FxAsync.messageOf(error)));
+    }
+
+    /**
+     * إنهاء اشتراك: يثبّت يوم الخروج ولا يحذف العضوية.
+     * الصف يبقى في الجدول بتاريخيه، لأنه هو ما يحدّ حساب حضور الطالب في تلك المجموعة.
+     */
+    @FXML
+    public void handleUnsubscribeAction(ActionEvent event) {
+        MembershipRow row = membershipsTable.getSelectionModel().getSelectedItem();
+        if (selectedStudent == null || row == null || !row.active()) {
+            Dialogs.warning(I18n.get("student.selectMembership"));
+            return;
+        }
+
+        if (!Dialogs.confirm(I18n.get("common.confirm"),
+                I18n.format("student.unsubscribeConfirm", row.studentName(), row.groupName()))) {
+            return;
+        }
+
+        Student target = selectedStudent;
+        FxAsync.run(() -> enrollmentService.unsubscribe(target.getId(), row.groupId()), () -> {
+            Dialogs.success(I18n.get("student.unsubscribed"));
+            loadMemberships(target);
         }, error -> Dialogs.error(FxAsync.messageOf(error)));
     }
 
@@ -290,9 +371,12 @@ public class StudentRegistrationController {
         updateButton.setDisable(true);
         deleteButton.setDisable(true);
         subscribeButton.setDisable(true);
+        unsubscribeButton.setDisable(true);
         groupComboBox.setValue(null);
+        groupComboBox.getItems().clear();
+        memberships.clear();
         groupCapacityLabel.setText(I18n.get("student.capacityUnknown"));
-        subscribedGroupsLabel.setText(I18n.get("student.subscribedGroupsNoStudent"));
+        enrollmentHintLabel.setText(I18n.get("student.subscribedGroupsNoStudent"));
     }
 
     @FXML
