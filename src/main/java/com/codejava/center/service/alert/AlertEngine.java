@@ -11,6 +11,7 @@ import com.codejava.center.service.dto.NotificationCandidate;
 import com.codejava.center.service.notification.MessageSender;
 import com.codejava.center.service.notification.PhoneNumbers;
 import com.codejava.center.util.I18n;
+import com.codejava.center.util.MoneyUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -240,13 +241,18 @@ public class AlertEngine {
      * <p><b>اسم السنتر في الموضع {@code 0} دائماً</b>، ثم وسائط الفاحص بترتيبها. قاعدة
      * واحدة لكل قوالب أولياء الأمور، بلا استثناء: رسالة تصل هاتفاً خارجياً من رقم لا
      * يعرفه المستلم يجب أن تقول من أرسلها قبل أي شيء آخر.</p>
+     *
+     * <p><b>ورمز العملة في الموضع الأخير دائماً</b>، تماماً كما في {@code Alert.describe}:
+     * الفاحص يصف مبلغاً رقماً بلا رمز، والرمز يُقرأ من عملة السنتر لحظة الإرسال. قالب
+     * لا يذكر مالاً يتجاهله.</p>
      */
     private MessageSender.SendResult messageParent(AlertRule rule, AlertDraft draft, String centerName) {
-        Object[] args = new Object[draft.args().size() + 1];
+        Object[] args = new Object[draft.args().size() + 2];
         args[0] = centerName;
         for (int i = 0; i < draft.args().size(); i++) {
             args[i + 1] = draft.args().get(i);
         }
+        args[args.length - 1] = MoneyUtils.currencySymbol();
 
         String message = I18n.format("alert.parentMessage." + rule.getType().name(), args);
         Optional<String> international = PhoneNumbers.toInternational(draft.parentPhone());

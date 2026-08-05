@@ -3,10 +3,12 @@ package com.codejava.center.domain;
 import com.codejava.center.domain.enums.AlertSeverity;
 import com.codejava.center.domain.enums.AlertType;
 import com.codejava.center.util.I18n;
+import com.codejava.center.util.MoneyUtils;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 
 /**
  * تنبيه واحد ظهر في صندوق التنبيهات.
@@ -19,8 +21,9 @@ import java.time.LocalDateTime;
  * {@link AuditLog}.</p>
  *
  * <p>{@link #args} وسائط {@code MessageFormat} مفصولة بـ {@code |}، وكلها قيم محايدة
- * لغوياً: اسم، عدد، مبلغ بصيغة {@code MoneyUtils.format} بلا رمز عملة. رمز العملة جزء
- * من نصّ القالب في كل لغة، فلا تظهر واجهة إنجليزية بمبالغ مذيَّلة بـ "ج.م".</p>
+ * لغوياً: اسم، عدد، مبلغ بصيغة {@code MoneyUtils.format} بلا رمز عملة. الرمز يُضاف
+ * وسيطاً أخيراً في {@link #describe()} من عملة السنتر ولغة الجهاز وقت العرض، فلا يتجمّد
+ * مبلغ على "ج.م" في واجهة إنجليزية ولا في سنتر بدّل عملته.</p>
  *
  * <h2>{@link #dedupeKey} هو ما يجعل النظام موثوقاً</h2>
  *
@@ -110,11 +113,25 @@ public class Alert {
      * <p>الوسائط تُمرَّر نصوصاً كما خُزّنت: {@code MessageFormat} لا يعيد تنسيق النصّ،
      * فيظهر المبلغ والعدد كما كُتبا بالضبط بدل أن يفرض عليهما تنسيق اللغة الحالية
      * (فاصلة آلاف تظهر ثم تختفي بتبديل اللغة).</p>
+     *
+     * <p><b>ورمز العملة وسيط أخير يُضاف هنا</b>، لا نصّ داخل القالب. المبلغ مخزَّن رقماً
+     * بلا رمز - راجع شرح {@link #args} - وكتابة "ج.م" في القالب كانت تجعل سنتراً سعودياً
+     * يقرأ مستحقاته بالجنيه. نوع لا يذكر مالاً يتجاهل الوسيط ببساطة، فلا حاجة لأن يعرف
+     * هذا الصف أي نوع مالي وأيها ليس كذلك.</p>
+     *
+     * <p>التنبيه بلا وسائط أصلاً يبقى على {@code I18n.get}: تمريره على
+     * {@code MessageFormat} لمجرد إضافة رمزٍ لا يستعمله يجعل علامة {@code '} في نصّه
+     * تُقرأ هروباً فيختفي جزء من الجملة.</p>
      */
     public String describe() {
         String key = "alert.message." + type.name();
-        return args == null || args.isBlank()
-                ? I18n.get(key)
-                : I18n.format(key, (Object[]) args.split("\\" + ARG_SEPARATOR, -1));
+        if (args == null || args.isBlank()) {
+            return I18n.get(key);
+        }
+
+        String[] stored = args.split("\\" + ARG_SEPARATOR, -1);
+        Object[] all = Arrays.copyOf(stored, stored.length + 1, Object[].class);
+        all[stored.length] = MoneyUtils.currencySymbol();
+        return I18n.format(key, all);
     }
 }

@@ -1,6 +1,7 @@
 package com.codejava.center.domain.enums;
 
 import com.codejava.center.util.I18n;
+import com.codejava.center.util.MoneyUtils;
 
 import java.util.Arrays;
 import java.util.List;
@@ -146,9 +147,17 @@ public enum AlertType {
         return I18n.get("alertType." + name() + ".desc");
     }
 
-    /** معنى {@code threshold} لهذا النوع تحديداً؛ فارغ إن كان لا يستعمله */
+    /**
+     * معنى {@code threshold} لهذا النوع تحديداً؛ فارغ إن كان لا يستعمله.
+     *
+     * <p>رمز العملة وسيط لا نصّ في القالب: حدود المتأخرات والرصيد مبالغ، و"بالجنيه"
+     * مكتوبةً في الحزمة تجعل مديراً يضبط حدّاً بعملة غير عملة سنتره. الأنواع التي حدّها
+     * عدد (محاولات دخول، أيام) تتجاهل الوسيط.</p>
+     */
     public String getThresholdLabel() {
-        return usesThreshold() ? I18n.get("alertType." + name() + ".threshold") : "";
+        return usesThreshold()
+                ? I18n.format("alertType." + name() + ".threshold", MoneyUtils.currencySymbol())
+                : "";
     }
 
     /** معنى {@code windowDays} لهذا النوع تحديداً؛ فارغ إن كان لا يستعمله */

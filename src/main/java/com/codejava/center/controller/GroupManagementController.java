@@ -122,6 +122,10 @@ public class GroupManagementController {
 
         // تأمين خانة السعر (أرقام وكسور عشرية للمبالغ)
         Forms.decimalOnly(priceField);
+
+        // العملة في نصّ الحقل تُضبط هنا لا في FXML: promptText="%key" لا يقبل وسائط،
+        // وسنترٌ بدّل عملته كان سيقرأ "القيمة بالجنيه" فوق حقل يُحفظ بالريال
+        priceField.setPromptText(I18n.format("group.pricePrompt", MoneyUtils.currencySymbol()));
         Forms.focusNextOnEnter(capacityField, priceField);
     }
 

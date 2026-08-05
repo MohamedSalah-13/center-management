@@ -35,7 +35,8 @@
             <TextField fx:id="capacityField" promptText="%group.capacityPrompt" GridPane.columnIndex="1" GridPane.rowIndex="1" />
 
             <Label text="%group.price" GridPane.columnIndex="2" GridPane.rowIndex="1" />
-            <TextField fx:id="priceField" promptText="%group.pricePrompt" GridPane.columnIndex="3" GridPane.rowIndex="1" />
+            <!-- نصّ الحقل يُضبط في المتحكّم: يحمل رمز العملة وسيطاً، و%key لا يقبل وسائط -->
+            <TextField fx:id="priceField" GridPane.columnIndex="3" GridPane.rowIndex="1" />
 
             <Label text="%group.days" GridPane.columnIndex="0" GridPane.rowIndex="2" />
             <FlowPane hgap="12.0" vgap="8.0" GridPane.columnIndex="1" GridPane.rowIndex="2" GridPane.columnSpan="3">

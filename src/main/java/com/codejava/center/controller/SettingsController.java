@@ -2,6 +2,7 @@ package com.codejava.center.controller;
 
 import com.codejava.center.domain.CenterSettings;
 import com.codejava.center.domain.enums.BackupFrequency;
+import com.codejava.center.domain.enums.Currency;
 import com.codejava.center.domain.enums.NotificationChannel;
 import com.codejava.center.service.BackupSchedule;
 import com.codejava.center.service.BackupService;
@@ -19,6 +20,7 @@ import com.codejava.center.util.DocumentKind;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.LanguageSelector;
+import com.codejava.center.util.MoneyUtils;
 import com.codejava.center.util.NotificationPreferences;
 import com.codejava.center.util.PrintPreferences;
 import com.codejava.center.util.Printing;
@@ -92,6 +94,7 @@ public class SettingsController {
     @FXML private TextField centerPhoneField;
     @FXML private TextField logoPathField;
     @FXML private ImageView logoImageView;
+    @FXML private ComboBox<Currency> currencyCombo;
 
     @FXML private ComboBox<Locale> languageCombo;
 
@@ -163,6 +166,13 @@ public class SettingsController {
     private String loadedLogoPath;
 
     /**
+     * العملة كما جاءت من القاعدة، للمقارنة عند الحفظ.
+     * تبديلها يغيّر ما تعنيه كل المبالغ المحفوظة بلا أن يمسّ رقماً واحداً منها، فلا يمرّ
+     * بلا تأكيد صريح - نفس معاملة {@code ledgerStartDate}.
+     */
+    private Currency loadedCurrency;
+
+    /**
      * تُحفظ كما جاءت: الشاشة تبني كائن إعدادات جديداً بالكامل عند الحفظ، فأي حقل لا تعرضه
      * يُكتب فارغاً فوق القيمة الموجودة. لحظة آخر نسخة تلقائية يكتبها المجدوِل لا المستخدم.
      */
@@ -208,11 +218,45 @@ public class SettingsController {
         // التعديلات غير المحفوظة في الحقول تضيع، ولهذا لا يُبدَّل قبل الحفظ عادةً.
         LanguageSelector.configure(languageCombo, this::reloadDashboard);
 
+        configureCurrency();
         configurePrinting();
         configureBackup();
         configureNotifications();
         showSystemInfo();
         loadSettings();
+    }
+
+    /**
+     * قائمة العملات في تبويب بيانات السنتر.
+     *
+     * <p>تُبنى من {@code Currency.values()} لا من قائمة مكتوبة في FXML: عملة تُضاف مستقبلاً
+     * تظهر هنا بلا لمس الشاشة - نفس ما يفعله سجل قواعد التنبيهات مع أنواعها.</p>
+     *
+     * <p>الاسم والرمز معاً في السطر لأن الرمز وحده لا يكفي ("$" لأكثر من عشرين دولة)
+     * والاسم وحده لا يُري المستخدم ما سيُطبع فعلاً على الإيصال.</p>
+     *
+     * <p>العملة إعداد سنتر يُحفظ بزر "حفظ الإعدادات" لا لحظة الاختيار كالطابعة واللغة:
+     * هي رقم يقرؤه كل من في السنتر، لا تفضيلَ عرض على هذا الجهاز.</p>
+     */
+    private void configureCurrency() {
+        currencyCombo.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(Currency currency) {
+                return currency == null ? ""
+                        : currency.getDisplayName() + " (" + currency.getSymbol() + ")";
+            }
+
+            @Override
+            public Currency fromString(String string) {
+                return null;
+            }
+        });
+        currencyCombo.getItems().setAll(Currency.values());
+
+        // القيمة السارية فعلاً حتى تصل قراءة الإعدادات: الحفظ قبل اكتمالها لا يصحّ أن
+        // يقارن بـ null فيبدو كأن المستخدم بدّل العملة وهو لم يلمس القائمة
+        loadedCurrency = MoneyUtils.currency();
+        currencyCombo.setValue(loadedCurrency);
     }
 
     /**
@@ -730,6 +774,11 @@ public class SettingsController {
             loadedLogoPath = settings.getLogoPath();
             loadedLastAutoBackupAt = settings.getLastAutoBackupAt();
 
+            // العملة الغائبة تعني الافتراضية، لا "بلا عملة": قاعدة مُرقّاة لا تحمل قيمة
+            // وكل مبالغها بالجنيه، فالقائمة تُظهر ما يُطبع فعلاً على الإيصالات الآن
+            loadedCurrency = settings.getCurrency() == null ? Currency.DEFAULT : settings.getCurrency();
+            currencyCombo.setValue(loadedCurrency);
+
             centerNameField.setText(settings.getCenterName());
             centerPhoneField.setText(settings.getCenterPhone());
             backupPathField.setText(settings.getBackupPath());
@@ -919,6 +968,19 @@ public class SettingsController {
             return;
         }
 
+        Currency currency = currencyCombo.getValue() == null
+                ? Currency.DEFAULT : currencyCombo.getValue();
+
+        // تبديل العملة لا يحوّل مبلغاً واحداً مما هو محفوظ: خمسمئة جنيه تصير خمسمئة ريال
+        // بالرقم نفسه، في الأرصدة والمستحقات والكشوف المطبوعة معاً. قرار يُسأل عنه صراحةً،
+        // لا نتيجة صامتة لاختيار من قائمة - نفس معاملة تاريخ بداية الدفتر فوق
+        if (currency != loadedCurrency && !Dialogs.confirm(I18n.get("common.confirm"),
+                I18n.format("settings.currencyConfirm",
+                        loadedCurrency.getDisplayName(), currency.getDisplayName()))) {
+            statusLabel.setText(I18n.get("settings.saveCancelled"));
+            return;
+        }
+
         NotificationChannel channel = notifChannelCombo.getValue() == null
                 ? NotificationChannel.WHATSAPP_LINK : notifChannelCombo.getValue();
 
@@ -941,6 +1003,7 @@ public class SettingsController {
         CenterSettings settings = CenterSettings.builder()
                 .centerName(trimmed(centerNameField))
                 .centerPhone(trimmed(centerPhoneField))
+                .currency(currency)
                 .logoPath(trimmed(logoPathField))
                 .backupPath(trimmed(backupPathField))
                 .autoBackupEnabled(autoBackupCheckBox.isSelected())
@@ -962,6 +1025,10 @@ public class SettingsController {
         boolean brandingChanged = !java.util.Objects.equals(loadedCenterName, settings.getCenterName())
                 || !java.util.Objects.equals(loadedLogoPath, settings.getLogoPath());
 
+        // العملة معها: الشاشات المفتوحة رسمت مبالغها بالرمز القديم، وإعادة البناء وحدها
+        // تجعل ما يراه المستخدم بعد الحفظ مطابقاً لما صار يُطبع على الإيصال
+        boolean currencyChanged = currency != loadedCurrency;
+
         FxAsync.supply(() -> settingsService.save(settings), saved -> {
             statusLabel.setText(I18n.get("settings.saved"));
             showBackupSchedule(saved);
@@ -969,7 +1036,7 @@ public class SettingsController {
             Dialogs.success(I18n.get("settings.savedDetail"));
 
             // إعادة بناء اللوحة تعيدنا إلى الرئيسية، فلا تُنفَّذ إلا حين تغيّرت الترويسة فعلاً
-            if (brandingChanged) {
+            if (brandingChanged || currencyChanged) {
                 reloadDashboard();
             }
         }, error -> Dialogs.error(I18n.format("settings.saveFailed", FxAsync.messageOf(error))));

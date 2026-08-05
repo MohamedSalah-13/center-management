@@ -1,6 +1,7 @@
 package com.codejava.center.domain;
 
 import com.codejava.center.domain.enums.BackupFrequency;
+import com.codejava.center.domain.enums.Currency;
 import com.codejava.center.domain.enums.NotificationChannel;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -14,6 +15,8 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -39,6 +42,23 @@ public class CenterSettings {
     private String logoPath;
     private String backupPath;
     private boolean autoBackupEnabled;
+
+    /**
+     * عملة السنتر: وحدة العرض لكل مبلغ في البرنامج.
+     *
+     * <p>إعداد سنتر لا تفضيل جهاز - على عكس اللغة والطابعة: المبالغ نفسها في القاعدة،
+     * فلو اختار كل تيرمينال عملته لَقرأ اثنان الرقم نفسه بعملتين وتصرّفا على أساسه.</p>
+     *
+     * <p>{@code null} يعني {@link Currency#DEFAULT} (الجنيه المصري): قاعدة مُرقّاة من
+     * نسخة أقدم لن تحمل قيمة، وكل مبالغها كُتبت بالجنيه فعلاً.</p>
+     *
+     * <p>العمود {@code varchar} لا {@code enum} عن قصد - راجع {@link Currency}: عملة
+     * تُضاف مستقبلاً لا ينبغي أن تحتاج ملف ترحيل خاصاً بها ليقبلها العمود.</p>
+     */
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(length = 10)
+    private Currency currency;
 
     /*
      * موعد النسخ التلقائي. كل هذه الأعمدة تقبل null لأن قاعدة بيانات مُرقّاة من نسخة أقدم

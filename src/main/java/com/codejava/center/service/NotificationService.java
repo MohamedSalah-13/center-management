@@ -66,8 +66,11 @@ public class NotificationService {
                 continue;
             }
 
+            // اسم السنتر أولاً ورمز العملة أخيراً - نفس ترتيب AlertEngine.messageParent،
+            // فقالب واحد يخدم المسارين. الغياب لا يذكر مالاً فيتجاهل الوسيط الأخير.
             String message = I18n.format("alert.parentMessage.ABSENCE",
-                    centerName, row.studentName(), absences, report.totalSessions(), report.groupName());
+                    centerName, row.studentName(), absences, report.totalSessions(),
+                    report.groupName(), MoneyUtils.currencySymbol());
 
             candidates.add(toCandidate(row.studentId(), row.studentName(), AlertType.ABSENCE,
                     row.parentPhone(), message, alreadyNotified));
@@ -90,7 +93,8 @@ public class NotificationService {
 
         for (StudentBalance row : arrears) {
             String message = I18n.format("alert.parentMessage.ARREARS",
-                    centerName, row.studentName(), MoneyUtils.format(row.amountDue()));
+                    centerName, row.studentName(), MoneyUtils.format(row.amountDue()),
+                    MoneyUtils.currencySymbol());
 
             candidates.add(toCandidate(row.studentId(), row.studentName(), AlertType.ARREARS,
                     row.parentPhone(), message, alreadyNotified));

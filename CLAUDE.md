@@ -156,7 +156,7 @@ How to reach strings:
   `role.ADMIN`, `alertType.ABSENCE`, … Add the key when you add a constant. `AlertType` needs
   four more per constant — `.desc`, `alert.message.<NAME>`, plus `.threshold`/`.window` when it
   uses them and `alert.parentMessage.<NAME>` when it is parent-capable; `MessageBundleTest`
-  fails the build for each one missing.
+  fails the build for each one missing. `Currency` needs two — the name and `.symbol`.
 - Commission type is a `String` column, not an enum — use `util/CommissionTypes`.
 - Alerts: `util/Dialogs`. It replaced `AlertUtils` from the old fx-commons dependency, whose
   five static methods had no way to set direction or button labels, so its dialogs rendered
@@ -484,6 +484,42 @@ why the text is kept to one short line.
 All amounts are `BigDecimal` with `DECIMAL(12,2)`. Never introduce `Double` for money.
 `util/MoneyUtils` owns scale, rounding (`HALF_UP`) and display formatting — route new
 display sites through it rather than `String.valueOf`.
+
+**One currency for the centre, chosen in Settings** (`Currency` + `CenterSettings.currency`,
+Flyway `V7`). It used to be a single translated string (`app.currency` → `ج.م` / `EGP`),
+i.e. the program assumed everyone using it was in Egypt.
+
+The currency is centre policy, not a machine preference like the printer and the language:
+the amounts are the same rows in the same database, and letting each terminal pick would
+have two people reading one number as two different sums. Null means `Currency.DEFAULT`
+(EGP) — an upgraded database carries no value and every amount in it really was pounds.
+
+`MoneyUtils` holds it in a static field that `config/CurrencyInitializer` fills at startup
+and refreshes on `SettingsChangedEvent` (after commit). Static for the same reason as
+`I18n`: `formatWithCurrency` is called once per table cell and per report line, so reading
+the settings row each time is one query per row on screen.
+
+**Changing the currency converts nothing.** 500 pounds becomes 500 riyals with the same
+digits, in balances, in dues, and in receipts already printed. That is why the settings
+screen confirms it explicitly and `SettingsService.summarize` writes it to the audit trail:
+nothing in `transactions` records when the meaning of every row in it changed. Mixed
+currencies with exchange rates are a different feature and would need a currency + rate
+per transaction; `Currency` says so at the top.
+
+**Never write a currency into a translated string** — `MessageBundleTest.noTranslationHardCodesACurrency`
+fails the build for it. The symbol reaches text as an *argument*: last one always, appended
+by `Alert.describe()` and `AlertEngine.messageParent` (after the centre name at `{0}`), and
+by `AlertType.getThresholdLabel`. Amounts stay stored as bare numbers — same rule as the
+audit trail — because a stored symbol freezes on the currency *and* language of the machine
+that wrote it.
+
+Adding a currency is a constant in `Currency` plus `currency.<NAME>` and
+`currency.<NAME>.symbol` in both bundles. No migration: the column is deliberately
+`varchar` rather than the `enum` the schema generator produces for every other constant,
+so a new currency is never a database change. Two decimal places are not negotiable per
+currency, though — `SCALE` is the shape of every `DECIMAL(12,2)` column, so a three-decimal
+currency (dinar) or a zero-decimal one (yen) is a migration over the whole schema, not a
+line in the enum.
 
 ### The balance ledger
 

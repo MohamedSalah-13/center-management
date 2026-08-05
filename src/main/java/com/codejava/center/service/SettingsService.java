@@ -68,9 +68,14 @@ public class SettingsService {
      *
      * <p>وقناة الإشعارات معها: تحويلها إلى مزوّد يجعل البرنامج يراسل أولياء الأمور بلا
      * ضغطة من موظف، وهو تغيير في من يستطيع الكلام باسم السنتر لا في شكل شاشة.</p>
+     *
+     * <p>والعملة كذلك: لا تمسّ رقماً واحداً في القاعدة، لكنها تغيّر ما يعنيه كل رقم فيها.
+     * إيصال قديم بخمسمئة وإيصال جديد بخمسمئة يصيران غير متساويين، ولا شيء في جدول
+     * الحركات يقول متى وقع ذلك ولا من فعله - إلا هذا السطر.</p>
      */
     private String summarize(CenterSettings settings) {
-        return "ledgerStart=" + settings.getLedgerStartDate()
+        return "currency=" + settings.getCurrency()
+                + "; ledgerStart=" + settings.getLedgerStartDate()
                 + "; autoBackup=" + settings.isAutoBackupEnabled()
                 + "; backupPath=" + settings.getBackupPath()
                 + "; frequency=" + settings.getBackupFrequency()

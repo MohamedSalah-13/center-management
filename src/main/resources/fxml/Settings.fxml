@@ -37,13 +37,20 @@
                     <TextField fx:id="centerPhoneField" promptText="%settings.centerPhonePrompt"
                                GridPane.columnIndex="1" GridPane.rowIndex="1"/>
 
-                    <Label text="%settings.logo" styleClass="sub-label"
+                    <Label text="%settings.currency" styleClass="sub-label"
                            GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                    <ComboBox fx:id="currencyCombo" maxWidth="Infinity"
+                              GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+
+                    <Label text="%settings.logo" styleClass="sub-label"
+                           GridPane.columnIndex="0" GridPane.rowIndex="3"/>
                     <TextField fx:id="logoPathField" promptText="%settings.logoPrompt" editable="false"
-                               GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+                               GridPane.columnIndex="1" GridPane.rowIndex="3"/>
                     <Button text="%common.browse" onAction="#handleBrowseLogo" styleClass="btn-secondary"
-                            GridPane.columnIndex="2" GridPane.rowIndex="2"/>
+                            GridPane.columnIndex="2" GridPane.rowIndex="3"/>
                 </GridPane>
+
+                <Label text="%settings.currencyNote" styleClass="muted-text" wrapText="true"/>
 
                 <HBox spacing="14.0" alignment="CENTER_RIGHT" styleClass="card">
                     <Label text="%settings.logoPreview" styleClass="sub-label"/>

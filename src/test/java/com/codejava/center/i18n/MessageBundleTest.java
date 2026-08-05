@@ -6,6 +6,7 @@ import com.codejava.center.domain.enums.AlertSeverity;
 import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.domain.enums.AuditCategory;
 import com.codejava.center.domain.enums.BackupFrequency;
+import com.codejava.center.domain.enums.Currency;
 import com.codejava.center.domain.enums.NotificationChannel;
 import com.codejava.center.domain.enums.AlertType;
 import com.codejava.center.domain.enums.Role;
@@ -65,6 +66,11 @@ class MessageBundleTest {
 
     /** أعلى رقم وسيط في نص MessageFormat، مثل {0} و {2} */
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{(\\d+)");
+
+    /** ما لا يجوز أن يظهر في نصّ: رموز العملات وأسماؤها الشائعة في الجُمل */
+    private static final String[] HARD_CODED_CURRENCIES = {
+            "ج.م", "ر.س", "جنيه", "ريال", "EGP", "SAR", "USD", "EUR"
+    };
 
     @Test
     void arabicAndEnglishBundlesDeclareTheSameKeys() throws IOException {
@@ -172,6 +178,12 @@ class MessageBundleTest {
         for (SchoolLevel level : SchoolLevel.values()) {
             requireKey(declared, "schoolLevel." + level.name(), unresolved);
         }
+        // العملة تحتاج مفتاحين: الاسم للقائمة، والرمز الذي يُذيَّل به كل مبلغ. نسيان
+        // الثاني يطبع "!currency.SAR.symbol!" بجوار كل رقم في كل إيصال
+        for (Currency currency : Currency.values()) {
+            requireKey(declared, "currency." + currency.name(), unresolved);
+            requireKey(declared, "currency." + currency.name() + ".symbol", unresolved);
+        }
         for (PrintPreferences.PrintMode mode : PrintPreferences.PrintMode.values()) {
             requireKey(declared, "printMode." + mode.name(), unresolved);
         }
@@ -196,6 +208,38 @@ class MessageBundleTest {
         }
 
         assertThat(unresolved).as("قيم enum بلا اسم معروض في الحزمة").isEmpty();
+    }
+
+    /**
+     * لا رمز عملة مكتوباً في نصّ.
+     *
+     * <p>العملة صارت اختياراً للسنتر ({@code Currency} + {@code CenterSettings})، لكن
+     * النصوص هي المكان الذي يعود إليه الرمز خلسةً: سطرٌ واحد فيه "ج.م" يجعل سنتراً
+     * سعودياً يقرأ مستحقاته بالجنيه في رسالة تصل هاتف ولي أمر، ولا شيء يكشف ذلك في
+     * البناء ولا في التشغيل. الرمز يُمرَّر وسيطاً دائماً - راجع {@code Alert.describe}.</p>
+     *
+     * <p>مفاتيح {@code currency.*} نفسها مستثناة: هي معجم الرموز لا استعمال لها.</p>
+     */
+    @Test
+    void noTranslationHardCodesACurrency() throws IOException {
+        List<String> offenders = new ArrayList<>();
+
+        for (Path bundle : new Path[]{ARABIC, ENGLISH}) {
+            Properties properties = load(bundle);
+            for (String key : properties.stringPropertyNames()) {
+                if (key.startsWith("currency.")) {
+                    continue;
+                }
+                String value = properties.getProperty(key);
+                for (String symbol : HARD_CODED_CURRENCIES) {
+                    if (value.contains(symbol)) {
+                        offenders.add(bundle.getFileName() + " -> " + key + " (" + symbol + ")");
+                    }
+                }
+            }
+        }
+
+        assertThat(offenders).as("نصوص تكتب العملة بدل تمريرها وسيطاً").isEmpty();
     }
 
     /**
