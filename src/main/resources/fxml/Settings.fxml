@@ -172,6 +172,141 @@
             </ScrollPane>
         </Tab>
 
+        <!-- ============ الإشعارات ============ -->
+        <Tab text="%settings.tab.notifications">
+            <ScrollPane fitToWidth="true">
+                <VBox spacing="16.0">
+                    <padding><Insets top="24.0" bottom="24.0" left="26.0" right="26.0"/></padding>
+
+                    <GridPane hgap="16.0" vgap="14.0">
+                        <columnConstraints>
+                            <ColumnConstraints minWidth="170.0" halignment="RIGHT"/>
+                            <ColumnConstraints minWidth="300.0" hgrow="ALWAYS"/>
+                        </columnConstraints>
+
+                        <Label text="%settings.notif.channel" styleClass="sub-label"
+                               GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                        <ComboBox fx:id="notifChannelCombo" maxWidth="Infinity"
+                                  GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+
+                        <Label text="%settings.notif.state" styleClass="sub-label"
+                               GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                        <Label fx:id="notifStateLabel" text="%common.empty" wrapText="true"
+                               GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                    </GridPane>
+
+                    <Label fx:id="notifChannelNoteLabel" styleClass="muted-text" wrapText="true"/>
+
+                    <Separator/>
+
+                    <!-- الرابط: يفتح محادثة على هذا الجهاز، فشكله تفضيل جهاز لا سنتر -->
+                    <VBox fx:id="notifLinkBox" spacing="14.0">
+                        <Label text="%settings.notif.linkSection" styleClass="sub-label"/>
+
+                        <GridPane hgap="16.0" vgap="14.0">
+                            <columnConstraints>
+                                <ColumnConstraints minWidth="170.0" halignment="RIGHT"/>
+                                <ColumnConstraints minWidth="300.0" hgrow="ALWAYS"/>
+                            </columnConstraints>
+
+                            <Label text="%settings.notif.linkStyle" styleClass="sub-label"
+                                   GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                            <ComboBox fx:id="notifLinkStyleCombo" maxWidth="Infinity"
+                                      GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+
+                            <Label fx:id="notifLinkTemplateLabel" text="%settings.notif.linkTemplate"
+                                   styleClass="sub-label"
+                                   GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                            <TextField fx:id="notifLinkTemplateField" promptText="%settings.notif.linkTemplatePrompt"
+                                       GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+
+                            <Label text="%settings.notif.linkPreview" styleClass="sub-label"
+                                   GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                            <Label fx:id="notifLinkPreviewLabel" text="%common.empty" wrapText="true"
+                                   GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+                        </GridPane>
+
+                        <Label text="%settings.notif.linkNote" styleClass="muted-text" wrapText="true"/>
+                    </VBox>
+
+                    <!-- المزوّد: إرسال مباشر بلا تدخّل، ومفتاحه يخصّ هذا الجهاز -->
+                    <VBox fx:id="notifProviderBox" spacing="14.0">
+                        <Label text="%settings.notif.providerSection" styleClass="sub-label"/>
+
+                        <GridPane hgap="16.0" vgap="14.0">
+                            <columnConstraints>
+                                <ColumnConstraints minWidth="170.0" halignment="RIGHT"/>
+                                <ColumnConstraints minWidth="300.0" hgrow="ALWAYS"/>
+                            </columnConstraints>
+
+                            <Label text="%settings.notif.apiUrl" styleClass="sub-label"
+                                   GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                            <TextField fx:id="notifApiUrlField"
+                                       GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+
+                            <Label text="%settings.notif.senderId" styleClass="sub-label"
+                                   GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                            <TextField fx:id="notifSenderIdField"
+                                       GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+
+                            <Label text="%settings.notif.token" styleClass="sub-label"
+                                   GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                            <PasswordField fx:id="notifTokenField" promptText="%settings.notif.tokenPrompt"
+                                           GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+
+                            <Label fx:id="notifTemplateNameLabel" text="%settings.notif.templateName"
+                                   styleClass="sub-label"
+                                   GridPane.columnIndex="0" GridPane.rowIndex="3"/>
+                            <TextField fx:id="notifTemplateNameField"
+                                       promptText="%settings.notif.templateNamePrompt"
+                                       GridPane.columnIndex="1" GridPane.rowIndex="3"/>
+
+                            <Label fx:id="notifTemplateLanguageLabel" text="%settings.notif.templateLanguage"
+                                   styleClass="sub-label"
+                                   GridPane.columnIndex="0" GridPane.rowIndex="4"/>
+                            <TextField fx:id="notifTemplateLanguageField"
+                                       promptText="%settings.notif.templateLanguagePrompt"
+                                       GridPane.columnIndex="1" GridPane.rowIndex="4"/>
+
+                            <Label fx:id="notifBodyTemplateLabel" text="%settings.notif.bodyTemplate"
+                                   styleClass="sub-label"
+                                   GridPane.columnIndex="0" GridPane.rowIndex="5"/>
+                            <TextField fx:id="notifBodyTemplateField"
+                                       promptText="%settings.notif.bodyTemplatePrompt"
+                                       GridPane.columnIndex="1" GridPane.rowIndex="5"/>
+                        </GridPane>
+
+                        <Label text="%settings.notif.tokenNote" styleClass="muted-text" wrapText="true"/>
+                        <Label fx:id="notifProviderNoteLabel" styleClass="muted-text" wrapText="true"/>
+                    </VBox>
+
+                    <Separator/>
+
+                    <!-- الاختبار: مفتاح منتهٍ أو قالب غير معتمَد لا يظهران إلا في ردّ المزوّد -->
+                    <Label text="%settings.notif.testSection" styleClass="sub-label"/>
+
+                    <GridPane hgap="16.0" vgap="14.0">
+                        <columnConstraints>
+                            <ColumnConstraints minWidth="170.0" halignment="RIGHT"/>
+                            <ColumnConstraints minWidth="300.0" hgrow="ALWAYS"/>
+                            <ColumnConstraints minWidth="110.0"/>
+                        </columnConstraints>
+
+                        <Label text="%settings.notif.testPhone" styleClass="sub-label"
+                               GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                        <TextField fx:id="notifTestPhoneField" promptText="%settings.notif.testPhonePrompt"
+                                   GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                        <Button text="%settings.notif.testSend" onAction="#handleTestNotification"
+                                styleClass="btn-secondary"
+                                GridPane.columnIndex="2" GridPane.rowIndex="0"/>
+                    </GridPane>
+
+                    <Label text="%settings.notif.testNote" styleClass="muted-text" wrapText="true"/>
+                    <Label text="%settings.notif.saveNote" styleClass="muted-text" wrapText="true"/>
+                </VBox>
+            </ScrollPane>
+        </Tab>
+
         <!-- ============ النسخ الاحتياطي ============ -->
         <Tab text="%settings.tab.backup">
             <ScrollPane fitToWidth="true">

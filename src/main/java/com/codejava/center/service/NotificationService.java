@@ -145,9 +145,34 @@ public class NotificationService {
         return result;
     }
 
+    /**
+     * إرسال رسالة تجريبية إلى رقم يكتبه المدير، بالقناة والضبط المحفوظين.
+     *
+     * <p>لا تُسجَّل في {@code notification_logs}: السجل يخصّ إشعارات الطلاب ويمنع
+     * تكرارها، ورسالة اختبار لا طالب لها ولا يصح أن تحجب إشعاراً حقيقياً.</p>
+     *
+     * <p>هي الطريقة الوحيدة لمعرفة أن ضبط المزوّد صحيح قبل يوم الإرسال: مفتاح منتهٍ أو
+     * قالب غير معتمَد لا يظهر أيٌّ منهما إلا في ردّ المزوّد على رسالة حقيقية.</p>
+     */
+    @RequiresRole(Role.ADMIN)
+    public MessageSender.SendResult sendTestMessage(String rawPhone) {
+        Optional<String> international = PhoneNumbers.toInternational(rawPhone);
+        if (international.isEmpty()) {
+            return MessageSender.SendResult.failed(
+                    I18n.format("error.notification.invalidPhone", rawPhone == null ? "" : rawPhone));
+        }
+        return messageSender.send(international.get(),
+                I18n.format("notify.message.test", centerName()));
+    }
+
     /** هل تتطلب القناة الحالية ضغط المستخدم على "إرسال" لكل رسالة؟ */
     public boolean channelRequiresManualConfirmation() {
         return messageSender.requiresManualConfirmation();
+    }
+
+    /** ما ينقص القناة الحالية لتعمل، أو {@code Optional} فارغ إن كانت جاهزة */
+    public Optional<String> channelProblem() {
+        return messageSender.configurationProblem();
     }
 
     @Transactional(readOnly = true)

@@ -3,9 +3,11 @@ package com.codejava.center.i18n;
 import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.domain.enums.AuditCategory;
 import com.codejava.center.domain.enums.BackupFrequency;
+import com.codejava.center.domain.enums.NotificationChannel;
 import com.codejava.center.domain.enums.NotificationType;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.domain.enums.TransactionType;
+import com.codejava.center.service.notification.WhatsAppLinkStyle;
 import com.codejava.center.util.DocumentKind;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.PrintPreferences;
@@ -145,6 +147,15 @@ class MessageBundleTest {
         }
         for (BackupFrequency frequency : BackupFrequency.values()) {
             requireKey(declared, "backupFrequency." + frequency.name(), unresolved);
+        }
+        for (NotificationChannel channel : NotificationChannel.values()) {
+            requireKey(declared, "notificationChannel." + channel.name(), unresolved);
+            // شرح القناة في شاشة الإعدادات يُبنى بنفس الأسلوب، وقناة بلا شرح تترك
+            // المستخدم يختار بين أسماء لا تقول له أيها يكلّفه اشتراكاً
+            requireKey(declared, "settings.notif.note." + channel.name(), unresolved);
+        }
+        for (WhatsAppLinkStyle style : WhatsAppLinkStyle.values()) {
+            requireKey(declared, "whatsappLinkStyle." + style.name(), unresolved);
         }
         // نوع العمولة نص حر في قاعدة البيانات لا enum، والقيم الثلاث هي ما تعرضه الشاشة
         for (String commission : new String[]{"PERCENTAGE", "FIXED_AMOUNT", "RENT"}) {

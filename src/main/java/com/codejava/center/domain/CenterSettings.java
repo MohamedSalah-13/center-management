@@ -1,6 +1,8 @@
 package com.codejava.center.domain;
 
 import com.codejava.center.domain.enums.BackupFrequency;
+import com.codejava.center.domain.enums.NotificationChannel;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -68,6 +70,40 @@ public class CenterSettings {
      * الإعدادات تاريخاً قديماً حين تفشل النسخ ليلة بعد ليلة بدل أن يمرّ الفشل بصمت.
      */
     private LocalDateTime lastAutoBackupAt;
+
+    /*
+     * إشعارات أولياء الأمور: القناة وما يلزم المزوّد من عناوين وقوالب.
+     *
+     * كانت القناة خاصيةً في application.properties تُقرأ مرة عند الإقلاع، أي أن تغييرها
+     * في نسخة jpackage يعني تحرير ملف داخل مجلد البرنامج. وهي هنا لا في تفضيلات الجهاز
+     * لأن حساب المزوّد واحد للسنتر كله.
+     *
+     * ما ليس هنا: مفتاح الدخول وشكل الرابط، وكلاهما في NotificationPreferences — المفتاح
+     * لأنه سرّ لا يُحفظ داخل قاعدة تخرج نسخها على فلاشة، والرابط لأنه يتبع ما هو مثبَّت
+     * على الجهاز. كل الأعمدة تقبل null: قاعدة مُرقّاة لن تحملها، والغائب يعني السلوك
+     * القديم نفسه (فتح محادثة واتساب).
+     */
+    @Enumerated(EnumType.STRING)
+    private NotificationChannel notificationChannel;
+
+    /** عنوان المزوّد؛ فارغ مع واتساب الرسمي يعني عنوان Meta الافتراضي */
+    @Column(length = 500)
+    private String notificationApiUrl;
+
+    /** معرّف المرسل عند المزوّد: رقم الواتساب في الواجهة الرسمية، أو الـ instance عند وسيط */
+    @Column(length = 100)
+    private String notificationSenderId;
+
+    /** اسم القالب المعتمَد عند Meta؛ بدونه تُرفض الرسائل خارج نافذة الأربع والعشرين ساعة */
+    @Column(length = 100)
+    private String notificationTemplateName;
+
+    @Column(length = 20)
+    private String notificationTemplateLanguage;
+
+    /** نصّ جسم الطلب للمزوّد العام، بمواضع {phone} و{message} و{token} و{sender} */
+    @Column(length = 500)
+    private String notificationBodyTemplate;
 
     /**
      * تاريخ بداية دفتر الحسابات: لا تُحتسب في رصيد الطالب أي حركة قبل هذا التاريخ.

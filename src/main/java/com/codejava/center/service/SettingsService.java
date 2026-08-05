@@ -65,13 +65,17 @@ public class SettingsService {
      * <p>ليست كل الحقول: {@code ledgerStartDate} وحده يغيّر رصيد كل طالب في النظام - تقديمه
      * يُسقط متأخرات قائمة دون أن يمسّ حركة واحدة في جدول الحركات - وحالة النسخ الاحتياطي
      * ومسارها هي ما يقرّر وجود نسخة أصلاً. الاسم والهاتف والشعار عرض لا أثر له.</p>
+     *
+     * <p>وقناة الإشعارات معها: تحويلها إلى مزوّد يجعل البرنامج يراسل أولياء الأمور بلا
+     * ضغطة من موظف، وهو تغيير في من يستطيع الكلام باسم السنتر لا في شكل شاشة.</p>
      */
     private String summarize(CenterSettings settings) {
         return "ledgerStart=" + settings.getLedgerStartDate()
                 + "; autoBackup=" + settings.isAutoBackupEnabled()
                 + "; backupPath=" + settings.getBackupPath()
                 + "; frequency=" + settings.getBackupFrequency()
-                + "; time=" + settings.getBackupTime();
+                + "; time=" + settings.getBackupTime()
+                + "; notifyChannel=" + settings.getNotificationChannel();
     }
 
     /**

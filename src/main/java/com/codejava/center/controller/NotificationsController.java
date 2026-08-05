@@ -54,6 +54,12 @@ public class NotificationsController {
 
     private final ObservableList<NotificationCandidate> candidates = FXCollections.observableArrayList();
 
+    /**
+     * هل القناة الحالية يدوية؟ الافتراض الآمن هو نعم: التحذير الزائد قبل دفعة كبيرة
+     * أهون من غيابه، والقيمة الحقيقية تصل بعد لحظات من {@link #showChannel()}.
+     */
+    private boolean manualChannel = true;
+
     @FXML
     public void initialize() {
         typeComboBox.getItems().addAll(NotificationType.values());
@@ -100,11 +106,37 @@ public class NotificationsController {
         fromPicker.setValue(LocalDate.now().minusWeeks(1));
         toPicker.setValue(LocalDate.now());
 
-        channelNoteLabel.setText(I18n.get(notificationService.channelRequiresManualConfirmation()
-                ? "notify.channelManual" : "notify.channelAutomatic"));
-
         updateFieldVisibility();
+        showChannel();
         loadGroups();
+    }
+
+    /**
+     * يعرض القناة المختارة الآن وحالتها.
+     *
+     * <p>على خيط خلفي لأن القناة صارت تُقرأ من قاعدة البيانات لا من خاصية في ملف: صارت
+     * تُختار من شاشة الإعدادات وتسري فوراً، ولم يعد يصحّ قراءتها على خيط الواجهة.</p>
+     *
+     * <p>ويُحتفظ بالنتيجة في حقل لأن {@link #sendAll} يحتاجها لحظة التأكيد، ولا يصحّ أن
+     * تفتح نافذةُ تأكيد استعلامَ قاعدة بيانات.</p>
+     */
+    private void showChannel() {
+        FxAsync.supply(() -> new ChannelState(notificationService.channelRequiresManualConfirmation(),
+                        notificationService.channelProblem().orElse(null)),
+                state -> {
+                    manualChannel = state.manual();
+                    channelNoteLabel.getStyleClass().remove("danger-text");
+
+                    if (state.problem() != null) {
+                        // قناة غير مضبوطة: قوله الآن أفضل من أربعين محاولة فاشلة
+                        channelNoteLabel.setText(I18n.format("notify.channelNotReady", state.problem()));
+                        channelNoteLabel.getStyleClass().add("danger-text");
+                        return;
+                    }
+                    channelNoteLabel.setText(I18n.get(state.manual()
+                            ? "notify.channelManual" : "notify.channelAutomatic"));
+                },
+                error -> channelNoteLabel.setText(FxAsync.messageOf(error)));
     }
 
     /** حقول المجموعة والفترة تخص إشعار الغياب فقط؛ المتأخرات تشمل كل الطلاب */
@@ -193,9 +225,7 @@ public class NotificationsController {
 
         // الإرسال لأشخاص حقيقيين: تأكيد صريح بالعدد قبل التنفيذ.
         // ومع القناة اليدوية سيُفتح تبويب لكل ولي أمر، وهو ما يجب أن يعرفه المستخدم مسبقاً.
-        String warning = notificationService.channelRequiresManualConfirmation()
-                ? I18n.format("notify.manualWarning", targets.size())
-                : "";
+        String warning = manualChannel ? I18n.format("notify.manualWarning", targets.size()) : "";
 
         if (!Dialogs.confirm(I18n.get("notify.confirmTitle"), I18n.format("notify.confirm",
                 typeComboBox.getValue().getDisplayName(), targets.size(), warning))) {
@@ -228,5 +258,8 @@ public class NotificationsController {
     }
 
     private record SendOutcome(int sent, List<String> failures) {
+    }
+
+    private record ChannelState(boolean manual, String problem) {
     }
 }

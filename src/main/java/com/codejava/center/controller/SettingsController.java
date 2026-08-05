@@ -2,10 +2,16 @@ package com.codejava.center.controller;
 
 import com.codejava.center.domain.CenterSettings;
 import com.codejava.center.domain.enums.BackupFrequency;
+import com.codejava.center.domain.enums.NotificationChannel;
 import com.codejava.center.service.BackupSchedule;
 import com.codejava.center.service.BackupService;
 import com.codejava.center.service.NotificationService;
 import com.codejava.center.service.SettingsService;
+import com.codejava.center.service.notification.HttpGatewaySender;
+import com.codejava.center.service.notification.NotificationConfig;
+import com.codejava.center.service.notification.WhatsAppCloudApiSender;
+import com.codejava.center.service.notification.WhatsAppLink;
+import com.codejava.center.service.notification.WhatsAppLinkStyle;
 import com.codejava.center.util.BackupCrypto;
 import com.codejava.center.util.BackupPreferences;
 import com.codejava.center.util.Dialogs;
@@ -13,6 +19,7 @@ import com.codejava.center.util.DocumentKind;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.LanguageSelector;
+import com.codejava.center.util.NotificationPreferences;
 import com.codejava.center.util.PrintPreferences;
 import com.codejava.center.util.Printing;
 import com.codejava.center.util.ViewLoader;
@@ -24,6 +31,7 @@ import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -80,9 +88,6 @@ public class SettingsController {
     @Value("${spring.datasource.username}")
     private String datasourceUsername;
 
-    @Value("${center.notifications.channel:whatsapp-link}")
-    private String notificationChannel;
-
     @FXML private TextField centerNameField;
     @FXML private TextField centerPhoneField;
     @FXML private TextField logoPathField;
@@ -121,6 +126,30 @@ public class SettingsController {
     @FXML private PasswordField backupPassphraseField;
     @FXML private PasswordField backupPassphraseConfirmField;
 
+    @FXML private ComboBox<NotificationChannel> notifChannelCombo;
+    @FXML private Label notifStateLabel;
+    @FXML private Label notifChannelNoteLabel;
+    @FXML private Label notifProviderNoteLabel;
+
+    @FXML private VBox notifLinkBox;
+    @FXML private ComboBox<WhatsAppLinkStyle> notifLinkStyleCombo;
+    @FXML private Label notifLinkTemplateLabel;
+    @FXML private TextField notifLinkTemplateField;
+    @FXML private Label notifLinkPreviewLabel;
+
+    @FXML private VBox notifProviderBox;
+    @FXML private TextField notifApiUrlField;
+    @FXML private TextField notifSenderIdField;
+    @FXML private PasswordField notifTokenField;
+    @FXML private Label notifTemplateNameLabel;
+    @FXML private TextField notifTemplateNameField;
+    @FXML private Label notifTemplateLanguageLabel;
+    @FXML private TextField notifTemplateLanguageField;
+    @FXML private Label notifBodyTemplateLabel;
+    @FXML private TextField notifBodyTemplateField;
+
+    @FXML private TextField notifTestPhoneField;
+
     @FXML private DatePicker ledgerStartDatePicker;
 
     @FXML private Label notificationChannelLabel;
@@ -149,6 +178,19 @@ public class SettingsController {
     private boolean loadedEncryptionEnabled;
     private String loadedPassphrase = "";
 
+    /** يمنع تعبئة حقول الإشعارات من المحفوظ من أن تظهر كأنها تعديل لم يُحفظ بعد */
+    private boolean loadingNotifications;
+
+    /**
+     * هل عُدّلت حقول الإشعارات بعد آخر حفظ؟
+     * زر "إرسال تجريبي" يمرّ بالخدمة فيقرأ المحفوظ لا ما في الحقول، واختبارٌ يقيس ضبطاً
+     * غير الذي يراه المستخدم أمامه أسوأ من ألا يكون هناك اختبار.
+     */
+    private boolean notificationFieldsChanged;
+
+    /** القناة المحفوظة، لنعرف هل حوّل المستخدم الإرسال إلى قناة تلقائية في هذه الجلسة */
+    private NotificationChannel loadedNotificationChannel;
+
     private static final DateTimeFormatter MOMENT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     /** أدنى طول مقبول لكلمة مرور النسخة؛ ما دونه لا يصمد أمام تخمين آلي */
@@ -168,8 +210,148 @@ public class SettingsController {
 
         configurePrinting();
         configureBackup();
+        configureNotifications();
         showSystemInfo();
         loadSettings();
+    }
+
+    /**
+     * تبويب الإشعارات.
+     *
+     * <p>كل ما فيه يُحفظ بزر "حفظ الإعدادات" ولو كان نصفه يخصّ الجهاز ونصفه السنتر:
+     * القناة والعناوين والقوالب في قاعدة البيانات، وشكل الرابط ومفتاح الدخول في تفضيلات
+     * الجهاز. الحفظ لحظة التعديل - كما في تبويب الطباعة - لا يصلح هنا لأن الحقول متعلّقة
+     * ببعضها: مفتاح بلا معرّف مرسل، أو قناة مزوّد قبل كتابة عنوانه، حالتان لا معنى لهما.</p>
+     *
+     * <p>وسبب انقسام التخزين في {@link NotificationPreferences}: المفتاح سرّ لا يُحفظ
+     * داخل قاعدة تخرج نسخها على فلاشة، وشكل الرابط يتبع ما هو مثبَّت على هذا الجهاز.</p>
+     */
+    private void configureNotifications() {
+        notifChannelCombo.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(NotificationChannel channel) {
+                return channel == null ? "" : channel.getDisplayName();
+            }
+
+            @Override
+            public NotificationChannel fromString(String string) {
+                return null;
+            }
+        });
+        notifChannelCombo.getItems().setAll(NotificationChannel.values());
+        notifChannelCombo.valueProperty().addListener((observable, oldValue, newValue) -> {
+            showNotificationFieldsFor(newValue);
+            notificationFieldChanged();
+        });
+
+        notifLinkStyleCombo.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(WhatsAppLinkStyle style) {
+                return style == null ? "" : style.getDisplayName();
+            }
+
+            @Override
+            public WhatsAppLinkStyle fromString(String string) {
+                return null;
+            }
+        });
+        notifLinkStyleCombo.getItems().setAll(WhatsAppLinkStyle.values());
+        notifLinkStyleCombo.valueProperty().addListener((observable, oldValue, newValue) -> {
+            setShown(newValue == WhatsAppLinkStyle.CUSTOM, notifLinkTemplateLabel, notifLinkTemplateField);
+            updateLinkPreview();
+            notificationFieldChanged();
+        });
+
+        notifLinkTemplateField.textProperty().addListener((observable, oldText, newText) -> {
+            updateLinkPreview();
+            notificationFieldChanged();
+        });
+
+        for (TextField field : new TextField[]{notifApiUrlField, notifSenderIdField,
+                notifTemplateNameField, notifTemplateLanguageField, notifBodyTemplateField}) {
+            field.textProperty().addListener((observable, oldText, newText) -> notificationFieldChanged());
+        }
+        notifTokenField.textProperty().addListener((observable, oldText, newText) -> notificationFieldChanged());
+
+        // تُملأ من المحفوظ حتى لا يعيد المستخدم كتابتها كلما حفظ إعداداً آخر - كما في
+        // كلمة مرور النسخ الاحتياطية تماماً
+        loadingNotifications = true;
+        try {
+            notifLinkStyleCombo.setValue(NotificationPreferences.linkStyle());
+            notifLinkTemplateField.setText(NotificationPreferences.linkTemplate());
+            notifTokenField.setText(storedApiToken());
+        } finally {
+            loadingNotifications = false;
+        }
+
+        // إعدادات السنتر تصل بعد لحظة (قراءة على خيط خلفي)، وحتى تصل تُعرض حقول القناة
+        // الافتراضية بدل عرض كل الحقول معاً ثم اختفاء نصفها أمام المستخدم
+        showNotificationFieldsFor(null);
+    }
+
+    private String storedApiToken() {
+        char[] saved = NotificationPreferences.apiToken();
+        if (saved == null) {
+            return "";
+        }
+        String value = new String(saved);
+        java.util.Arrays.fill(saved, '\0');
+        return value;
+    }
+
+    private void notificationFieldChanged() {
+        if (loadingNotifications) {
+            return;
+        }
+        notificationFieldsChanged = true;
+        statusLabel.setText(I18n.get("settings.notif.unsaved"));
+    }
+
+    /** كل قناة وحقولها: عرض حقل لا تقرأه القناة المختارة يوحي بأنه مؤثّر */
+    private void showNotificationFieldsFor(NotificationChannel channel) {
+        NotificationChannel selected = channel == null ? NotificationChannel.WHATSAPP_LINK : channel;
+
+        setShown(selected == NotificationChannel.WHATSAPP_LINK, notifLinkBox);
+        setShown(selected != NotificationChannel.WHATSAPP_LINK, notifProviderBox);
+        setShown(selected == NotificationChannel.WHATSAPP_CLOUD_API,
+                notifTemplateNameLabel, notifTemplateNameField,
+                notifTemplateLanguageLabel, notifTemplateLanguageField);
+        setShown(selected == NotificationChannel.HTTP_GATEWAY,
+                notifBodyTemplateLabel, notifBodyTemplateField);
+
+        notifChannelNoteLabel.setText(I18n.get("settings.notif.note." + selected.name()));
+        notifProviderNoteLabel.setText(selected == NotificationChannel.WHATSAPP_CLOUD_API
+                ? I18n.get("settings.notif.cloudNote") : I18n.get("settings.notif.gatewayNote"));
+
+        // العنوان الافتراضي يختلف اختلافاً تاماً بين واجهة Meta ووسيط محلي، فالتلميح
+        // في الحقل نفسه لا في ملاحظة أسفل الشاشة
+        notifApiUrlField.setPromptText(selected == NotificationChannel.WHATSAPP_CLOUD_API
+                ? WhatsAppCloudApiSender.DEFAULT_BASE_URL
+                : I18n.get("settings.notif.apiUrlPrompt"));
+        notifSenderIdField.setPromptText(I18n.get(selected == NotificationChannel.WHATSAPP_CLOUD_API
+                ? "settings.notif.senderIdCloudPrompt" : "settings.notif.senderIdGatewayPrompt"));
+        notifBodyTemplateField.setPromptText(HttpGatewaySender.DEFAULT_BODY_TEMPLATE);
+    }
+
+    /**
+     * يعرض الرابط كما سيُفتح فعلاً.
+     * "wa.me" وحدها لا تجيب سؤال من يكتب قالباً بيده: ما الذي سيفتحه البرنامج؟ والقالب
+     * الناقص يظهر هنا رسالةَ خطأ بدل أن يظهر عند أول ولي أمر.
+     */
+    private void updateLinkPreview() {
+        try {
+            notifLinkPreviewLabel.setText(WhatsAppLink.build(
+                    notifLinkStyleCombo.getValue() == null ? WhatsAppLinkStyle.WA_ME : notifLinkStyleCombo.getValue(),
+                    notifLinkTemplateField.getText(),
+                    "201000000000",
+                    I18n.get("settings.notif.previewMessage")));
+            notifLinkPreviewLabel.getStyleClass().remove("danger-text");
+        } catch (IllegalArgumentException e) {
+            notifLinkPreviewLabel.setText(e.getMessage());
+            if (!notifLinkPreviewLabel.getStyleClass().contains("danger-text")) {
+                notifLinkPreviewLabel.getStyleClass().add("danger-text");
+            }
+        }
     }
 
     /**
@@ -505,15 +687,32 @@ public class SettingsController {
     }
 
     private void showSystemInfo() {
-        notificationChannelLabel.setText(describeChannel());
         databaseLabel.setText(datasourceUrl);
         dbUserLabel.setText(datasourceUsername);
     }
 
-    private String describeChannel() {
-        String mode = I18n.get(notificationService.channelRequiresManualConfirmation()
+    /**
+     * يعرض حالة القناة <b>المحفوظة</b>: جاهزة، أو ما ينقصها.
+     *
+     * <p>القناة تُقرأ من الحقول لأنها معروضة أمام المستخدم، أما ما ينقصها فمن الخدمة لأنه
+     * يعتمد على المحفوظ فعلاً - ومنه ما ليس في هذه الشاشة أصلاً كوجود مفتاح على الجهاز.
+     * والقراءة على خيط خلفي لأنها تمرّ بقاعدة البيانات.</p>
+     */
+    private void refreshNotificationState(NotificationChannel channel) {
+        NotificationChannel selected = channel == null ? NotificationChannel.WHATSAPP_LINK : channel;
+        String mode = I18n.get(selected.requiresManualConfirmation()
                 ? "settings.channelManual" : "settings.channelAutomatic");
-        return I18n.format("settings.channel", notificationChannel, mode);
+        notificationChannelLabel.setText(I18n.format("settings.channel", selected.getDisplayName(), mode));
+
+        FxAsync.supply(notificationService::channelProblem, problem -> {
+            notifStateLabel.setText(problem
+                    .map(reason -> I18n.format("settings.notif.notReady", reason))
+                    .orElseGet(() -> I18n.format("settings.notif.ready", mode)));
+            notifStateLabel.getStyleClass().remove("danger-text");
+            if (problem.isPresent()) {
+                notifStateLabel.getStyleClass().add("danger-text");
+            }
+        }, error -> notifStateLabel.setText(FxAsync.messageOf(error)));
     }
 
     private void reloadDashboard() {
@@ -537,6 +736,7 @@ public class SettingsController {
             autoBackupCheckBox.setSelected(settings.isAutoBackupEnabled());
             ledgerStartDatePicker.setValue(settings.getLedgerStartDate());
             showBackupSchedule(settings);
+            showNotificationSettings(settings);
 
             if (settings.getLogoPath() != null && !settings.getLogoPath().isBlank()) {
                 logoPathField.setText(settings.getLogoPath());
@@ -584,9 +784,81 @@ public class SettingsController {
         }
     }
 
+    /** يملأ حقول الإشعارات من المحفوظ، ويعيد الشاشة إلى حالة "لا تعديل معلّق" */
+    private void showNotificationSettings(CenterSettings settings) {
+        NotificationChannel channel = settings.getNotificationChannel() == null
+                ? NotificationChannel.WHATSAPP_LINK : settings.getNotificationChannel();
+
+        loadingNotifications = true;
+        try {
+            notifChannelCombo.setValue(channel);
+            notifApiUrlField.setText(orEmpty(settings.getNotificationApiUrl()));
+            notifSenderIdField.setText(orEmpty(settings.getNotificationSenderId()));
+            notifTemplateNameField.setText(orEmpty(settings.getNotificationTemplateName()));
+            notifTemplateLanguageField.setText(settings.getNotificationTemplateLanguage() == null
+                    ? NotificationConfig.DEFAULT_TEMPLATE_LANGUAGE
+                    : settings.getNotificationTemplateLanguage());
+            notifBodyTemplateField.setText(orEmpty(settings.getNotificationBodyTemplate()));
+        } finally {
+            loadingNotifications = false;
+        }
+
+        loadedNotificationChannel = channel;
+        notificationFieldsChanged = false;
+
+        showNotificationFieldsFor(channel);
+        updateLinkPreview();
+        refreshNotificationState(channel);
+    }
+
+    private String orEmpty(String value) {
+        return value == null ? "" : value;
+    }
+
     @FXML
     public void handleReload(ActionEvent event) {
         loadSettings();
+    }
+
+    /**
+     * إرسال رسالة تجريبية بالقناة المحفوظة.
+     *
+     * <p>هو ما يحوّل "ضبطت المزوّد" إلى "الرسائل تصل": مفتاح منتهٍ أو قالب غير معتمَد
+     * لا يظهر أيٌّ منهما إلا في ردّ المزوّد على رسالة حقيقية، ولو انتظرنا أول دفعة
+     * لاكتُشف ذلك أمام قائمة أربعين ولي أمر.</p>
+     */
+    @FXML
+    public void handleTestNotification(ActionEvent event) {
+        // الخدمة تقرأ المحفوظ لا الحقول: اختبار ضبطٍ غير الذي يراه المستخدم يضلّل
+        if (notificationFieldsChanged) {
+            Dialogs.warning(I18n.get("settings.notif.saveFirst"));
+            return;
+        }
+
+        String phone = notifTestPhoneField.getText();
+        if (phone == null || phone.isBlank()) {
+            Dialogs.warning(I18n.get("settings.notif.testPhoneRequired"));
+            return;
+        }
+
+        // رقم حقيقي وشخص حقيقي: التأكيد يذكر الرقم كما كُتب
+        if (!Dialogs.confirm(I18n.get("settings.notif.testConfirmTitle"),
+                I18n.format("settings.notif.testConfirm", phone.trim()))) {
+            return;
+        }
+
+        statusLabel.setText(I18n.get("settings.notif.testSending"));
+        FxAsync.supply(() -> notificationService.sendTestMessage(phone.trim()), result -> {
+            statusLabel.setText("");
+            if (result.success()) {
+                Dialogs.success(I18n.get("settings.notif.testDone"));
+            } else {
+                Dialogs.error(I18n.get("settings.notif.testFailed"), result.failureReason());
+            }
+        }, error -> {
+            statusLabel.setText("");
+            Dialogs.error(I18n.get("settings.notif.testFailed"), FxAsync.messageOf(error));
+        });
     }
 
     @FXML
@@ -647,9 +919,21 @@ public class SettingsController {
             return;
         }
 
+        NotificationChannel channel = notifChannelCombo.getValue() == null
+                ? NotificationChannel.WHATSAPP_LINK : notifChannelCombo.getValue();
+
+        // التحويل إلى قناة تلقائية يعني أن البرنامج صار يراسل أولياء الأمور بلا أن يرى
+        // موظفٌ النصّ ولا الرقم. تغيير في صلاحية الكلام باسم السنتر، لا في شكل شاشة.
+        if (!channel.requiresManualConfirmation() && channel != loadedNotificationChannel
+                && !Dialogs.confirm(I18n.get("settings.notif.automaticConfirmTitle"),
+                I18n.format("settings.notif.automaticConfirm", channel.getDisplayName()))) {
+            statusLabel.setText(I18n.get("settings.saveCancelled"));
+            return;
+        }
+
         // إعدادات الجهاز تُحفظ قبل إعدادات السنتر: فشلها يوقف الحفظ كله، بينما لو حُفظت
         // بعده لبقيت نسخ مجدولة بلا كلمة مرور تشفير تفشل كل ليلة
-        if (!saveEncryptionPreferences()) {
+        if (!saveEncryptionPreferences() || !saveNotificationPreferences(channel)) {
             return;
         }
 
@@ -667,6 +951,12 @@ public class SettingsController {
                 .backupRetentionCount(spinnerValue(backupRetentionSpinner, 0, 999, DEFAULT_RETENTION))
                 .lastAutoBackupAt(loadedLastAutoBackupAt) // الشاشة تعرضه ولا تعدّله
                 .ledgerStartDate(ledgerStart)
+                .notificationChannel(channel)
+                .notificationApiUrl(trimmed(notifApiUrlField))
+                .notificationSenderId(trimmed(notifSenderIdField))
+                .notificationTemplateName(trimmed(notifTemplateNameField))
+                .notificationTemplateLanguage(trimmed(notifTemplateLanguageField))
+                .notificationBodyTemplate(trimmed(notifBodyTemplateField))
                 .build();
 
         boolean brandingChanged = !java.util.Objects.equals(loadedCenterName, settings.getCenterName())
@@ -675,6 +965,7 @@ public class SettingsController {
         FxAsync.supply(() -> settingsService.save(settings), saved -> {
             statusLabel.setText(I18n.get("settings.saved"));
             showBackupSchedule(saved);
+            showNotificationSettings(saved);
             Dialogs.success(I18n.get("settings.savedDetail"));
 
             // إعادة بناء اللوحة تعيدنا إلى الرئيسية، فلا تُنفَّذ إلا حين تغيّرت الترويسة فعلاً
@@ -725,6 +1016,42 @@ public class SettingsController {
             BackupPreferences.set(enabled, enabled ? passphrase.toCharArray() : null);
             loadedEncryptionEnabled = enabled;
             loadedPassphrase = enabled ? passphrase : "";
+            return true;
+        } catch (RuntimeException e) {
+            Dialogs.error(FxAsync.messageOf(e));
+            return false;
+        }
+    }
+
+    /**
+     * يحفظ ما يخصّ هذا الجهاز من إعدادات الإشعارات: شكل الرابط ومفتاح المزوّد.
+     *
+     * <p>القالب المكسور يُرفض هنا لا عند الإرسال: قالب بلا {@code {phone}} أو
+     * {@code {text}} يفتح محادثة فارغة أو محادثة بلا نص، ويظنّ الموظف أنه أرسل.</p>
+     *
+     * @return {@code false} إن كان الإدخال غير صالح، فلا يُكمَل الحفظ
+     */
+    private boolean saveNotificationPreferences(NotificationChannel channel) {
+        WhatsAppLinkStyle style = notifLinkStyleCombo.getValue() == null
+                ? WhatsAppLinkStyle.WA_ME : notifLinkStyleCombo.getValue();
+        String template = notifLinkTemplateField.getText();
+
+        if (channel == NotificationChannel.WHATSAPP_LINK) {
+            try {
+                WhatsAppLink.build(style, template, "201000000000", "x");
+            } catch (IllegalArgumentException e) {
+                Dialogs.warning(I18n.get("settings.notif.linkTemplateInvalid"), e.getMessage());
+                return false;
+            }
+        }
+
+        try {
+            NotificationPreferences.setLink(style, template);
+
+            String token = notifTokenField.getText();
+            // المفتاح الفارغ يمحو المحفوظ: تركه بعد التحوّل عن المزوّد يبقي سرّاً بلا فائدة
+            NotificationPreferences.setApiToken(
+                    token == null || token.isBlank() ? null : token.toCharArray());
             return true;
         } catch (RuntimeException e) {
             Dialogs.error(FxAsync.messageOf(e));

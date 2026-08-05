@@ -1,13 +1,6 @@
 package com.codejava.center.util;
 
-import javax.crypto.Cipher;
-import javax.crypto.spec.GCMParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.SecureRandom;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
@@ -21,23 +14,24 @@ import java.util.prefs.Preferences;
  *
  * <p>وككل ما يُحفظ لكل جهاز في هذا المشروع (اللغة، الطابعة) فلا ملف ترحيل Flyway له.</p>
  *
- * <p><b>حدود التعمية أدناه:</b> الحفظ التلقائي الليلي يعمل بلا مستخدم أمام الشاشة، فلا
- * مفرّ من تخزين كلمة المرور على الجهاز. تخزينها معمّاة يمنع قراءتها بفتح محرر السجل،
- * لكنه لا يحمي من مهاجم يملك صلاحية المستخدم نفسه على الجهاز — المفتاح مشتقّ من ثوابت
- * الجهاز والحساب لا من سرّ يعرفه المستخدم وحده. الخطر الذي يعالجه التشفير هو خروج ملف
- * النسخة من الجهاز (فلاشة، قرص خارجي، Drive)، وذاك يعالجه كاملاً.</p>
+ * <p><b>حدود التعمية:</b> الحفظ التلقائي الليلي يعمل بلا مستخدم أمام الشاشة، فلا مفرّ
+ * من تخزين كلمة المرور على الجهاز. التعمية ({@link MachineSecret}) تمنع قراءتها بفتح
+ * محرر السجل، لكنها لا تحمي من مهاجم يملك صلاحية المستخدم نفسه على الجهاز. الخطر الذي
+ * يعالجه التشفير هو خروج ملف النسخة من الجهاز (فلاشة، قرص خارجي، Drive)، وذاك يعالجه
+ * كاملاً.</p>
  */
 public final class BackupPreferences {
 
     private static final String ENABLED_KEY = "backup.encrypt";
     private static final String PASSPHRASE_KEY = "backup.passphrase";
 
-    private static final String CIPHER = "AES/GCM/NoPadding";
-    private static final int TAG_BITS = 128;
-    private static final int IV_BYTES = 12;
-
-    /** ثابت يخصّ البرنامج، يُخلط مع بيانات الحساب حتى لا يكون المفتاح واحداً عند الجميع */
+    /**
+     * ثابت يخصّ البرنامج، يُخلط مع بيانات الحساب حتى لا يكون المفتاح واحداً عند الجميع.
+     * <b>تغييره يُبطل كل كلمة مرور محفوظة على أجهزة العملاء</b>، فتفشل النسخ الليلية عندهم.
+     */
     private static final String OBFUSCATION_SEED = "center-management/backup-passphrase/v1";
+
+    private static final MachineSecret SECRET = MachineSecret.forPurpose(OBFUSCATION_SEED);
 
     private BackupPreferences() {
     }
@@ -59,15 +53,8 @@ public final class BackupPreferences {
      */
     public static char[] passphrase() {
         String stored = read(PASSPHRASE_KEY);
-        if (stored == null) {
-            return null;
-        }
-        try {
-            return reveal(stored);
-        } catch (Exception e) {
-            // القيمة المحفوظة كُتبت بمفتاح جهاز آخر (سجل منسوخ) أو تلفت
-            return null;
-        }
+        // القيمة المحفوظة قد تكون كُتبت بمفتاح جهاز آخر (سجل منسوخ) أو تلفت، فتعود null
+        return stored == null ? null : SECRET.reveal(stored);
     }
 
     /** هل ضُبطت كلمة مرور على هذا الجهاز — للعرض في الشاشة دون كشف الكلمة نفسها */
@@ -89,7 +76,7 @@ public final class BackupPreferences {
             Preferences prefs = prefs();
             prefs.putBoolean(ENABLED_KEY, usable);
             if (usable) {
-                prefs.put(PASSPHRASE_KEY, conceal(passphrase));
+                prefs.put(PASSPHRASE_KEY, SECRET.conceal(passphrase));
             } else {
                 prefs.remove(PASSPHRASE_KEY);
             }
@@ -101,44 +88,6 @@ public final class BackupPreferences {
                 Arrays.fill(passphrase, '\0');
             }
         }
-    }
-
-    // ------------------------------------------------------------- التعمية
-
-    private static String conceal(char[] value) {
-        try {
-            byte[] iv = new byte[IV_BYTES];
-            new SecureRandom().nextBytes(iv);
-
-            Cipher cipher = Cipher.getInstance(CIPHER);
-            cipher.init(Cipher.ENCRYPT_MODE, machineKey(), new GCMParameterSpec(TAG_BITS, iv));
-            byte[] encrypted = cipher.doFinal(new String(value).getBytes(StandardCharsets.UTF_8));
-
-            byte[] combined = new byte[iv.length + encrypted.length];
-            System.arraycopy(iv, 0, combined, 0, iv.length);
-            System.arraycopy(encrypted, 0, combined, iv.length, encrypted.length);
-            return Base64.getEncoder().encodeToString(combined);
-        } catch (Exception e) {
-            throw new IllegalStateException(I18n.get("error.backup.passphraseNotSaved"), e);
-        }
-    }
-
-    private static char[] reveal(String stored) throws Exception {
-        byte[] combined = Base64.getDecoder().decode(stored);
-        byte[] iv = Arrays.copyOfRange(combined, 0, IV_BYTES);
-        byte[] encrypted = Arrays.copyOfRange(combined, IV_BYTES, combined.length);
-
-        Cipher cipher = Cipher.getInstance(CIPHER);
-        cipher.init(Cipher.DECRYPT_MODE, machineKey(), new GCMParameterSpec(TAG_BITS, iv));
-        return new String(cipher.doFinal(encrypted), StandardCharsets.UTF_8).toCharArray();
-    }
-
-    private static SecretKeySpec machineKey() throws Exception {
-        String material = OBFUSCATION_SEED + '|' + System.getProperty("user.name", "")
-                + '|' + System.getProperty("os.name", "");
-        byte[] digest = MessageDigest.getInstance("SHA-256")
-                .digest(material.getBytes(StandardCharsets.UTF_8));
-        return new SecretKeySpec(digest, "AES");
     }
 
     // ------------------------------------------------------------- التخزين

@@ -1,5 +1,7 @@
 package com.codejava.center;
 
+import com.codejava.center.domain.enums.NotificationChannel;
+import com.codejava.center.service.notification.ChannelSender;
 import com.codejava.center.service.notification.MessageSender;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,10 +35,30 @@ class ApplicationContextSmokeTest {
         assertThat(context.getBeanDefinitionCount()).isPositive();
     }
 
-    /** لا يقلع التطبيق بدون قناة إرسال، لأن NotificationService يحقنها إلزامياً */
+    /**
+     * لا يقلع التطبيق بدون قناة إرسال، لأن NotificationService يحقنها إلزامياً.
+     *
+     * <p>ويبقى المنفذ واحداً رغم تعدّد القنوات: {@code ChannelSender} لا يمتدّ
+     * {@link MessageSender} حتى لا يصير في السياق أربعة beans من نوعه فيلتبس على
+     * الحاقن أيها يأخذ - وهو الغموض نفسه الذي أوقع الإصدار السابق.</p>
+     */
     @Test
     void exactlyOneMessageSenderIsRegistered() {
         assertThat(context.getBeansOfType(MessageSender.class)).hasSize(1);
+    }
+
+    /**
+     * قناة معروضة في شاشة الإعدادات بلا تنفيذ يختارها المستخدم فتفشل كل رسالة.
+     * {@code MessageSenderRouter} يرفض الإقلاع في هذه الحالة، وهذا الاختبار يسمّي السبب
+     * حين يحدث بدل رسالة إقلاع غامضة.
+     */
+    @Test
+    void everyNotificationChannelHasAnImplementation() {
+        var channels = context.getBeansOfType(ChannelSender.class).values().stream()
+                .map(ChannelSender::channel)
+                .toList();
+
+        assertThat(channels).containsExactlyInAnyOrder(NotificationChannel.values());
     }
 
     /** كل شاشة يجب أن تكون قابلة للإنشاء: الشاشة المعطوبة لا تظهر إلا عند فتحها */

@@ -182,5 +182,10 @@ class NotificationServiceTest {
         public boolean requiresManualConfirmation() {
             return false;
         }
+
+        @Override
+        public java.util.Optional<String> configurationProblem() {
+            return java.util.Optional.empty();
+        }
     }
 }

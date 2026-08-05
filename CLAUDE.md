@@ -303,6 +303,58 @@ enabled. A run whose slot has passed is taken a few minutes after the next start
 `lastAutoBackupAt` — written only on success — is what makes a nightly failure visible in the
 settings screen instead of silent.
 
+### Parent notifications
+
+`NotificationService` decides who gets told and in what words; **it never learns which
+channel is in use.** Everything provider-shaped sits behind `MessageSender`, whose only
+implementation is `MessageSenderRouter`.
+
+**The channel is read on every send, not at startup.** It used to be
+`center.notifications.channel` in `application.properties` selected by
+`@ConditionalOnProperty`: in a jpackage build, changing it meant editing a file inside the
+program folder and restarting, which no centre owner does. It now lives in `CenterSettings`
+and the router resolves it per send, so the Settings screen takes effect on the next message.
+
+Adding a provider means a new `ChannelSender`, not a new `MessageSender`. `ChannelSender`
+deliberately does **not** extend `MessageSender` — four beans of the injectable type is
+exactly the ambiguity that produced the old `@ConditionalOnMissingBean` bug (the annotation
+was evaluated against the class being scanned, so it excluded itself and nothing registered).
+The router validates at construction that every `NotificationChannel` has a sender, so a
+channel offered in the UI can never be one that fails on every message.
+
+Config arrives as a `NotificationConfig` parameter rather than being read inside each sender:
+one read per batch instead of one query per message, and senders that unit-test without Spring.
+
+**Where each setting lives is the same split as backup.** Channel, provider URL, sender id
+and templates are centre policy → `CenterSettings` (Flyway `V4`). The API token and the
+WhatsApp link style are **per machine** (`NotificationPreferences`, `java.util.prefs`, no
+migration): the token is a secret, and storing it in the database ships it inside every
+backup — next to the very parent phone numbers it can message — while the link style follows
+what is installed on *this* terminal, like the printer. `MachineSecret` holds the obfuscation
+both it and `BackupPreferences` use; its purpose string is part of the key, so changing that
+string invalidates every value saved with it on customers' machines.
+
+Three channel-specific things worth knowing:
+
+- The link channel builds its URL from a template (`WhatsAppLink`), and spaces encode as
+  `%20` not `+`: `whatsapp://` is opened by the OS protocol handler, not a browser, and `+`
+  arrives literally inside the message text. A template missing `{phone}` or `{text}` is
+  rejected when it is typed — either one opens a chat that looks sent and is not.
+- **Cloud API needs a template name for what this app actually sends.** Free-form text is
+  only allowed inside 24 hours of the parent's last message to the centre; absence and
+  arrears notifications start from the centre, so they are outside it and get error 131047.
+  With a template name set, the whole composed message goes in as body parameter `{{1}}`.
+- The generic gateway describes the request instead of hard-coding a provider per class —
+  Egyptian centres buy WhatsApp/SMS from local resellers that each name their fields
+  differently, and that is a difference in one request string, not in the program.
+
+`configurationProblem()` exists so the screen can say "no token on this machine" the day
+before a send, and so the router refuses a doomed attempt rather than letting the provider
+answer 401 in English forty times. The Settings tab's test send is the only way to catch an
+expired token or an unapproved template, both of which surface only in a real reply; test
+messages are deliberately not written to `notification_logs`, which exists to stop duplicate
+notifications to *students*.
+
 ### Money
 
 All amounts are `BigDecimal` with `DECIMAL(12,2)`. Never introduce `Double` for money.
