@@ -1,6 +1,6 @@
 package com.codejava.center.service.dto;
 
-import com.codejava.center.domain.enums.NotificationType;
+import com.codejava.center.domain.enums.AlertType;
 import com.codejava.center.util.I18n;
 
 /**
@@ -13,7 +13,7 @@ import com.codejava.center.util.I18n;
 public record NotificationCandidate(
         Long studentId,
         String studentName,
-        NotificationType type,
+        AlertType type,
         String rawPhone,
         String internationalPhone,
         String message,

@@ -3,7 +3,7 @@ package com.codejava.center.service;
 import com.codejava.center.config.SecurityConfig;
 import com.codejava.center.domain.Student;
 import com.codejava.center.domain.User;
-import com.codejava.center.domain.enums.NotificationType;
+import com.codejava.center.domain.enums.AlertType;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.repository.NotificationLogRepository;
 import com.codejava.center.repository.StudentRepository;
@@ -71,7 +71,7 @@ class NotificationServiceTest {
 
         assertThat(candidates).extracting(NotificationCandidate::studentName).containsExactly("غائب");
         // ثلاث غيابات من أربع حصص - النص يُبنى من نفس مفتاح الحزمة فلا يتعلّق بلغة الجهاز
-        assertThat(candidates.get(0).message()).isEqualTo(I18n.format("notify.message.absence",
+        assertThat(candidates.get(0).message()).isEqualTo(I18n.format("alert.parentMessage.ABSENCE",
                 I18n.get("settings.defaultCenterName"), "غائب", 3L, 4L, "مجموعة أ"));
         assertThat(candidates.get(0).sendable()).isTrue();
     }

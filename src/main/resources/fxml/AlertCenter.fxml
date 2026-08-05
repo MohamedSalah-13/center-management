@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
+
+<!--
+  مركز التنبيهات: تبويب لما وقع، وتبويب لضبط ما يقع أصلاً.
+
+  التبويبان في شاشة واحدة عن قصد: السؤال الذي يلي "لماذا يظهر لي هذا التنبيه كل يوم؟"
+  هو "أين أوقفه؟"، وفصلهما في شاشتين يجعل الجواب رحلةً في القائمة الجانبية.
+-->
+<VBox spacing="15.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.codejava.center.controller.AlertCenterController"
+      style="-fx-background-color: #f4f6f9; -fx-padding: 25;">
+
+    <HBox spacing="20.0" alignment="CENTER_LEFT">
+        <Label text="%alerts.title" textFill="#2c3e50">
+            <font><Font name="System Bold" size="26.0"/></font>
+        </Label>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Label fx:id="masterStateLabel" text="" wrapText="true"/>
+    </HBox>
+
+    <TabPane VBox.vgrow="ALWAYS" tabClosingPolicy="UNAVAILABLE">
+
+        <!-- ================= صندوق التنبيهات ================= -->
+        <Tab text="%alerts.tab.inbox">
+            <VBox spacing="15.0" style="-fx-padding: 20;">
+
+                <GridPane hgap="15.0" vgap="15.0"
+                          style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
+                    <Label text="%audit.from" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                        <font><Font name="System Bold" size="14.0"/></font>
+                    </Label>
+                    <DatePicker fx:id="fromPicker" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+
+                    <Label text="%audit.to" GridPane.columnIndex="2" GridPane.rowIndex="0">
+                        <font><Font name="System Bold" size="14.0"/></font>
+                    </Label>
+                    <DatePicker fx:id="toPicker" editable="false" GridPane.columnIndex="3" GridPane.rowIndex="0"/>
+
+                    <Label text="%alerts.category" GridPane.columnIndex="4" GridPane.rowIndex="0">
+                        <font><Font name="System Bold" size="14.0"/></font>
+                    </Label>
+                    <ComboBox fx:id="categoryCombo" prefWidth="170.0" GridPane.columnIndex="5" GridPane.rowIndex="0"/>
+
+                    <Label text="%alerts.severity" GridPane.columnIndex="6" GridPane.rowIndex="0">
+                        <font><Font name="System Bold" size="14.0"/></font>
+                    </Label>
+                    <ComboBox fx:id="severityCombo" prefWidth="150.0" GridPane.columnIndex="7" GridPane.rowIndex="0"/>
+
+                    <HBox spacing="10.0" GridPane.columnIndex="1" GridPane.rowIndex="1" GridPane.columnSpan="7"
+                          alignment="CENTER_RIGHT">
+                        <Button text="%alerts.scanNow" onAction="#handleScanNow"
+                                style="-fx-background-color: #16a085; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;"/>
+                        <Button text="%common.refresh" onAction="#handleRefresh"
+                                style="-fx-background-color: #2c3e50; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;"/>
+                    </HBox>
+                </GridPane>
+
+                <HBox spacing="15.0" alignment="CENTER_LEFT">
+                    <TextField fx:id="searchField" promptText="%alerts.searchPrompt" prefWidth="300.0"/>
+                    <CheckBox fx:id="openOnlyCheck" text="%alerts.openOnly" selected="true"/>
+                    <Button fx:id="acknowledgeButton" text="%alerts.acknowledge" onAction="#handleAcknowledge"
+                            style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+                    <Label fx:id="summaryLabel" text="" textFill="#2c3e50">
+                        <font><Font name="System Bold" size="14.0"/></font>
+                    </Label>
+                </HBox>
+
+                <Label fx:id="truncationLabel" text="" textFill="#e67e22" wrapText="true"
+                       visible="false" managed="false"/>
+
+                <TableView fx:id="alertsTable" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colTime" text="%audit.col.time" prefWidth="140.0"/>
+                        <TableColumn fx:id="colSeverity" text="%alerts.col.severity" prefWidth="90.0"/>
+                        <TableColumn fx:id="colType" text="%alerts.col.type" prefWidth="180.0"/>
+                        <TableColumn fx:id="colTarget" text="%alerts.col.target" prefWidth="160.0"/>
+                        <TableColumn fx:id="colMessage" text="%alerts.col.message" prefWidth="420.0"/>
+                        <TableColumn fx:id="colStatus" text="%audit.col.status" prefWidth="150.0"/>
+                    </columns>
+                </TableView>
+            </VBox>
+        </Tab>
+
+        <!-- ================= إدارة القواعد ================= -->
+        <Tab text="%alerts.tab.rules">
+            <VBox spacing="15.0" style="-fx-padding: 20;">
+
+                <!-- المفتاح الرئيسي وموعد الفحص: سياسة السنتر كله -->
+                <GridPane hgap="15.0" vgap="12.0"
+                          style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
+                    <CheckBox fx:id="alertsEnabledCheck" text="%alerts.masterSwitch"
+                              GridPane.columnIndex="0" GridPane.rowIndex="0" GridPane.columnSpan="4"/>
+
+                    <Label text="%alerts.scanTime" GridPane.columnIndex="0" GridPane.rowIndex="1">
+                        <font><Font name="System Bold" size="14.0"/></font>
+                    </Label>
+                    <HBox spacing="8.0" alignment="CENTER_LEFT" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                        <Spinner fx:id="scanHourSpinner" editable="true" prefWidth="90.0"/>
+                        <Label text=":"/>
+                        <Spinner fx:id="scanMinuteSpinner" editable="true" prefWidth="90.0"/>
+                    </HBox>
+
+                    <Label fx:id="lastScanLabel" text="" textFill="#7f8c8d"
+                           GridPane.columnIndex="2" GridPane.rowIndex="1" GridPane.columnSpan="2"/>
+
+                    <Label text="%alerts.scheduleNote" textFill="#7f8c8d" wrapText="true"
+                           GridPane.columnIndex="0" GridPane.rowIndex="2" GridPane.columnSpan="4"/>
+
+                    <HBox spacing="10.0" alignment="CENTER_RIGHT"
+                          GridPane.columnIndex="0" GridPane.rowIndex="3" GridPane.columnSpan="4">
+                        <Button text="%alerts.saveSchedule" onAction="#handleSaveSchedule"
+                                style="-fx-background-color: #2c3e50; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;"/>
+                    </HBox>
+                </GridPane>
+
+                <!-- كيف تُعرض التنبيهات على هذا الجهاز. مفصولة عن الجدولة أعلاه بزرّ
+                     حفظ خاص بها لأنها ليست إعداد سنتر: جهاز الاستقبال أمام أولياء
+                     الأمور طوال اليوم، وبطاقة تقفز فيه تكشف أرصدة الطلاب لمن يقف في
+                     الطابور، بينما جهاز المدير في مكتبه لا مشكلة فيه. -->
+                <GridPane hgap="15.0" vgap="12.0"
+                          style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
+                    <Label text="%alerts.device.section" GridPane.columnIndex="0" GridPane.rowIndex="0"
+                           GridPane.columnSpan="4">
+                        <font><Font name="System Bold" size="15.0"/></font>
+                    </Label>
+
+                    <CheckBox fx:id="devicePopupCheck" text="%alerts.device.popup"
+                              GridPane.columnIndex="0" GridPane.rowIndex="1" GridPane.columnSpan="2"/>
+                    <CheckBox fx:id="deviceTrayCheck" text="%alerts.device.tray"
+                              GridPane.columnIndex="2" GridPane.rowIndex="1" GridPane.columnSpan="2"/>
+
+                    <Label text="%alerts.device.minSeverity" GridPane.columnIndex="0" GridPane.rowIndex="2">
+                        <font><Font name="System Bold" size="14.0"/></font>
+                    </Label>
+                    <ComboBox fx:id="deviceSeverityCombo" prefWidth="180.0"
+                              GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+
+                    <Label text="%alerts.device.note" textFill="#7f8c8d" wrapText="true"
+                           GridPane.columnIndex="0" GridPane.rowIndex="3" GridPane.columnSpan="4"/>
+
+                    <HBox spacing="10.0" alignment="CENTER_RIGHT"
+                          GridPane.columnIndex="0" GridPane.rowIndex="4" GridPane.columnSpan="4">
+                        <Button text="%alerts.device.save" onAction="#handleSaveDevicePrefs"
+                                style="-fx-background-color: #2c3e50; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;"/>
+                    </HBox>
+                </GridPane>
+
+                <HBox spacing="20.0" VBox.vgrow="ALWAYS">
+
+                    <TableView fx:id="rulesTable" HBox.hgrow="ALWAYS">
+                        <columns>
+                            <TableColumn fx:id="colRuleCategory" text="%alerts.col.category" prefWidth="120.0"/>
+                            <TableColumn fx:id="colRuleType" text="%alerts.col.type" prefWidth="200.0"/>
+                            <TableColumn fx:id="colRuleState" text="%alerts.col.state" prefWidth="90.0"/>
+                            <TableColumn fx:id="colRuleAudience" text="%alerts.col.audience" prefWidth="150.0"/>
+                            <TableColumn fx:id="colRuleSeverity" text="%alerts.col.severity" prefWidth="90.0"/>
+                        </columns>
+                    </TableView>
+
+                    <!-- تفاصيل القاعدة المحددة: نموذج لا خلايا قابلة للتحرير، لأن معنى
+                         كل حدّ يختلف باختلاف النوع ولا بد أن يُشرح بجواره -->
+                    <VBox spacing="12.0" prefWidth="420.0" minWidth="380.0"
+                          style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
+
+                        <Label fx:id="ruleNameLabel" text="%alerts.selectRule" textFill="#2c3e50" wrapText="true">
+                            <font><Font name="System Bold" size="17.0"/></font>
+                        </Label>
+                        <Label fx:id="ruleDescriptionLabel" text="" textFill="#7f8c8d" wrapText="true"/>
+
+                        <Separator/>
+
+                        <CheckBox fx:id="ruleEnabledCheck" text="%alerts.ruleEnabled"/>
+
+                        <Label text="%alerts.ruleAudience">
+                            <font><Font name="System Bold" size="14.0"/></font>
+                        </Label>
+                        <ComboBox fx:id="ruleAudienceCombo" maxWidth="Infinity"/>
+                        <Label fx:id="ruleAudienceNoteLabel" text="" textFill="#7f8c8d" wrapText="true"/>
+
+                        <Label text="%alerts.ruleSeverity">
+                            <font><Font name="System Bold" size="14.0"/></font>
+                        </Label>
+                        <ComboBox fx:id="ruleSeverityCombo" maxWidth="Infinity"/>
+
+                        <Label fx:id="ruleThresholdLabel" text="">
+                            <font><Font name="System Bold" size="14.0"/></font>
+                        </Label>
+                        <Spinner fx:id="ruleThresholdSpinner" editable="true" maxWidth="Infinity"/>
+
+                        <Label fx:id="ruleWindowLabel" text="">
+                            <font><Font name="System Bold" size="14.0"/></font>
+                        </Label>
+                        <Spinner fx:id="ruleWindowSpinner" editable="true" maxWidth="Infinity"/>
+
+                        <Label fx:id="ruleCooldownLabel" text="%alerts.ruleCooldown">
+                            <font><Font name="System Bold" size="14.0"/></font>
+                        </Label>
+                        <Spinner fx:id="ruleCooldownSpinner" editable="true" maxWidth="Infinity"/>
+
+                        <Label fx:id="ruleUpdatedLabel" text="" textFill="#7f8c8d" wrapText="true"/>
+
+                        <Button fx:id="saveRuleButton" text="%alerts.saveRule" onAction="#handleSaveRule"
+                                maxWidth="Infinity"
+                                style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 20;"/>
+                    </VBox>
+                </HBox>
+            </VBox>
+        </Tab>
+    </TabPane>
+</VBox>

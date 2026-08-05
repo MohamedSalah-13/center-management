@@ -152,8 +152,11 @@ How to reach strings:
 
 - FXML: `text="%student.title"`, `promptText="%student.searchPrompt"`.
 - Java: `I18n.get(key)` or `I18n.format(key, args…)` (MessageFormat — double any `'`).
-- Enums: `Role`/`NotificationType`/`TransactionType` expose `getDisplayName()` reading
-  `role.ADMIN`, `notificationType.ABSENCE`, … Add the key when you add a constant.
+- Enums: `Role`/`AlertType`/`TransactionType` expose `getDisplayName()` reading
+  `role.ADMIN`, `alertType.ABSENCE`, … Add the key when you add a constant. `AlertType` needs
+  four more per constant — `.desc`, `alert.message.<NAME>`, plus `.threshold`/`.window` when it
+  uses them and `alert.parentMessage.<NAME>` when it is parent-capable; `MessageBundleTest`
+  fails the build for each one missing.
 - Commission type is a `String` column, not an enum — use `util/CommissionTypes`.
 - Alerts: `util/Dialogs`. It replaced `AlertUtils` from the old fx-commons dependency, whose
   five static methods had no way to set direction or button labels, so its dialogs rendered
@@ -354,6 +357,125 @@ answer 401 in English forty times. The Settings tab's test send is the only way 
 expired token or an unapproved template, both of which surface only in a real reply; test
 messages are deliberately not written to `notification_logs`, which exists to stop duplicate
 notifications to *students*.
+
+### Alerts
+
+`service/alert/` — one registry of alert kinds serving both the in-app inbox and outgoing
+parent messages. `AlertType` **replaced `NotificationType`**; `ABSENCE` and `ARREARS` kept
+their exact names so existing `notification_logs` rows read unchanged (`V5` only widened the
+column).
+
+**Two axes, not one.** `AlertCategory` is what the alert is *about*, `AlertAudience` is who
+*hears* it, and they are independent. Arrears are a finance matter whose audience may be the
+admin, the parent, or both — one axis would force every type to describe itself as one or the
+other and lose the rest. That is what lets a single type list cover both destinations.
+
+**Adding an alert is a new `AlertDetector` bean plus an `AlertType` constant plus message
+keys. Nothing else.** `AlertEngine` injects `List<AlertDetector>` so the context finds it;
+there is no second place to remember. A detector describes a fact (`AlertDraft`) and never
+writes a sentence or picks a destination — the same split as `NotificationService` vs
+`MessageSender`.
+
+**Rules are not seeded by the migration.** `AlertRuleRegistry` builds the list from
+`AlertType` on every read and fills missing types with `AlertRule.defaultsFor`. Seeding rows
+in `V5` would mean every future type needs its own migration to plant its row, and forgetting
+that leaves a type visible in the screen that silently never runs. A row is written the first
+time an admin saves a change to it.
+
+**Every rule ships `INTERNAL`.** An upgrade must never make the program start messaging
+parents — about money, unprompted, with nobody having asked. `AlertType.isParentCapable()`
+says a type *may* be sent; the decision stays with the centre owner, is confirmed explicitly
+in the screen, and is written to the audit trail (`ALERT_RULE_UPDATED`).
+
+**Two independent duplicate guards, because they answer different questions.**
+
+- *Inbox*: a cooldown window measured from the last real alert (`findRecentEntityIds`), on top
+  of a **unique `dedupe_key`** in the database. A centre has several machines, each running
+  its own scheduler, all waking at the same time — without the constraint the same alert is
+  written three times and the same message sent three times. The constraint is in the DB, not
+  the code, because check-then-insert has a gap two machines fit through exactly. `AlertWriter`
+  does the insert in `REQUIRES_NEW`: catching the violation inside the scan's transaction
+  would mark it rollback-only and lose every other alert in that scan.
+- *Parent messages*: `notification_logs` alone, which **is only written after a send
+  succeeds**. The inbox row is written when the condition is found, so using it as the message
+  guard would stop retries after a failed send, believing the parent had been told.
+
+`entityId` is `null` for alerts with no subject (a failed backup). It enters the dedupe key as
+a literal `-`: a MySQL unique index treats every `NULL` as distinct, so leaving it would let
+exactly those alerts repeat without limit.
+
+Nothing translated is stored, same rule as the audit trail: the row holds the type and
+language-neutral `args`, and `Alert.describe()` builds the sentence at display time. Currency
+symbols live in the message template per language, so amounts are stored as plain
+`MoneyUtils.format` output. **Parent templates always take the centre name as `{0}`**, then the
+draft's args — a message from an unknown number that does not name its sender reads as a scam.
+
+`AlertScheduler` mirrors `BackupScheduler`, `isOverdue` included: the centre's machine may be
+switched on after the scan time every single day, and without catch-up the practical result is
+no alert ever while the screen shows the system enabled. `lastAlertScanAt` is written only on
+a completed scan, so repeated failure shows as a stale date instead of passing silently.
+
+Neither `AlertEngine` nor `NotificationService.sendAutomatic` is guarded — the scheduler thread
+has no `UserSession`, exactly like `BackupService.executeBackup`. The guard belongs on
+`AlertService`: who reads the inbox, and who decides the program may speak for the centre.
+
+Two types are event-driven and have no detector, because their moment is known exactly and
+their detail does not survive it: `BACKUP_FAILED` (raised from `BackupScheduler`'s catch) and
+`PAYMENT_RECEIPT` (raised from `PaymentReceiptListener` on `AFTER_COMMIT` — a message
+confirming money cannot be unsent if the transaction later rolls back). Both go through
+`AlertEngine.raise`, which never throws: it runs on an exception path or after a successful
+sale, and its own error must not replace either.
+
+There is no "session reminder" type: `CourseGroup` carries no timetable, so the next session's
+time is not derivable. That needs group scheduling data first.
+
+#### Getting an alert in front of somebody
+
+Three surfaces, weakest last: the **bell** in the sidebar header (count + dropdown of open
+alerts), a **toast** (`util/Toasts`) that slides into the window corner, and a **Windows tray
+balloon** (`util/TrayNotifier`). The tray one is the only surface that reaches a user whose app
+is minimised — but Focus Assist can swallow it silently, so nothing is ever *only* there.
+Everything announced is in the inbox as well.
+
+**`AlertFeed` is the single source, and both paths go through one read.** An alert raised on
+this machine publishes `AlertRaisedEvent`, which does not carry the row — it only says "read
+now". A second, two-minute poll picks up what *another* terminal's scan wrote, which the event
+bus cannot see. Both call `poll()`. If the event carried the row there would be two delivery
+paths, each needing its own duplicate guard, and the same alert would appear twice whenever
+they raced — which is exactly what a manual scan makes happen.
+
+The guard is `lastSeenId`, **an id and not a timestamp**: the terminals' clocks do not agree,
+and a machine running a minute fast would skip alerts its neighbour really did write. `attach`
+sets it to the current maximum, so signing in does not replay a week of alerts as popups.
+
+`AlertFeed` owns the timer, not `DashboardController` — the controller is `PROTOTYPE` and is
+rebuilt on every language switch, so a timer inside it would outlive its own window and keep
+querying until the app closed. The feed holds one sink, so a new screen registering displaces
+the old one; `stopAlertFeed()` also runs on logout, since a card about student balances must
+not float over the login screen.
+
+`Platform.runLater` sits behind an injectable field (`dispatchOn`) so `AlertFeedTest` can
+exercise the duplicate-suppression logic without a JavaFX toolkit — the CI runner has none.
+Same reasoning as `Printing.pageBreaks` being JavaFX-free.
+
+**Which alerts actually pop is a per-machine choice** (`util/AlertPreferences`, `java.util.prefs`,
+no migration). What is alerted on is centre policy; how loudly it appears is not. The reception
+terminal faces parents all day, and a card reading "student X owes 300" exposes it to whoever is
+queueing. The default floor is `WARNING`: payment receipts fire dozens of times a day, and a
+card for each teaches the user to dismiss cards unread — including the critical one.
+`AlertSeverity.isAtLeast` exists so that comparison is written once; the ordinal order is
+inverted (`CRITICAL` is lowest) and an inline `>=` would silently mute critical alerts while
+still showing notifications, so nothing would look broken.
+
+More than three announceable alerts in one batch collapse into a single summary card. Fifteen
+toasts with fifteen tray balloons behind them cover the screen and none of them get read.
+
+`TrayNotifier` is AWT, so `JavaFxApplication` calls `.headless(false)` on the Spring builder —
+Boot defaults to headless and `SystemTray.getSystemTray()` throws without it. The tray icon is
+installed on the first real notification, not at startup, so a machine with the feature off
+carries no dead icon; the icon is drawn in code because the project ships no image asset, and a
+customer's print logo is not legible at 16px. Windows balloons have no RTL support, which is
+why the text is kept to one short line.
 
 ### Money
 

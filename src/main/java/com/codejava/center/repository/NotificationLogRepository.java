@@ -1,7 +1,7 @@
 package com.codejava.center.repository;
 
 import com.codejava.center.domain.NotificationLog;
-import com.codejava.center.domain.enums.NotificationType;
+import com.codejava.center.domain.enums.AlertType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -24,7 +24,7 @@ public interface NotificationLogRepository extends JpaRepository<NotificationLog
             SELECT n.student.id FROM NotificationLog n
             WHERE n.type = :type AND n.sentAt >= :since
             """)
-    Set<Long> findNotifiedStudentIds(@Param("type") NotificationType type,
+    Set<Long> findNotifiedStudentIds(@Param("type") AlertType type,
                                      @Param("since") LocalDateTime since);
 
     @Query("""

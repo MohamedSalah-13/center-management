@@ -3,7 +3,7 @@ package com.codejava.center.service;
 import com.codejava.center.domain.CenterSettings;
 import com.codejava.center.domain.NotificationLog;
 import com.codejava.center.domain.Student;
-import com.codejava.center.domain.enums.NotificationType;
+import com.codejava.center.domain.enums.AlertType;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.repository.CenterSettingsRepository;
 import com.codejava.center.repository.NotificationLogRepository;
@@ -55,7 +55,7 @@ public class NotificationService {
     @RequiresRole(Role.ADMIN)
     public List<NotificationCandidate> buildAbsenceNotifications(GroupAttendanceReport report) {
         Set<Long> alreadyNotified = notificationLogRepository.findNotifiedStudentIds(
-                NotificationType.ABSENCE, LocalDateTime.now().minusDays(ABSENCE_COOLDOWN_DAYS));
+                AlertType.ABSENCE, LocalDateTime.now().minusDays(ABSENCE_COOLDOWN_DAYS));
 
         String centerName = centerName();
         List<NotificationCandidate> candidates = new ArrayList<>();
@@ -66,10 +66,10 @@ public class NotificationService {
                 continue;
             }
 
-            String message = I18n.format("notify.message.absence",
+            String message = I18n.format("alert.parentMessage.ABSENCE",
                     centerName, row.studentName(), absences, report.totalSessions(), report.groupName());
 
-            candidates.add(toCandidate(row.studentId(), row.studentName(), NotificationType.ABSENCE,
+            candidates.add(toCandidate(row.studentId(), row.studentName(), AlertType.ABSENCE,
                     row.parentPhone(), message, alreadyNotified));
         }
 
@@ -83,23 +83,23 @@ public class NotificationService {
     @RequiresRole(Role.ADMIN)
     public List<NotificationCandidate> buildArrearsNotifications(List<StudentBalance> arrears) {
         Set<Long> alreadyNotified = notificationLogRepository.findNotifiedStudentIds(
-                NotificationType.ARREARS, LocalDateTime.now().minusDays(ARREARS_COOLDOWN_DAYS));
+                AlertType.ARREARS, LocalDateTime.now().minusDays(ARREARS_COOLDOWN_DAYS));
 
         String centerName = centerName();
         List<NotificationCandidate> candidates = new ArrayList<>();
 
         for (StudentBalance row : arrears) {
-            String message = I18n.format("notify.message.arrears",
-                    centerName, row.studentName(), MoneyUtils.formatWithCurrency(row.amountDue()));
+            String message = I18n.format("alert.parentMessage.ARREARS",
+                    centerName, row.studentName(), MoneyUtils.format(row.amountDue()));
 
-            candidates.add(toCandidate(row.studentId(), row.studentName(), NotificationType.ARREARS,
+            candidates.add(toCandidate(row.studentId(), row.studentName(), AlertType.ARREARS,
                     row.parentPhone(), message, alreadyNotified));
         }
 
         return candidates;
     }
 
-    private NotificationCandidate toCandidate(Long studentId, String studentName, NotificationType type,
+    private NotificationCandidate toCandidate(Long studentId, String studentName, AlertType type,
                                               String rawPhone, String message, Set<Long> alreadyNotified) {
         Optional<String> international = PhoneNumbers.toInternational(rawPhone);
 
@@ -120,6 +120,26 @@ public class NotificationService {
     @Transactional
     @RequiresRole(Role.ADMIN)
     public MessageSender.SendResult send(NotificationCandidate candidate) {
+        return deliver(candidate);
+    }
+
+    /**
+     * الإرسال نفسه، بلا حارس صلاحية، لمسار التنبيهات التلقائي.
+     *
+     * <p>غير محروسة عن قصد وللسبب نفسه الذي جعل {@code BackupService.executeBackup}
+     * كذلك: {@code AlertScheduler} ينادي عليها من خيط المجدوِل حيث لا جلسة مستخدم
+     * أصلاً، فأي {@code @RequiresRole} هنا يعني أن كل تنبيه مجدول يُرفض.</p>
+     *
+     * <p>وليست ثغرة: لا يبلغها إلا محرّك التنبيهات، ولا يُرسل إلا ما فعّله المدير
+     * صراحةً في شاشة إدارة القواعد - وهي محروسة. الحارس على قرار الإرسال لا على
+     * فعل الإرسال.</p>
+     */
+    @Transactional
+    public MessageSender.SendResult sendAutomatic(NotificationCandidate candidate) {
+        return deliver(candidate);
+    }
+
+    private MessageSender.SendResult deliver(NotificationCandidate candidate) {
         if (!candidate.phoneValid()) {
             return MessageSender.SendResult.failed(
                     I18n.format("error.notification.invalidPhone", candidate.rawPhone()));

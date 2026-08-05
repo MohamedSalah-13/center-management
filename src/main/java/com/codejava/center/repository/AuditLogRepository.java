@@ -67,6 +67,19 @@ public interface AuditLogRepository extends org.springframework.data.repository.
                        @Param("actions") Collection<AuditAction> actions);
 
     /**
+     * عدد مرات وقوع حدث بعينه منذ لحظة.
+     *
+     * <p>يخدم تنبيه محاولات الدخول الفاشلة: العدّ هنا لا في جدول جديد لأن السجل يحمل
+     * الحدث أصلاً، وجدولٌ ثانٍ لنفس الواقعة يفتح باب اختلافهما.</p>
+     */
+    @Query("""
+            SELECT COUNT(a) FROM AuditLog a
+            WHERE a.action = :action AND a.occurredAt >= :since
+            """)
+    long countByActionSince(@Param("action") AuditAction action,
+                            @Param("since") LocalDateTime since);
+
+    /**
      * أسماء من له أثر في السجل، لملء قائمة التصفية.
      * تُقرأ من السجل نفسه لا من جدول المستخدمين: المستخدم المحذوف تصرّفاته باقية
      * ويجب أن يظل ممكناً استعراضها.

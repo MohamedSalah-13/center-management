@@ -57,7 +57,16 @@ public enum AuditAction {
     // -------------------------------------------------------------------- النظام
     SETTINGS_UPDATED(AuditCategory.SYSTEM),
     BACKUP_CREATED(AuditCategory.SYSTEM),
-    BACKUP_RESTORED(AuditCategory.SYSTEM);
+    BACKUP_RESTORED(AuditCategory.SYSTEM),
+
+    /**
+     * تعديل قاعدة تنبيه: تفعيلها أو إيقافها أو تغيير وجهتها.
+     *
+     * <p>يُسجَّل لأن إيقاف تنبيه يجعل النظام يصمت عن حالة قائمة - "لم يصلني إشعار"
+     * جوابه هنا - ولأن تحويل الوجهة إلى أولياء الأمور يجعل البرنامج يراسلهم باسم
+     * السنتر بلا ضغطة من موظف، وهو تغيير في من يتكلم لا في شكل شاشة.</p>
+     */
+    ALERT_RULE_UPDATED(AuditCategory.SYSTEM);
 
     private final AuditCategory category;
 

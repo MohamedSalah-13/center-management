@@ -4,8 +4,10 @@ import com.codejava.center.config.SecurityConfig;
 import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Student;
 import com.codejava.center.domain.Teacher;
+import com.codejava.center.domain.StudentGroup;
 import com.codejava.center.domain.Transaction;
 import com.codejava.center.domain.enums.TransactionType;
+import com.codejava.center.service.dto.StudentBalance;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -108,6 +110,76 @@ class RepositoryQueryValidationTest {
                 .transactionDate(LocalDateTime.now())
                 .student(student)
                 .build();
+    }
+
+    /**
+     * استعلامات فاحصي التنبيهات. كلّها {@code @Query} مكتوبة يدوياً لا يفحصها المترجم،
+     * وخطأٌ في أيٍّ منها لا يظهر إلا في خيط المجدوِل ليلاً حيث لا يراه أحد - فيبدو أن
+     * النظام يعمل ولا تنبيه واحد يصل.
+     */
+    @Test
+    void alertDetectorQueriesAreValid() {
+        assertThat(studentRepository.findInactiveSince(LocalDate.now().minusDays(14))).isEmpty();
+        assertThat(studentRepository.findStudentsWithLowBalance(null, new BigDecimal("50")))
+                .isEmpty();
+        assertThat(sessionRepository.findOpenSessionsBefore(LocalDate.now())).isEmpty();
+        assertThat(sessionRepository.findGroupsWithoutSessionSince(LocalDate.now().minusDays(14)))
+                .isEmpty();
+    }
+
+    /**
+     * الرصيد الموجب الصغير يخصّ {@code LOW_BALANCE} والسالب يخصّ {@code ARREARS}؛ لو
+     * تداخل الشرطان لَوصل ولي الأمر رسالتان متناقضتان عن الطالب نفسه في يوم واحد.
+     */
+    @Test
+    void lowBalanceAndArrearsNeverSelectTheSameStudent() {
+        Student running = persistStudent("STU-LOW01", "طالب رصيده يقلّ");
+        enrol(running);
+        transactionRepository.saveAndFlush(transaction(running, TransactionType.INCOME, "100.00"));
+        transactionRepository.saveAndFlush(transaction(running, TransactionType.SESSION_CHARGE, "80.00"));
+
+        Student owing = persistStudent("STU-LOW02", "طالب عليه متأخرات");
+        enrol(owing);
+        transactionRepository.saveAndFlush(transaction(owing, TransactionType.SESSION_CHARGE, "60.00"));
+
+        assertThat(studentRepository.findStudentsWithLowBalance(null, new BigDecimal("50")))
+                .extracting(StudentBalance::studentId)
+                .containsExactly(running.getId());
+
+        assertThat(studentRepository.findStudentsInArrears(null))
+                .extracting(StudentBalance::studentId)
+                .containsExactly(owing.getId());
+    }
+
+    /** طالب بلا اشتراك سارٍ رصيده صفر أبداً؛ إدراجه يملأ التنبيه بأسماء لا مشكلة فيها */
+    @Test
+    void lowBalanceIgnoresStudentsWithNoLiveEnrolment() {
+        persistStudent("STU-LOW03", "طالب بلا مجموعة");
+
+        assertThat(studentRepository.findStudentsWithLowBalance(null, new BigDecimal("50"))).isEmpty();
+    }
+
+    private void enrol(Student student) {
+        Teacher teacher = teacherRepository.saveAndFlush(Teacher.builder()
+                .name("معلم " + student.getBarcode())
+                .subject("رياضيات")
+                .commissionType("PERCENTAGE")
+                .commissionValue(new BigDecimal("50.00"))
+                .build());
+
+        CourseGroup group = courseGroupRepository.saveAndFlush(CourseGroup.builder()
+                .name("مجموعة " + student.getBarcode())
+                .teacher(teacher)
+                .maxCapacity(20)
+                .sessionPrice(new BigDecimal("40.00"))
+                .build());
+
+        studentGroupRepository.saveAndFlush(StudentGroup.builder()
+                .student(student)
+                .group(group)
+                .joinDate(LocalDate.now())
+                .isActive(true)
+                .build());
     }
 
     @Test

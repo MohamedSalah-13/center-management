@@ -338,3 +338,26 @@
 .default-color5.chart-pie { -fx-pie-color: #1abc9c; }
 
 .chart-bar { -fx-bar-fill: -secondary-color; }
+
+/* جرس التنبيهات في ترويسة القائمة الجانبية.
+   الخلفية شفافة ما دام لا شيء قائم: زرّ ملوَّن دائماً يصير جزءاً من خلفية الشاشة
+   فلا يُلحظ يوم يحمل رقماً فعلاً - وهو اليوم الوحيد الذي وُضع من أجله. */
+.bell-btn {
+    -fx-background-color: rgba(255,255,255,0.08);
+    -fx-text-fill: #cfd8e3;
+    -fx-font-size: 13px;
+    -fx-padding: 4 14;
+    -fx-background-radius: 14;
+    -fx-cursor: hand;
+}
+.bell-btn:hover {
+    -fx-background-color: rgba(255,255,255,0.18);
+}
+.bell-btn-alert {
+    -fx-background-color: #c0392b;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+.bell-btn-alert:hover {
+    -fx-background-color: #e74c3c;
+}

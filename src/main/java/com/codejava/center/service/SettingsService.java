@@ -75,7 +75,11 @@ public class SettingsService {
                 + "; backupPath=" + settings.getBackupPath()
                 + "; frequency=" + settings.getBackupFrequency()
                 + "; time=" + settings.getBackupTime()
-                + "; notifyChannel=" + settings.getNotificationChannel();
+                + "; notifyChannel=" + settings.getNotificationChannel()
+                // التنبيهات معها: إيقاف المفتاح الرئيسي يُصمت النظام كله عن حالات قائمة،
+                // وهو ما يُسأل عنه يوم يقول أحدهم "لم يصلني أي تنبيه"
+                + "; alerts=" + settings.isAlertsEnabled()
+                + "; alertScanTime=" + settings.getAlertScanTime();
     }
 
     /**
@@ -88,6 +92,21 @@ public class SettingsService {
     public void recordAutoBackupAt(LocalDateTime moment) {
         CenterSettings settings = getSettings();
         settings.setLastAutoBackupAt(moment);
+        centerSettingsRepository.save(settings);
+    }
+
+    /**
+     * يسجّل لحظة آخر فحص تنبيهات مكتمل.
+     *
+     * <p>لا ينشر {@link SettingsChangedEvent} للسبب نفسه في {@link #recordAutoBackupAt}:
+     * المجدوِل هو من يستدعيها بعد كل فحص، وإشعاره بها يجعله يعيد جدولة نفسه بعد كل
+     * تنفيذ بلا داعٍ - وإعادة الجدولة تُسقط أيضاً معلومة "هذه أول مرة" التي يقوم عليها
+     * تعويض الموعد الفائت.</p>
+     */
+    @Transactional
+    public void recordAlertScanAt(LocalDateTime moment) {
+        CenterSettings settings = getSettings();
+        settings.setLastAlertScanAt(moment);
         centerSettingsRepository.save(settings);
     }
 }

@@ -40,6 +40,11 @@
                     <Label fx:id="userNameLabel" text="%common.empty" styleClass="sidebar-user"/>
                     <Label fx:id="userRoleLabel" text="" styleClass="sidebar-role"/>
                 </HBox>
+
+                <!-- الجرس: العدّاد وقائمة ما لم يُعالَج. مخفيّ لغير المدير لأن
+                     صندوق التنبيهات نفسه مقصور عليه. -->
+                <Button fx:id="bellButton" text="%alerts.bell" onAction="#showAlertDropdown"
+                        styleClass="bell-btn" visible="false" managed="false"/>
             </VBox>
 
             <Separator styleClass="sidebar-separator"/>
@@ -83,6 +88,8 @@
                                 maxWidth="Infinity" styleClass="sidebar-btn"/>
                         <Button fx:id="notificationsButton" text="%nav.notifications"
                                 onAction="#showNotifications" maxWidth="Infinity" styleClass="sidebar-btn"/>
+                        <Button fx:id="alertsButton" text="%nav.alerts" onAction="#showAlerts"
+                                maxWidth="Infinity" styleClass="sidebar-btn"/>
                     </VBox>
 
                     <VBox fx:id="navAdminBox" spacing="3.0">

@@ -1,6 +1,9 @@
 package com.codejava.center.service;
 
 import com.codejava.center.domain.CenterSettings;
+import com.codejava.center.domain.enums.AlertType;
+import com.codejava.center.service.alert.AlertDraft;
+import com.codejava.center.service.alert.AlertEngine;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,6 +17,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.concurrent.ScheduledFuture;
@@ -48,6 +52,7 @@ public class BackupScheduler {
     private final TaskScheduler taskScheduler;
     private final SettingsService settingsService;
     private final BackupService backupService;
+    private final AlertEngine alertEngine;
 
     private ScheduledFuture<?> scheduled;
 
@@ -127,6 +132,12 @@ public class BackupScheduler {
         } catch (RuntimeException e) {
             // لا يُعاد الرمي: المشغّل يعتبر المهمة منتهية على أي حال، ورميه يفقد الرسالة المترجمة
             log.error("فشلت النسخة الاحتياطية التلقائية: {}", e.getMessage(), e);
+
+            // سطرٌ في السجل لا يراه أحد. التنبيه هو ما يجعل فشلاً يتكرر كل ليلة مرئياً
+            // قبل اليوم الذي تُطلب فيه النسخة. تاريخ المحاولة وحده هو الوسيط: نصّ خطأ
+            // الأداة مترجَم بلغة الجهاز الذي فشل، وتخزينه يجمّد السطر على تلك اللغة
+            alertEngine.raise(AlertType.BACKUP_FAILED,
+                    AlertDraft.internal(null, null, LocalDate.now().toString()));
         }
     }
 }

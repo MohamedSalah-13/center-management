@@ -66,6 +66,35 @@ public interface SessionRepository extends JpaRepository<Session, Long> {
             """)
     List<Session> findPayableSessions();
 
+    /**
+     * حصص ما زالت مفتوحة رغم مضيّ يومها.
+     *
+     * <p>حالة تُكلّف السنتر شيئاً الآن، لا مجرد ترتيب: المجموعة لا تستطيع فتح حصة
+     * جديدة ما دامت لها حصة مفتوحة ({@code findByGroupAndIsActiveTrue})، ومستحقات
+     * المعلم عن هذه الحصة لا تُصرف حتى تُغلق ({@code findPayableSessions}). ولذلك
+     * درجتها حرجة.</p>
+     */
+    @Query("""
+            SELECT s FROM Session s JOIN FETCH s.group g JOIN FETCH g.teacher
+            WHERE s.isActive = true AND s.sessionDate < :before
+            ORDER BY s.sessionDate, s.id
+            """)
+    List<Session> findOpenSessionsBefore(@Param("before") LocalDate before);
+
+    /**
+     * مجموعات لم تُعقد لها أي حصة منذ التاريخ المعطى.
+     *
+     * <p>تُقرأ من جهة المجموعة لا من جهة الحصص، وإلا اختفت المجموعة التي لم تُعقد لها
+     * حصة قطّ - وهي أولى الحالات بالتنبيه.</p>
+     */
+    @Query("""
+            SELECT g FROM CourseGroup g JOIN FETCH g.teacher
+            WHERE NOT EXISTS (SELECT 1 FROM Session s
+                              WHERE s.group = g AND s.sessionDate >= :since)
+            ORDER BY g.name
+            """)
+    List<CourseGroup> findGroupsWithoutSessionSince(@Param("since") LocalDate since);
+
     /** عدد الحصص المنعقدة لمجموعة خلال فترة - المقام في نسبة الحضور */
     long countByGroupIdAndSessionDateBetween(Long groupId, LocalDate fromDate, LocalDate toDate);
 

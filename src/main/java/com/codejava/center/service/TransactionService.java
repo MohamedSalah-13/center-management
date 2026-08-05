@@ -32,6 +32,7 @@ public class TransactionService {
     private final TransactionRepository transactionRepository;
     private final SettingsService settingsService;
     private final AuditService auditService;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     /**
      * تسجيل دفع اشتراك طالب مخصص لحصة معينة (لتجنب الدفع المزدوج للحصة)
@@ -64,6 +65,11 @@ public class TransactionService {
         // اسم الطالب يُنسخ إلى السجل: حذف الطالب لاحقاً لا يجوز أن يترك تحصيلاً بلا صاحب
         auditService.record(AuditAction.PAYMENT_RECORDED, saved.getId(),
                 student.getName(), saved.getAmount(), description);
+
+        // تنبيه "تأكيد استلام دفعة" يُبنى على هذا الحدث، ولا يُستهلك إلا بعد الإيداع:
+        // رسالةٌ تصل ولي الأمر عن دفعة تراجعت معاملتها بعدها لا يمكن سحبها
+        eventPublisher.publishEvent(new StudentPaymentRecordedEvent(
+                student.getId(), student.getName(), student.getParentPhone(), saved.getAmount()));
 
         return saved;
     }

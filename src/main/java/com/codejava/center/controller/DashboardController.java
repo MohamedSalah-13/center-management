@@ -1,6 +1,8 @@
 package com.codejava.center.controller;
 
+import com.codejava.center.domain.Alert;
 import com.codejava.center.domain.User;
+import com.codejava.center.domain.enums.AlertSeverity;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.service.AttendanceService;
 import com.codejava.center.service.AuthService;
@@ -8,13 +10,19 @@ import com.codejava.center.service.SessionService;
 import com.codejava.center.service.SettingsService;
 import com.codejava.center.service.StudentService;
 import com.codejava.center.service.TransactionService;
+import com.codejava.center.service.alert.AlertBatch;
+import com.codejava.center.service.alert.AlertFeed;
+import com.codejava.center.service.alert.AlertService;
 import com.codejava.center.service.dto.DailyAttendance;
 import com.codejava.center.service.dto.GroupRevenue;
+import com.codejava.center.util.AlertPreferences;
 import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.LanguageSelector;
 import com.codejava.center.util.MoneyUtils;
+import com.codejava.center.util.Toasts;
+import com.codejava.center.util.TrayNotifier;
 import com.codejava.center.util.UserSession;
 import com.codejava.center.util.ViewLoader;
 import javafx.application.Platform;
@@ -26,17 +34,25 @@ import javafx.scene.Node;
 import javafx.scene.chart.BarChart;
 import javafx.scene.chart.PieChart;
 import javafx.scene.chart.XYChart;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Separator;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.shape.Circle;
+import javafx.stage.Popup;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
@@ -67,8 +83,23 @@ public class DashboardController {
     private final SettingsService settingsService;
     private final AuthService authService;
     private final ViewLoader viewLoader;
+    private final AlertService alertService;
+    private final AlertFeed alertFeed;
+    private final TrayNotifier trayNotifier;
 
     private static final String ACTIVE_STYLE_CLASS = "sidebar-btn-active";
+    private static final String BELL_ALERT_STYLE_CLASS = "bell-btn-alert";
+
+    /** فوق هذا العدد تُلخَّص الدفعة في بطاقة واحدة بدل بطاقة لكل تنبيه */
+    private static final int INDIVIDUAL_TOAST_LIMIT = 3;
+
+    /** ما تعرضه قائمة الجرس؛ الباقي في صندوق التنبيهات وهو المكان الذي يُقرأ فيه */
+    private static final int DROPDOWN_ROWS = 8;
+
+    private static final DateTimeFormatter BELL_TIMESTAMP = DateTimeFormatter.ofPattern("MM-dd HH:mm");
+
+    private Popup dropdown;
+    private long openAlertCount;
     @FXML
     private StackPane contentArea;
     @FXML
@@ -95,6 +126,10 @@ public class DashboardController {
     private Button arrearsButton;
     @FXML
     private Button notificationsButton;
+    @FXML
+    private Button alertsButton;
+    @FXML
+    private Button bellButton;
     @FXML
     private Button homeButton;
     @FXML
@@ -160,6 +195,7 @@ public class DashboardController {
 
         loadDashboardStats();
         loadChartsData();
+        startAlertFeed();
     }
 
     /**
@@ -174,7 +210,7 @@ public class DashboardController {
             for (Button restricted : new Button[]{
                     cashierButton, groupsButton, teachersButton, usersManagementButton, settingsButton,
                     shiftClosingButton, expensesButton, teacherPayoutButton, arrearsButton, notificationsButton,
-                    auditButton}) {
+                    alertsButton, auditButton}) {
                 hide(restricted);
             }
             // بطاقة صافي الدرج ومخطط الإيرادات بيانات مالية أيضاً
@@ -313,6 +349,216 @@ public class DashboardController {
     public void showNotifications(ActionEvent event) {
         loadView("/fxml/Notifications.fxml", notificationsButton);
     }
+
+    @FXML
+    public void showAlerts(ActionEvent event) {
+        dismissDropdown();
+        loadView("/fxml/AlertCenter.fxml", alertsButton);
+    }
+
+    // ============================================================== التنبيهات الحيّة
+
+    /**
+     * يربط لوحة القيادة بمصدر التنبيهات.
+     *
+     * <p>{@link AlertFeed} هو من يملك المؤقّت لا هذا المتحكّم، وذلك مقصود: المتحكّم
+     * {@code PROTOTYPE} ويُعاد بناؤه مع كل تبديل للغة، فمؤقّتٌ بداخله يبقى حيّاً بعد أن
+     * تُهجَر نسخته ويظلّ يستعلم عن قاعدة البيانات إلى أن يُغلق البرنامج. المصدر مفرد
+     * ({@code singleton}) ولا يعرف إلا مستقبِلاً واحداً، فتسجيل الشاشة الجديدة يُسقط
+     * القديمة من نفسه.</p>
+     *
+     * <p>وللمدير وحده: {@code AlertService} محروس، واستدعاؤه بصلاحية سكرتارية يكتب سطر
+     * رفض في سجل المراقبة عند كل فتح للشاشة - وهو ضجيج يُفقد السجل معناه.</p>
+     */
+    private void startAlertFeed() {
+        if (!userSession.hasRole(Role.ADMIN)) {
+            return;
+        }
+
+        bellButton.setVisible(true);
+        bellButton.setManaged(true);
+
+        // على خيط خلفي: أول ما يفعله المصدر سؤال قاعدة البيانات عن خط البداية
+        FxAsync.run(() -> alertFeed.attach(this::onAlerts), () -> {
+        }, error -> { /* الجرس بلا عدّاد أهون من نافذة خطأ فوق شاشة تُفتح توّاً */ });
+    }
+
+    /**
+     * تسليمة من مصدر التنبيهات، على خيط الواجهة.
+     *
+     * <p>العدّاد يُحدَّث دائماً، والبطاقات لا تظهر إلا لما يستحق: {@code AlertPreferences}
+     * تحدّد أدنى درجة تقفز أمام المستخدم على <b>هذا الجهاز</b>. تأكيد استلام دفعة يقع
+     * عشرات المرات في اليوم، وبطاقة لكلٍّ منها تعلّم المستخدم إغلاق البطاقات دون
+     * قراءتها - فيغلق الحرجة معها.</p>
+     */
+    private void onAlerts(AlertBatch batch) {
+        showAlertCount(batch.openCount());
+
+        List<Alert> announce = batch.fresh().stream()
+                .filter(alert -> AlertPreferences.shouldAnnounce(alert.getSeverity()))
+                .toList();
+
+        if (announce.isEmpty()) {
+            return;
+        }
+
+        // دفعة كبيرة تُلخَّص في بطاقة واحدة: خمس عشرة بطاقة متتابعة - وخمس عشرة فقاعة
+        // في شريط المهام خلفها - تحجب الشاشة، ولا تُقرأ منها واحدة
+        if (announce.size() > INDIVIDUAL_TOAST_LIMIT) {
+            announceSummary(announce);
+        } else {
+            announce.forEach(this::announceOne);
+        }
+    }
+
+    private void announceOne(Alert alert) {
+        String title = alert.getType().getDisplayName();
+        String message = alert.describe();
+
+        if (AlertPreferences.popupEnabled()) {
+            Toasts.show(window(), title, message, alert.getSeverity().getAccentColor(),
+                    () -> showAlerts(null));
+        }
+        trayNotifier.notifyUser(title, message, alert.getSeverity() == AlertSeverity.CRITICAL);
+    }
+
+    private void announceSummary(List<Alert> announce) {
+        boolean anyCritical = announce.stream()
+                .anyMatch(alert -> alert.getSeverity() == AlertSeverity.CRITICAL);
+
+        String title = I18n.get("alerts.toastSummaryTitle");
+        String message = I18n.format("alerts.toastSummary", announce.size());
+
+        if (AlertPreferences.popupEnabled()) {
+            Toasts.show(window(), title, message,
+                    (anyCritical ? AlertSeverity.CRITICAL : AlertSeverity.WARNING).getAccentColor(),
+                    () -> showAlerts(null));
+        }
+        trayNotifier.notifyUser(title, message, anyCritical);
+    }
+
+    private void showAlertCount(long openCount) {
+        openAlertCount = openCount;
+        bellButton.setText(openCount == 0
+                ? I18n.get("alerts.bell") : I18n.format("alerts.bellWithCount", openCount));
+
+        // الصفر لا يُلوَّن: جرسٌ أحمر دائماً يصير جزءاً من خلفية الشاشة
+        bellButton.getStyleClass().remove(BELL_ALERT_STYLE_CLASS);
+        if (openCount > 0) {
+            bellButton.getStyleClass().add(BELL_ALERT_STYLE_CLASS);
+        }
+    }
+
+    /**
+     * قائمة الجرس: آخر ما لم يُعالَج، بلا مغادرة الشاشة الحالية.
+     *
+     * <p>{@link Popup} لا نافذة: نافذةٌ مستقلة تسرق التركيز من الحقل الذي يكتب فيه
+     * الموظف. و{@code autoHide} يُغلقها بأول ضغطة خارجها، وهو ما يتوقعه من فتح قائمة
+     * منسدلة.</p>
+     */
+    @FXML
+    public void showAlertDropdown(ActionEvent event) {
+        if (dropdown != null && dropdown.isShowing()) {
+            dismissDropdown();
+            return;
+        }
+
+        FxAsync.supply(() -> alertService.search(LocalDate.now().minusWeeks(2), LocalDate.now(), null, null),
+                page -> showDropdown(page.rows().stream().filter(alert -> !alert.isAcknowledged())
+                        .limit(DROPDOWN_ROWS).toList()),
+                error -> Dialogs.error(I18n.format("alerts.loadFailed", FxAsync.messageOf(error))));
+    }
+
+    private void showDropdown(List<Alert> open) {
+        dismissDropdown();
+
+        VBox rows = new VBox(2);
+        if (open.isEmpty()) {
+            Label empty = new Label(I18n.get("alerts.bellEmpty"));
+            empty.setStyle("-fx-text-fill: #7f8c8d; -fx-padding: 18;");
+            rows.getChildren().add(empty);
+        } else {
+            open.forEach(alert -> rows.getChildren().add(dropdownRow(alert)));
+        }
+
+        ScrollPane scroll = new ScrollPane(rows);
+        scroll.setFitToWidth(true);
+        scroll.setPrefHeight(Math.min(320, 74.0 * Math.max(1, open.size()) + 12));
+        scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+
+        Button openCentre = new Button(I18n.get("alerts.bellOpenCentre"));
+        openCentre.setMaxWidth(Double.MAX_VALUE);
+        openCentre.setStyle("-fx-background-color: #2c3e50; -fx-text-fill: white; -fx-padding: 8 16;");
+        openCentre.setOnAction(e -> showAlerts(null));
+
+        Label header = new Label(I18n.format("alerts.bellTitle", openAlertCount));
+        header.setStyle("-fx-font-weight: bold; -fx-font-size: 14px; -fx-padding: 12 14 8 14;");
+
+        VBox content = new VBox(8, header, new Separator(), scroll, openCentre);
+        content.setPrefWidth(380);
+        content.setPadding(new Insets(0, 10, 10, 10));
+        content.setStyle("-fx-background-color: white; -fx-background-radius: 8;"
+                + " -fx-border-color: #dfe4ea; -fx-border-radius: 8;"
+                + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.22), 14, 0, 0, 4);");
+        // الـ Popup ليس ابناً للمشهد فلا يرث اتجاهه
+        content.setNodeOrientation(ViewLoader.orientation());
+
+        dropdown = new Popup();
+        dropdown.setAutoHide(true);
+        dropdown.setHideOnEscape(true);
+        dropdown.getContent().add(content);
+
+        javafx.geometry.Bounds bell = bellButton.localToScreen(bellButton.getBoundsInLocal());
+        dropdown.show(bellButton, bell.getMinX(), bell.getMaxY() + 6);
+    }
+
+    private Node dropdownRow(Alert alert) {
+        Region dot = new Region();
+        dot.setMinSize(8, 8);
+        dot.setMaxSize(8, 8);
+        dot.setStyle("-fx-background-color: " + alert.getSeverity().getAccentColor()
+                + "; -fx-background-radius: 4;");
+
+        Label message = new Label(alert.describe());
+        message.setWrapText(true);
+        message.setStyle("-fx-font-size: 12px; -fx-text-fill: #2c3e50;");
+
+        Label when = new Label(alert.getRaisedAt().format(BELL_TIMESTAMP));
+        when.setStyle("-fx-font-size: 11px; -fx-text-fill: #95a5a6;");
+
+        VBox text = new VBox(3, message, when);
+        HBox.setHgrow(text, Priority.ALWAYS);
+
+        HBox row = new HBox(8, dot, text);
+        row.setAlignment(Pos.TOP_LEFT);
+        row.setPadding(new Insets(8, 6, 8, 6));
+        return row;
+    }
+
+    private void dismissDropdown() {
+        if (dropdown != null) {
+            dropdown.hide();
+            dropdown = null;
+        }
+    }
+
+    /** نافذة الشاشة الحالية، أو {@code null} قبل عرض المشهد */
+    private Window window() {
+        return bellButton.getScene() == null ? null : bellButton.getScene().getWindow();
+    }
+
+    /**
+     * فكّ الارتباط قبل هجر هذه النسخة من المتحكّم.
+     *
+     * <p>يُستدعى عند تسجيل الخروج وعند تبديل اللغة. البطاقات المعلّقة تُخفى معه: هي
+     * معلّقة على نافذة يُعاد بناء مشهدها، وبطاقة عن أرصدة الطلاب تطفو فوق شاشة الدخول
+     * تعرض بيانات على من لم يسجّل دخوله بعد.</p>
+     */
+    private void stopAlertFeed() {
+        alertFeed.detach();
+        dismissDropdown();
+        Toasts.hideAll();
+    }
     private void loadDashboardStats() {
         // البيانات المالية متاحة للمدير فقط؛ استدعاؤها بصلاحية سكرتارية
         // سيرمي AccessDeniedException من طبقة الخدمات
@@ -434,6 +680,9 @@ public class DashboardController {
 
     private void reloadDashboard() {
         try {
+            // قبل إعادة البناء لا بعده: النسخة الجديدة تسجّل نفسها في المصدر فوراً،
+            // وفكّ الارتباط بعدها كان سيُسقط تسجيلها هي
+            stopAlertFeed();
             viewLoader.showDashboard(stageOf(languageCombo));
         } catch (IOException e) {
             e.printStackTrace();
@@ -446,6 +695,7 @@ public class DashboardController {
             // 1. إنهاء الجلسة الحالية أولاً حتى لا يرث المستخدم التالي صلاحيات السابق
             User leaving = userSession.getCurrentUser();
             userSession.cleanUserSession();
+            stopAlertFeed();
 
             // 2. تسجيل الخروج في سجل المراقبة في الخلفية: بداية الجلسة ونهايتها هما ما
             // يحدّد أي أحداث تقع في نطاق مسؤولية من، وخيط الواجهة لا ينتظر قاعدة البيانات

@@ -1,10 +1,13 @@
 package com.codejava.center.i18n;
 
+import com.codejava.center.domain.enums.AlertAudience;
+import com.codejava.center.domain.enums.AlertCategory;
+import com.codejava.center.domain.enums.AlertSeverity;
 import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.domain.enums.AuditCategory;
 import com.codejava.center.domain.enums.BackupFrequency;
 import com.codejava.center.domain.enums.NotificationChannel;
-import com.codejava.center.domain.enums.NotificationType;
+import com.codejava.center.domain.enums.AlertType;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.domain.enums.TransactionType;
 import com.codejava.center.service.notification.WhatsAppLinkStyle;
@@ -133,8 +136,32 @@ class MessageBundleTest {
         for (AuditCategory category : AuditCategory.values()) {
             requireKey(declared, "auditCategory." + category.name(), unresolved);
         }
-        for (NotificationType type : NotificationType.values()) {
-            requireKey(declared, "notificationType." + type.name(), unresolved);
+        // نوع التنبيه يظهر في أربعة مواضع على الأقل، ونسيان أيٍّ منها يترك صفاً
+        // بلا اسم أو حقلاً بلا شرح في شاشة إدارة القواعد
+        for (AlertType type : AlertType.values()) {
+            requireKey(declared, "alertType." + type.name(), unresolved);
+            requireKey(declared, "alertType." + type.name() + ".desc", unresolved);
+            requireKey(declared, "alert.message." + type.name(), unresolved);
+
+            if (type.usesThreshold()) {
+                requireKey(declared, "alertType." + type.name() + ".threshold", unresolved);
+            }
+            if (type.usesWindow()) {
+                requireKey(declared, "alertType." + type.name() + ".window", unresolved);
+            }
+            // نصّ الرسالة التي تصل ولي الأمر؛ نوع بلا نصّ يعني رسالة فارغة تُرسل فعلاً
+            if (type.isParentCapable()) {
+                requireKey(declared, "alert.parentMessage." + type.name(), unresolved);
+            }
+        }
+        for (AlertCategory category : AlertCategory.values()) {
+            requireKey(declared, "alertCategory." + category.name(), unresolved);
+        }
+        for (AlertSeverity severity : AlertSeverity.values()) {
+            requireKey(declared, "alertSeverity." + severity.name(), unresolved);
+        }
+        for (AlertAudience audience : AlertAudience.values()) {
+            requireKey(declared, "alertAudience." + audience.name(), unresolved);
         }
         for (TransactionType type : TransactionType.values()) {
             requireKey(declared, "transactionType." + type.name(), unresolved);

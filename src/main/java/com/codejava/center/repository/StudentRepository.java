@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -50,6 +51,59 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
                                        THEN t.amount ELSE -t.amount END), 0)
             """)
     List<StudentBalance> findStudentsInArrears(@Param("startDate") LocalDateTime startDate);
+
+    /**
+     * الطلاب النشطون الذين أوشك رصيدهم على النفاد: موجب بعد، وأقل من الحدّ.
+     *
+     * <p>نفس معادلة {@code findStudentsInArrears} بالضبط، وما يفرقهما شرط
+     * {@code HAVING}: هناك أقلّ من صفر (عليه مستحقات)، وهنا بين صفر والحدّ (سيقف على
+     * البوابة بعد حصة أو حصتين). الفصل بينهما مقصود - التنبيه قبل نفاد الرصيد يمنع
+     * الموقف، والتنبيه بعده يعالجه، ولكلٍّ نصّه ودرجته.</p>
+     *
+     * <p>ويشترط اشتراكاً سارياً في مجموعة: طالب مسجَّل ولم يلتحق بأي مجموعة رصيده صفر
+     * دائماً، فيملأ التنبيه بأسماء لا مشكلة فيها.</p>
+     */
+    @Query("""
+            SELECT new com.codejava.center.service.dto.StudentBalance(
+                s.id, s.name, s.barcode, s.phone, s.parentPhone,
+                COALESCE(SUM(CASE WHEN t.type = com.codejava.center.domain.enums.TransactionType.INCOME
+                                  THEN t.amount ELSE -t.amount END), 0))
+            FROM Student s
+            LEFT JOIN Transaction t ON t.student = s
+                 AND t.type IN (com.codejava.center.domain.enums.TransactionType.INCOME,
+                                com.codejava.center.domain.enums.TransactionType.SESSION_CHARGE)
+                 AND (:startDate IS NULL OR t.transactionDate >= :startDate)
+            WHERE s.isActive = true
+              AND EXISTS (SELECT 1 FROM StudentGroup sg
+                          WHERE sg.student = s AND sg.isActive = true)
+            GROUP BY s.id, s.name, s.barcode, s.phone, s.parentPhone
+            HAVING COALESCE(SUM(CASE WHEN t.type = com.codejava.center.domain.enums.TransactionType.INCOME
+                                     THEN t.amount ELSE -t.amount END), 0) >= 0
+               AND COALESCE(SUM(CASE WHEN t.type = com.codejava.center.domain.enums.TransactionType.INCOME
+                                     THEN t.amount ELSE -t.amount END), 0) < :maxBalance
+            ORDER BY COALESCE(SUM(CASE WHEN t.type = com.codejava.center.domain.enums.TransactionType.INCOME
+                                       THEN t.amount ELSE -t.amount END), 0)
+            """)
+    List<StudentBalance> findStudentsWithLowBalance(@Param("startDate") LocalDateTime startDate,
+                                                    @Param("maxBalance") BigDecimal maxBalance);
+
+    /**
+     * طلاب نشطون لهم اشتراك سارٍ ولم يُسجَّل لهم حضور منذ التاريخ المعطى.
+     *
+     * <p>الانقطاع غير الغياب: الغياب يُقاس داخل مجموعة وفترة تقرير، وهذا يقول إن
+     * الطالب اختفى من السنتر كله. اشتراط الاشتراك السارِي ضروري وإلا ظهر كل من سُجّل
+     * ولم يلتحق بمجموعة بعد على أنه منقطع.</p>
+     */
+    @Query("""
+            SELECT s FROM Student s
+            WHERE s.isActive = true
+              AND EXISTS (SELECT 1 FROM StudentGroup sg
+                          WHERE sg.student = s AND sg.isActive = true)
+              AND NOT EXISTS (SELECT 1 FROM Attendance a
+                              WHERE a.student = s AND a.session.sessionDate >= :since)
+            ORDER BY s.name
+            """)
+    List<Student> findInactiveSince(@Param("since") LocalDate since);
 
     /**
      * حضور كل طالب في مجموعة خلال فترة.

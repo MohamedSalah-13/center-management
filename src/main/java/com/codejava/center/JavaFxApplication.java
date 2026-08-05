@@ -22,6 +22,11 @@ public class JavaFxApplication extends Application {
         String[] args = getParameters().getRaw().toArray(new String[0]);
         this.applicationContext = new SpringApplicationBuilder()
                 .sources(CenterApplication.class)
+                // Spring Boot يضبط java.awt.headless=true افتراضياً، وإشعارات شريط
+                // مهام ويندوز (TrayNotifier) من AWT: بدون هذا السطر ترمي
+                // SystemTray.getSystemTray استثناء HeadlessException عند أول تنبيه.
+                // وهو آمن هنا لأن البرنامج واجهة رسومية أصلاً ولا يعمل بلا شاشة.
+                .headless(false)
                 .run(args);
     }
 

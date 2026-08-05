@@ -1,7 +1,7 @@
 package com.codejava.center.controller;
 
 import com.codejava.center.domain.CourseGroup;
-import com.codejava.center.domain.enums.NotificationType;
+import com.codejava.center.domain.enums.AlertType;
 import com.codejava.center.service.AttendanceService;
 import com.codejava.center.service.CourseGroupService;
 import com.codejava.center.service.NotificationService;
@@ -43,7 +43,7 @@ public class NotificationsController {
     private final CourseGroupService courseGroupService;
 
     @FXML private Label channelNoteLabel, summaryLabel, groupLabel, fromLabel, toLabel;
-    @FXML private ComboBox<NotificationType> typeComboBox;
+    @FXML private ComboBox<AlertType> typeComboBox;
     @FXML private ComboBox<CourseGroup> groupComboBox;
     @FXML private DatePicker fromPicker, toPicker;
     @FXML private CheckBox sendableOnlyCheck;
@@ -62,19 +62,22 @@ public class NotificationsController {
 
     @FXML
     public void initialize() {
-        typeComboBox.getItems().addAll(NotificationType.values());
+        // النوعان اللذان تعرف هذه الشاشة كيف تبني قائمتهما من تقرير أمامها، لا كل
+        // أنواع AlertType: البقية إما داخلية لا تُرسل لولي أمر، أو حَدَثية تُطلق
+        // لحظة وقوعها ولا معنى لتجهيز قائمة لها يدوياً
+        typeComboBox.getItems().addAll(AlertType.ABSENCE, AlertType.ARREARS);
         typeComboBox.setConverter(new StringConverter<>() {
             @Override
-            public String toString(NotificationType type) {
+            public String toString(AlertType type) {
                 return type == null ? "" : type.getDisplayName();
             }
 
             @Override
-            public NotificationType fromString(String string) {
+            public AlertType fromString(String string) {
                 return null;
             }
         });
-        typeComboBox.setValue(NotificationType.ABSENCE);
+        typeComboBox.setValue(AlertType.ABSENCE);
         typeComboBox.valueProperty().addListener((obs, oldVal, newVal) -> updateFieldVisibility());
 
         groupComboBox.setConverter(new StringConverter<>() {
@@ -141,7 +144,7 @@ public class NotificationsController {
 
     /** حقول المجموعة والفترة تخص إشعار الغياب فقط؛ المتأخرات تشمل كل الطلاب */
     private void updateFieldVisibility() {
-        boolean isAbsence = typeComboBox.getValue() == NotificationType.ABSENCE;
+        boolean isAbsence = typeComboBox.getValue() == AlertType.ABSENCE;
         for (javafx.scene.Node node : new javafx.scene.Node[]{
                 groupLabel, groupComboBox, fromLabel, fromPicker, toLabel, toPicker}) {
             node.setVisible(isAbsence);
@@ -157,9 +160,9 @@ public class NotificationsController {
 
     @FXML
     public void handleBuild(ActionEvent event) {
-        NotificationType type = typeComboBox.getValue();
+        AlertType type = typeComboBox.getValue();
 
-        if (type == NotificationType.ABSENCE) {
+        if (type == AlertType.ABSENCE) {
             CourseGroup group = groupComboBox.getValue();
             LocalDate from = fromPicker.getValue();
             LocalDate to = toPicker.getValue();
