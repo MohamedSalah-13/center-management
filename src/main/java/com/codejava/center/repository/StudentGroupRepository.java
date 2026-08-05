@@ -3,6 +3,7 @@ package com.codejava.center.repository;
 import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Student;
 import com.codejava.center.domain.StudentGroup;
+import com.codejava.center.domain.enums.SchoolLevel;
 import com.codejava.center.service.dto.MembershipRow;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -37,6 +38,27 @@ public interface StudentGroupRepository extends JpaRepository<StudentGroup, Long
     // التعديل هنا: استخدام JOIN FETCH لجلب بيانات المجموعة والمعلم مسبقاً لتجنب خطأ LazyInitializationException
     @Query("SELECT sg FROM StudentGroup sg JOIN FETCH sg.group cg JOIN FETCH cg.teacher WHERE sg.student = :student AND sg.isActive = true")
     List<StudentGroup> findByStudentAndIsActiveTrue(@Param("student") Student student);
+
+    /**
+     * اشتراكات سارية في مجموعات صفُّها غير الصف المعطى.
+     *
+     * <p>قيد الصف يُفحص لحظة الاشتراك، وتغيير مرحلة الطالب بعده لا يمرّ به: هذا
+     * الاستعلام هو ما يجعل التغيير مرئياً لمن يجريه بدل أن يترك طالباً في مجموعة
+     * ليست لصفه بلا أن يقول أحد شيئاً.</p>
+     *
+     * <p>{@code :level} الفارغة تعني إفراغ مرحلة الطالب، وهي الحالة نفسها لا حالة
+     * أخرى: طالب بلا مرحلة لا يُقبل في أي مجموعة، فكل اشتراكاته تصير خارج صفه.
+     * ومجموعة بلا صف مستثناة لأنها لا تُخالف شيئاً - لا يُعرف صفها بعد.</p>
+     */
+    @Query("""
+            SELECT cg FROM StudentGroup sg JOIN sg.group cg
+            WHERE sg.student.id = :studentId AND sg.isActive = true
+              AND cg.schoolLevel IS NOT NULL
+              AND (:level IS NULL OR cg.schoolLevel <> :level)
+            ORDER BY cg.name
+            """)
+    List<CourseGroup> findActiveGroupsOutsideLevel(@Param("studentId") Long studentId,
+                                                   @Param("level") SchoolLevel level);
 
     /**
      * عدد المشتركين الفعليين فقط.

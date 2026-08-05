@@ -520,6 +520,13 @@ the constraint off for every existing group.
 Screens filter the group list to the student's level as a convenience. The rule is enforced in
 the service, same as `@RequiresRole`.
 
+**The gate is at enrolment, so changing a level afterwards walks around it.** Blocking that
+would be wrong — every student is promoted a year once a year — so `findEnrolmentsOutsideLevel`
+names the live enrolments the new level contradicts and the screen asks for confirmation before
+saving. Clearing the level is the same case, not another one (a student with no level fits no
+group); a group with no level is excluded, since it contradicts nothing yet. Ending an enrolment
+stays a decision the user makes in the enrolments table, never a side effect of saving a form.
+
 **A teacher cannot be in two rooms at once.** `GroupSchedule` is the pure part — day overlap
 plus time overlap — kept free of Spring and JPA like `BackupSchedule`, because it is the
 decision that silently double-books a person. Two details it encodes: the comparison is scoped

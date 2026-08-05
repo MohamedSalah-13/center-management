@@ -4,6 +4,7 @@ import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Student;
 import com.codejava.center.domain.StudentGroup;
 import com.codejava.center.domain.enums.AuditAction;
+import com.codejava.center.domain.enums.SchoolLevel;
 import com.codejava.center.repository.StudentGroupRepository;
 import com.codejava.center.service.dto.MembershipRow;
 import com.codejava.center.util.I18n;
@@ -126,6 +127,19 @@ public class EnrollmentService {
     @Transactional(readOnly = true)
     public List<MembershipRow> getMemberships(Long studentId) {
         return studentGroupRepository.findStudentMemberships(studentId);
+    }
+
+    /**
+     * المجموعات السارية التي لا يوافق صفُّها الصف المعطى للطالب.
+     *
+     * <p>قيد الصف يُفحص عند الاشتراك وحده، فتغيير مرحلة طالب مشترك يتجاوزه بابٌ خلفي.
+     * ومنع التغيير خطأ - ترقية الصف في أول العام تصرّف مشروع يقع لكل طالب مرة كل سنة -
+     * فالمخرج أن يُرى أثره: الشاشة تعرض المجموعات المخالفة وتطلب تأكيداً، ويبقى إنهاء
+     * الاشتراك قراراً يتخذه المستخدم لا أثراً جانبياً لحفظ بيانات.</p>
+     */
+    @Transactional(readOnly = true)
+    public List<CourseGroup> findEnrolmentsOutsideLevel(Long studentId, SchoolLevel level) {
+        return studentGroupRepository.findActiveGroupsOutsideLevel(studentId, level);
     }
 
     /** كشف المجموعة: مشتركوها الحاليون بحضور كلٍّ داخل مدة اشتراكه */

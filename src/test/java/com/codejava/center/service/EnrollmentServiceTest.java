@@ -199,6 +199,57 @@ class EnrollmentServiceTest {
         assertThat(studentGroupRepository.count()).isEqualTo(1);
     }
 
+    /**
+     * قيد الصف يُفحص عند الاشتراك وحده، فتغيير مرحلة طالب مشترك يتجاوزه.
+     * هذا ما تعرضه الشاشة قبل حفظ المرحلة الجديدة.
+     */
+    @Test
+    void listsLiveEnrolmentsThatTheNewLevelWouldContradict() {
+        Student student = persistStudent("STU-E13", "طالب مرقَّى");
+        enrollmentService.subscribe(student, group);
+
+        assertThat(enrollmentService.findEnrolmentsOutsideLevel(student.getId(), SchoolLevel.PREP2))
+                .extracting(CourseGroup::getName)
+                .containsExactly(group.getName());
+
+        // المرحلة نفسها لا تُخالف شيئاً، فلا تحذير على تعديل هاتف أو اسم
+        assertThat(enrollmentService.findEnrolmentsOutsideLevel(student.getId(), SchoolLevel.PREP1))
+                .isEmpty();
+    }
+
+    /** إفراغ المرحلة ليس حالة أخرى: طالب بلا مرحلة لا يُقبل في أي مجموعة */
+    @Test
+    void clearingTheLevelContradictsEveryLiveEnrolment() {
+        Student student = persistStudent("STU-E14", "طالب بلا مرحلة لاحقاً");
+        enrollmentService.subscribe(student, group);
+
+        assertThat(enrollmentService.findEnrolmentsOutsideLevel(student.getId(), null))
+                .extracting(CourseGroup::getName)
+                .containsExactly(group.getName());
+    }
+
+    /**
+     * مجموعة بلا صف (من قبل هذه الميزة) لا تُخالف شيئاً - لا يُعرف صفها بعد -
+     * والاشتراك المنتهي لا يُخالف بدوره.
+     */
+    @Test
+    void ignoresGroupsWithoutLevelAndEndedEnrolments() {
+        CourseGroup legacy = courseGroupRepository.saveAndFlush(CourseGroup.builder()
+                .name("مجموعة قديمة بلا صف").teacher(group.getTeacher())
+                .maxCapacity(10).sessionPrice(new BigDecimal("40.00"))
+                .build());
+
+        Student student = persistStudent("STU-E15", "طالب");
+        studentGroupRepository.saveAndFlush(StudentGroup.builder()
+                .student(student).group(legacy).joinDate(LocalDate.now()).isActive(true).build());
+
+        enrollmentService.subscribe(student, group);
+        enrollmentService.unsubscribe(student.getId(), group.getId());
+
+        assertThat(enrollmentService.findEnrolmentsOutsideLevel(student.getId(), SchoolLevel.SEC1))
+                .isEmpty();
+    }
+
     private Student persistStudent(String barcode, String name) {
         return studentRepository.saveAndFlush(Student.builder()
                 .barcode(barcode).name(name)

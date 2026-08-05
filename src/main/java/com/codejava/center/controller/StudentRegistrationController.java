@@ -28,7 +28,9 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 @Controller
 @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE) // نسخة جديدة لكل فتح للشاشة - يمنع تراكم الـ listeners والحالة القديمة
@@ -317,14 +319,50 @@ public class StudentRegistrationController {
     }
 
     private void saveOrUpdateStudent(Student student) {
+        boolean isNew = student.getId() == null;
+        SchoolLevel newLevel = schoolLevelCombo.getValue();
+
+        // تغيير مرحلة طالب مشترك بالفعل: يُفحص قبل لمس الكيان لا بعده. الطالب المحدَّد
+        // هو نفس الكائن الموجود في قائمة الجدول، فتعبئته من النموذج ثم التراجع عن الحفظ
+        // كانت ستترك بيانات غير محفوظة معروضة في الجدول كأنها محفوظة.
+        if (!isNew && student.getSchoolLevel() != newLevel) {
+            Student target = student;
+            FxAsync.supply(() -> enrollmentService.findEnrolmentsOutsideLevel(target.getId(), newLevel),
+                    clashing -> {
+                        if (clashing.isEmpty() || confirmLevelChange(target, newLevel, clashing)) {
+                            applyFormAndSave(target, false);
+                        }
+                    },
+                    error -> Dialogs.error(FxAsync.messageOf(error)));
+            return;
+        }
+
+        applyFormAndSave(student, isNew);
+    }
+
+    /**
+     * تحذير قبل تغيير المرحلة: قيد الصف يُفحص عند الاشتراك، والتغيير بعده لا يمرّ به.
+     * تأكيد لا منع - ترقية الصف في أول العام تصرّف مشروع يقع لكل طالب مرة كل سنة.
+     */
+    private boolean confirmLevelChange(Student student, SchoolLevel newLevel, List<CourseGroup> clashing) {
+        String groups = clashing.stream()
+                .map(group -> I18n.format("student.levelChangeGroup",
+                        group.getName(), group.getSchoolLevel().getDisplayName()))
+                .collect(Collectors.joining("\n"));
+
+        return Dialogs.confirm(I18n.get("student.levelChangeTitle"),
+                I18n.format("student.levelChangeWarning",
+                        student.getName(), groups,
+                        newLevel == null ? I18n.get("common.none") : newLevel.getDisplayName()));
+    }
+
+    private void applyFormAndSave(Student student, boolean isNew) {
         student.setName(nameField.getText());
         student.setPhone(phoneField.getText());
         student.setParentPhone(parentPhoneField.getText());
         student.setSchoolLevel(schoolLevelCombo.getValue());
         student.setBarcode(barcodeField.getText().isEmpty() ? null : barcodeField.getText());
         student.setActive(true);
-
-        boolean isNew = student.getId() == null;
 
         // الحفظ في الخلفية: كان يجري على خيط الواجهة فيجمّد الشاشة حتى ترد قاعدة البيانات
         FxAsync.supply(() -> studentService.saveStudent(student), saved -> {
