@@ -3,6 +3,7 @@ package com.codejava.center.service;
 import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Student;
 import com.codejava.center.domain.StudentGroup;
+import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.repository.StudentGroupRepository;
 import com.codejava.center.util.I18n;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ import java.util.Optional;
 public class EnrollmentService {
 
     private final StudentGroupRepository studentGroupRepository;
+    private final AuditService auditService;
 
     @Transactional
     public StudentGroup subscribe(Student student, CourseGroup group) {
@@ -47,7 +49,11 @@ public class EnrollmentService {
         membership.setActive(true);
         membership.setJoinDate(LocalDate.now());
 
-        return studentGroupRepository.save(membership);
+        StudentGroup saved = studentGroupRepository.save(membership);
+        auditService.record(AuditAction.STUDENT_ENROLLED, saved.getId(), student.getName(),
+                "group=" + group.getName());
+
+        return saved;
     }
 
     @Transactional(readOnly = true)

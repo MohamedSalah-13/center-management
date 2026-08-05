@@ -1,6 +1,7 @@
 package com.codejava.center.service;
 
 import com.codejava.center.domain.CenterSettings;
+import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.repository.CenterSettingsRepository;
 import com.codejava.center.util.I18n;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ public class SettingsService {
 
     private final CenterSettingsRepository centerSettingsRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final AuditService auditService;
 
     /** الإعدادات الحالية، أو صف افتراضي غير محفوظ إن لم تُضبط بعد */
     @Transactional(readOnly = true)
@@ -49,8 +51,27 @@ public class SettingsService {
     public CenterSettings save(CenterSettings settings) {
         settings.setId(SETTINGS_ID);
         CenterSettings saved = centerSettingsRepository.save(settings);
+
+        auditService.record(AuditAction.SETTINGS_UPDATED, saved.getId(),
+                saved.getCenterName(), summarize(saved));
+
         eventPublisher.publishEvent(new SettingsChangedEvent(saved));
         return saved;
+    }
+
+    /**
+     * ما يُكتب في سجل المراقبة عن الإعدادات بعد الحفظ.
+     *
+     * <p>ليست كل الحقول: {@code ledgerStartDate} وحده يغيّر رصيد كل طالب في النظام - تقديمه
+     * يُسقط متأخرات قائمة دون أن يمسّ حركة واحدة في جدول الحركات - وحالة النسخ الاحتياطي
+     * ومسارها هي ما يقرّر وجود نسخة أصلاً. الاسم والهاتف والشعار عرض لا أثر له.</p>
+     */
+    private String summarize(CenterSettings settings) {
+        return "ledgerStart=" + settings.getLedgerStartDate()
+                + "; autoBackup=" + settings.isAutoBackupEnabled()
+                + "; backupPath=" + settings.getBackupPath()
+                + "; frequency=" + settings.getBackupFrequency()
+                + "; time=" + settings.getBackupTime();
     }
 
     /**

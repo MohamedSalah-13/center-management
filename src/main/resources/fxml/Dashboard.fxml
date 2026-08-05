@@ -93,6 +93,8 @@
                                 maxWidth="Infinity" styleClass="sidebar-btn"/>
                         <Button fx:id="usersManagementButton" text="%nav.users" onAction="#showUsers"
                                 maxWidth="Infinity" styleClass="sidebar-btn"/>
+                        <Button fx:id="auditButton" text="%nav.audit" onAction="#showAuditLog"
+                                maxWidth="Infinity" styleClass="sidebar-btn"/>
                         <Button fx:id="settingsButton" text="%nav.settings" onAction="#showSettings"
                                 maxWidth="Infinity" styleClass="sidebar-btn"/>
                     </VBox>

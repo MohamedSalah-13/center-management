@@ -1,5 +1,7 @@
 package com.codejava.center.i18n;
 
+import com.codejava.center.domain.enums.AuditAction;
+import com.codejava.center.domain.enums.AuditCategory;
 import com.codejava.center.domain.enums.BackupFrequency;
 import com.codejava.center.domain.enums.NotificationType;
 import com.codejava.center.domain.enums.Role;
@@ -122,6 +124,12 @@ class MessageBundleTest {
 
         for (Role role : Role.values()) {
             requireKey(declared, "role." + role.name(), unresolved);
+        }
+        for (AuditAction action : AuditAction.values()) {
+            requireKey(declared, "auditAction." + action.name(), unresolved);
+        }
+        for (AuditCategory category : AuditCategory.values()) {
+            requireKey(declared, "auditCategory." + category.name(), unresolved);
         }
         for (NotificationType type : NotificationType.values()) {
             requireKey(declared, "notificationType." + type.name(), unresolved);

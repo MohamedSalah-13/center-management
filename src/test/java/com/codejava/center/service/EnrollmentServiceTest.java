@@ -10,6 +10,7 @@ import com.codejava.center.repository.StudentGroupRepository;
 import com.codejava.center.repository.StudentRepository;
 import com.codejava.center.repository.TeacherRepository;
 import com.codejava.center.util.I18n;
+import com.codejava.center.util.UserSession;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,7 +28,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * التي لا يفحصها المُترجم ولا تفشل إلا وقت التشغيل.
  */
 @DataJpaTest
-@Import({EnrollmentService.class, SecurityConfig.class})
+// AuditService و UserSession بنسختيهما الحقيقيتين: الاشتراك يكتب في سجل المراقبة
+// داخل نفس المعاملة، فاستبدالهما بوهمي كان سيخفي فشل تلك الكتابة عن الاختبار
+@Import({EnrollmentService.class, AuditService.class, UserSession.class, SecurityConfig.class})
 class EnrollmentServiceTest {
 
     @Autowired private EnrollmentService enrollmentService;

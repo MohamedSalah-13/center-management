@@ -87,6 +87,53 @@ Two constraints to respect when adding guards:
 
 Hiding buttons in the UI is presentation only; the service layer is the real boundary.
 
+Every denial is written to the audit trail before the exception is thrown — see below.
+
+### The audit trail
+
+`AuditLog` + `AuditService`, one row per event, read back through the admin-only
+`AuditLog.fxml` screen. What it records is the answer to "who did this": sign-ins and
+denied attempts, every cash movement, every create/update/delete of a student, group,
+teacher or user, settings changes, and backups.
+
+**Two propagation modes, and the difference is the whole design.**
+
+- Success events (`record`) join the caller's transaction. An operation that rolls back
+  leaves no line claiming it happened — and, the other way round, a line that cannot be
+  written rolls the operation back. *What cannot be recorded does not happen*, which is
+  what makes the absence of an event evidence rather than a guess.
+- Failures and denials (`recordFailure`, `recordAs`) use `REQUIRES_NEW`. `ACCESS_DENIED` is
+  always followed by an exception that kills the surrounding transaction; sharing it would
+  erase exactly the lines the trail exists for. They also swallow write errors, because
+  they run on an exception path and would otherwise replace the real reason on screen.
+
+`AuditServiceTest` pins both directions; changing a propagation is invisible otherwise.
+
+Three things that look like details and are not:
+
+- **Nothing translated is stored.** The event is an `AuditAction` constant, rendered at
+  display time. `details` is language-neutral `key=value` (`required=ADMIN; actual=SECRETARY`).
+  Storing Arabic would freeze each line on whatever language its writer happened to use.
+- **`actorUsername` is text, not a foreign key to `users`,** and `entityLabel` carries the
+  target's name as it was. A foreign key would either block deleting a user or delete their
+  trail with them — and deleting the account is the first thing someone covering their tracks
+  does. `entityId` alone reads as "student 412 was deleted", which tells a reviewer nothing.
+- **`AuditLogRepository` does not extend `JpaRepository`,** only the bare `Repository`, so
+  `delete` and `deleteAll` do not exist on a table whose point is that it cannot be erased.
+  That is a barrier inside the program, not inside MySQL: the DB user necessarily holds
+  `DELETE`/`DROP` for Flyway and restore.
+
+`actorUsername` is nullable and means *the system* — the scheduled backup runs on a scheduler
+thread with no session, and attributing it to whoever logged in last would be a lie.
+
+Attendance and `SESSION_CHARGE` are deliberately **not** audited: they happen hundreds of
+times a day, `attendances` and `transactions` are already timestamped logs of them, and
+duplicating them here would bury everything else. A trail nobody can read is worse than none.
+
+The screen filters period/user/category in SQL and text/failures-only in memory, capping at
+`AuditService.MAX_ROWS`; when the cap bites it says so, because a trail silently showing 1000
+of 10000 events invites the reader to conclude the rest never happened.
+
 ### Language and direction
 
 The UI ships in Arabic and English. **No user-facing string belongs in code or FXML** — it

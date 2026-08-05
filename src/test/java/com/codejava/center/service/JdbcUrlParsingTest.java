@@ -16,7 +16,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class JdbcUrlParsingTest {
 
-    private final BackupService service = new BackupService();
+    // تحليل الرابط لا يمسّ سجل المراقبة، فيكفيه null بدل بناء خدمة كاملة
+    private final BackupService service = new BackupService(null);
 
     @Test
     void readsHostPortAndDatabaseFromTheDefaultUrl() {

@@ -4,6 +4,7 @@ import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Session;
 import com.codejava.center.domain.Student;
 import com.codejava.center.domain.Transaction;
+import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.domain.enums.TransactionType;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.security.RequiresRole;
@@ -30,6 +31,7 @@ public class TransactionService {
 
     private final TransactionRepository transactionRepository;
     private final SettingsService settingsService;
+    private final AuditService auditService;
 
     /**
      * تسجيل دفع اشتراك طالب مخصص لحصة معينة (لتجنب الدفع المزدوج للحصة)
@@ -57,7 +59,13 @@ public class TransactionService {
                 .session(session) // ربط الحصة بالحركة المالية
                 .build();
 
-        return transactionRepository.save(transaction);
+        Transaction saved = transactionRepository.save(transaction);
+
+        // اسم الطالب يُنسخ إلى السجل: حذف الطالب لاحقاً لا يجوز أن يترك تحصيلاً بلا صاحب
+        auditService.record(AuditAction.PAYMENT_RECORDED, saved.getId(),
+                student.getName(), saved.getAmount(), description);
+
+        return saved;
     }
 
     /**
@@ -84,7 +92,11 @@ public class TransactionService {
                 .transactionDate(LocalDateTime.now())
                 .build();
 
-        return transactionRepository.save(transaction);
+        Transaction saved = transactionRepository.save(transaction);
+        auditService.record(AuditAction.EXPENSE_RECORDED, saved.getId(),
+                null, saved.getAmount(), description);
+
+        return saved;
     }
 
     /**
@@ -133,7 +145,9 @@ public class TransactionService {
                 .build();
 
         // 3. حفظ الحركة في قاعدة البيانات
-        transactionRepository.save(transaction);
+        Transaction saved = transactionRepository.save(transaction);
+        auditService.record(AuditAction.TEACHER_PAYOUT_PAID, saved.getId(),
+                null, saved.getAmount(), description);
     }
 
     /**

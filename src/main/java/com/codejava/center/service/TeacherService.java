@@ -2,6 +2,7 @@ package com.codejava.center.service;
 
 import com.codejava.center.domain.Session;
 import com.codejava.center.domain.Teacher;
+import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.domain.enums.TransactionType;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.security.RequiresRole;
@@ -28,6 +29,7 @@ public class TeacherService {
     private final SessionRepository sessionRepository;
     private final AttendanceRepository attendanceRepository;
     private final TransactionService transactionService; // سنستخدمه لتسجيل عملية الدفع
+    private final AuditService auditService;
 
     /**
      * حساب مستحقات المعلم لحصة معينة دون الدفع الفعلي (للمعاينة فقط)
@@ -158,11 +160,24 @@ public class TeacherService {
             throw new IllegalArgumentException(I18n.get("error.teacher.commissionRequired"));
         }
         teacher.setCommissionValue(MoneyUtils.normalize(teacher.getCommissionValue()));
-        return teacherRepository.save(teacher);
+
+        boolean isNew = teacher.getId() == null;
+        Teacher saved = teacherRepository.save(teacher);
+
+        // اتفاق العمولة يُسجَّل بقيمته: تغييره يغيّر ما يُصرف من الخزينة عن كل حصة
+        auditService.record(isNew ? AuditAction.TEACHER_CREATED : AuditAction.TEACHER_UPDATED,
+                saved.getId(), saved.getName(),
+                "commission=" + saved.getCommissionType()
+                        + "; value=" + MoneyUtils.format(saved.getCommissionValue()));
+
+        return saved;
     }
     @Transactional
     @RequiresRole(Role.ADMIN)
     public void deleteTeacher(Long teacherId) {
+        String name = teacherRepository.findById(teacherId).map(Teacher::getName).orElse(null);
+
         teacherRepository.deleteById(teacherId);
+        auditService.record(AuditAction.TEACHER_DELETED, teacherId, name);
     }
 }

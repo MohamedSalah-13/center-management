@@ -3,6 +3,7 @@ package com.codejava.center.controller;
 import com.codejava.center.domain.User;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.service.AttendanceService;
+import com.codejava.center.service.AuthService;
 import com.codejava.center.service.SessionService;
 import com.codejava.center.service.SettingsService;
 import com.codejava.center.service.StudentService;
@@ -64,6 +65,7 @@ public class DashboardController {
     private final AttendanceService attendanceService;
     private final UserSession userSession;
     private final SettingsService settingsService;
+    private final AuthService authService;
     private final ViewLoader viewLoader;
 
     private static final String ACTIVE_STYLE_CLASS = "sidebar-btn-active";
@@ -79,6 +81,8 @@ public class DashboardController {
     private Button paymentHistoryButton;
     @FXML
     private Button usersManagementButton;
+    @FXML
+    private Button auditButton;
     @FXML
     private Button settingsButton;
     @FXML
@@ -169,7 +173,8 @@ public class DashboardController {
         if (!isAdmin) {
             for (Button restricted : new Button[]{
                     cashierButton, groupsButton, teachersButton, usersManagementButton, settingsButton,
-                    shiftClosingButton, expensesButton, teacherPayoutButton, arrearsButton, notificationsButton}) {
+                    shiftClosingButton, expensesButton, teacherPayoutButton, arrearsButton, notificationsButton,
+                    auditButton}) {
                 hide(restricted);
             }
             // بطاقة صافي الدرج ومخطط الإيرادات بيانات مالية أيضاً
@@ -272,6 +277,11 @@ public class DashboardController {
     @FXML
     public void showSettings(ActionEvent event) {
         loadView("/fxml/Settings.fxml", settingsButton);
+    }
+
+    @FXML
+    public void showAuditLog(ActionEvent event) {
+        loadView("/fxml/AuditLog.fxml", auditButton);
     }
 
     @FXML
@@ -434,9 +444,15 @@ public class DashboardController {
     public void handleLogout(ActionEvent actionEvent) {
         try {
             // 1. إنهاء الجلسة الحالية أولاً حتى لا يرث المستخدم التالي صلاحيات السابق
+            User leaving = userSession.getCurrentUser();
             userSession.cleanUserSession();
 
-            // 2. العودة إلى شاشة الدخول
+            // 2. تسجيل الخروج في سجل المراقبة في الخلفية: بداية الجلسة ونهايتها هما ما
+            // يحدّد أي أحداث تقع في نطاق مسؤولية من، وخيط الواجهة لا ينتظر قاعدة البيانات
+            FxAsync.run(() -> authService.recordLogout(leaving), () -> {
+            }, Throwable::printStackTrace);
+
+            // 3. العودة إلى شاشة الدخول
             viewLoader.showLogin(stageOf(actionEvent.getSource()));
         } catch (IOException e) {
             e.printStackTrace();

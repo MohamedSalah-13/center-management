@@ -242,6 +242,53 @@ public class ReportService {
         Printing.print(document, ownerWindow);
     }
 
+    /**
+     * طباعة سجل المراقبة كما هو معروض على الشاشة.
+     *
+     * <p>الغرض منها المراجعة خارج الجهاز: ورقة يوقّعها المحاسب أو تُحفظ في ملف، لا يمسّها
+     * ما يجري على قاعدة البيانات بعدها.</p>
+     *
+     * <p>كل حدث كتلة واحدة من سطرين: التقسيم في {@link Printing} يقع بين الكتل لا داخلها،
+     * فلا ينتهي وجه الصفحة بنصف حدث - وسطر مراقبة مبتور أسوأ من غيابه.</p>
+     */
+    public void printAuditReport(List<com.codejava.center.domain.AuditLog> events,
+                                 LocalDate from, LocalDate to, Window ownerWindow) {
+        PrintDocument document = PrintDocument.report()
+                .header(headerFactory(I18n.get("report.audit.title")));
+
+        Label period = new Label(I18n.format("report.audit.period", from, to, events.size()));
+        period.setFont(Font.font("System", FontWeight.BOLD, 14));
+        document.add(period, new Separator());
+
+        DateTimeFormatter timestamp = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        String none = I18n.get("common.none");
+
+        for (com.codejava.center.domain.AuditLog event : events) {
+            VBox block = new VBox(2);
+
+            Label headline = new Label(I18n.format("report.audit.row",
+                    event.getOccurredAt().format(timestamp),
+                    event.getActorUsername() == null ? I18n.get("audit.systemActor") : event.getActorUsername(),
+                    event.getAction().getDisplayName(),
+                    event.getEntityLabel() == null ? none : event.getEntityLabel(),
+                    event.getAmount() == null ? none : MoneyUtils.format(event.getAmount()),
+                    I18n.get(event.isSuccessful() ? "audit.status.ok" : "audit.status.failed")));
+            headline.setFont(Font.font("System", 12));
+            block.getChildren().add(headline);
+
+            if (event.getDetails() != null && !event.getDetails().isBlank()) {
+                Label details = new Label(I18n.format("report.audit.details", event.getDetails()));
+                details.setFont(Font.font("System", 10));
+                block.getChildren().add(details);
+            }
+
+            document.add(block);
+        }
+
+        document.add(new Separator(), stamp("report.issuedAt"));
+        Printing.print(document, ownerWindow);
+    }
+
     private Label summaryLine(String label, java.math.BigDecimal value) {
         Label line = new Label(I18n.format("report.summaryLine", label, MoneyUtils.formatWithCurrency(value)));
         line.setFont(Font.font("System", 15));

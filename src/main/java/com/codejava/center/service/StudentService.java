@@ -2,6 +2,7 @@ package com.codejava.center.service;
 
 import com.codejava.center.domain.CenterSettings;
 import com.codejava.center.domain.Student;
+import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.repository.CenterSettingsRepository;
 import com.codejava.center.security.RequiresRole;
@@ -24,6 +25,7 @@ public class StudentService {
 
     private final StudentRepository studentRepository;
     private final SettingsService settingsService;
+    private final AuditService auditService;
 
     /**
      * حفظ طالب جديد أو تحديث بيانات طالب حالي
@@ -53,8 +55,17 @@ public class StudentService {
             throw new IllegalStateException(I18n.get("error.student.nameTaken"));
         }
 
+        // الإضافة والتعديل يمرّان من هنا معاً، والتمييز بينهما يجب أن يقع قبل الحفظ:
+        // بعده يكون المعرّف قد وُلد فيبدو كل حفظ تعديلاً
+        boolean isNew = student.getId() == null;
+
         // 3. الحفظ في قاعدة البيانات
-        return studentRepository.save(student);
+        Student saved = studentRepository.save(student);
+
+        auditService.record(isNew ? AuditAction.STUDENT_CREATED : AuditAction.STUDENT_UPDATED,
+                saved.getId(), saved.getName(), "barcode=" + saved.getBarcode());
+
+        return saved;
     }
 
     /**
@@ -84,9 +95,17 @@ public class StudentService {
         return "STU-" + uniqueShortId;
     }
 
+    /**
+     * حذف طالب.
+     * يُقرأ الصف قبل حذفه لا لأجل الحذف بل لأجل السجل: بعد {@code deleteById} لا يبقى
+     * اسم يُكتب، وسطر "حُذف الطالب رقم 412" لا يفيد من يراجع السجل بعد شهر.
+     */
     @Transactional
     public void deleteStudent(Long studentId) {
+        String name = studentRepository.findById(studentId).map(Student::getName).orElse(null);
+
         studentRepository.deleteById(studentId);
+        auditService.record(AuditAction.STUDENT_DELETED, studentId, name);
     }
 
     /**

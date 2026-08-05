@@ -2,6 +2,7 @@ package com.codejava.center.service;
 
 import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Session;
+import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.repository.SessionRepository;
 import com.codejava.center.util.I18n;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class SessionService {
     private final SessionRepository sessionRepository;
+    private final AuditService auditService;
 
     /**
      * فتح حصة جديدة لمجموعة.
@@ -37,7 +39,11 @@ public class SessionService {
                 .isPaidOut(false)
                 .build();
 
-        return sessionRepository.save(session);
+        Session saved = sessionRepository.save(session);
+        auditService.record(AuditAction.SESSION_OPENED, saved.getId(), group.getName(),
+                "date=" + saved.getSessionDate());
+
+        return saved;
     }
 
     /**
@@ -55,6 +61,9 @@ public class SessionService {
 
         session.setActive(false);
         sessionRepository.save(session);
+
+        auditService.record(AuditAction.SESSION_CLOSED, session.getId(),
+                session.getGroup().getName(), "date=" + session.getSessionDate());
     }
 
     /** كل الحصص المفتوحة حالياً */

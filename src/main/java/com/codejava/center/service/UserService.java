@@ -1,6 +1,7 @@
 package com.codejava.center.service;
 
 import com.codejava.center.domain.User;
+import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.repository.UserRepository;
 import com.codejava.center.security.RequiresRole;
@@ -19,6 +20,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuditService auditService;
 
     @Transactional
     @RequiresRole(Role.ADMIN)
@@ -32,14 +34,24 @@ public class UserService {
         }
 
         // إذا تم إدخال كلمة مرور جديدة، قم بتشفيرها
-        if (rawPassword != null && !rawPassword.trim().isEmpty()) {
+        boolean passwordChanged = rawPassword != null && !rawPassword.trim().isEmpty();
+        if (passwordChanged) {
             user.setPassword(passwordEncoder.encode(rawPassword));
         } else if (user.getId() == null) {
             // لا يمكن إضافة مستخدم جديد بدون كلمة مرور
             throw new IllegalArgumentException(I18n.get("error.user.passwordRequired"));
         }
 
-        return userRepository.save(user);
+        boolean isNew = user.getId() == null;
+        User saved = userRepository.save(user);
+
+        // منح صلاحية المدير لحساب وتغيير كلمة مرور حساب قائم هما أخطر ما في هذه الشاشة:
+        // كلاهما يُقرأ من السطر دون فتح جدول المستخدمين. كلمة المرور نفسها لا تُسجَّل بحال.
+        auditService.record(isNew ? AuditAction.USER_CREATED : AuditAction.USER_UPDATED,
+                saved.getId(), saved.getUsername(),
+                "role=" + saved.getRole().name() + "; passwordChanged=" + passwordChanged);
+
+        return saved;
     }
 
     @Transactional(readOnly = true)
@@ -51,6 +63,12 @@ public class UserService {
     @Transactional
     @RequiresRole(Role.ADMIN)
     public void deleteUser(Long userId) {
+        // الاسم يُقرأ قبل الحذف: بعده لا يبقى في الجدول ما يُنسب إليه السطر
+        Optional<User> target = userRepository.findById(userId);
+
         userRepository.deleteById(userId);
+        auditService.record(AuditAction.USER_DELETED, userId,
+                target.map(User::getUsername).orElse(null),
+                target.map(user -> "role=" + user.getRole().name()).orElse(null));
     }
 }

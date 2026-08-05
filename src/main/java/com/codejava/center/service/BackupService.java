@@ -1,5 +1,6 @@
 package com.codejava.center.service;
 
+import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.security.RequiresRole;
 import com.codejava.center.util.BackupCrypto;
@@ -66,6 +67,12 @@ public class BackupService {
      */
     private static final Pattern PRIVILEGE_ERROR = Pattern.compile("ERROR (1044|1142|1227)");
 
+    /**
+     * سجل المراقبة. النسخة المجدولة تعمل بلا جلسة مستخدم فتُنسب إلى النظام، وهو
+     * المقصود: لا يصحّ نسبتها إلى آخر من سجّل دخوله على الجهاز.
+     */
+    private final AuditService auditService;
+
     // بيانات الاتصال تُقرأ من الإعدادات (متغيرات البيئة) بدلاً من كتابتها داخل الكود
     @Value("${spring.datasource.username}")
     private String dbUsername;
@@ -118,6 +125,9 @@ public class BackupService {
             dump(target, passphrase);
         } catch (RuntimeException e) {
             deleteQuietly(target); // ملف نصف مكتوب يبدو نسخة صالحة في قائمة المجلد
+            // النسخة الفاشلة أهمّ من الناجحة في السجل: لا شيء آخر يُظهر ليلة بلا نسخة
+            auditService.recordFailure(AuditAction.BACKUP_CREATED,
+                    target.getFileName().toString(), messageOf(e));
             throw e;
         } finally {
             if (passphrase != null) {
@@ -126,6 +136,9 @@ public class BackupService {
         }
 
         prune(directory, retentionCount);
+
+        auditService.record(AuditAction.BACKUP_CREATED, null, target.getFileName().toString(),
+                "encrypted=" + encrypt + "; retention=" + retentionCount);
         return target;
     }
 
@@ -154,8 +167,27 @@ public class BackupService {
             }
 
             run(processBuilder(mysqlTool("mysql")).redirectInput(plain.toFile()), null, null);
+
+            // الاستعادة تكتب فوق كل شيء، بما فيه سجل المراقبة نفسه: السطر الذي يُكتب هنا
+            // هو أول ما يبقى بعدها، وبه يُعرف أن ما قبله محتوى ملف لا تاريخ السنتر.
+            //
+            // ويُكتب خارج قاعدة الصف "ما لا يمكن تسجيله لا يحدث": القاعدة قد استُبدلت
+            // للتوّ، وفشل الكتابة عليها لا يُلغي استعادة تمّت فعلاً - إعلان نجاحها فشلاً
+            // يدفع من أمام الشاشة إلى تكرارها، وهي عملية مدمّرة
+            try {
+                auditService.record(AuditAction.BACKUP_RESTORED, null,
+                        source.getFileName().toString(), "encrypted=" + (temporary != null));
+            } catch (RuntimeException e) {
+                e.printStackTrace();
+            }
         } catch (IOException e) {
+            auditService.recordFailure(AuditAction.BACKUP_RESTORED,
+                    source.getFileName().toString(), messageOf(e));
             throw new IllegalStateException(I18n.format("error.backup.restoreFailed", messageOf(e)), e);
+        } catch (RuntimeException e) {
+            auditService.recordFailure(AuditAction.BACKUP_RESTORED,
+                    source.getFileName().toString(), messageOf(e));
+            throw e;
         } finally {
             // الملف الوسيط نسخة صريحة كاملة من قاعدة البيانات: لا يُترك على القرص
             deleteQuietly(temporary);

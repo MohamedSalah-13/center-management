@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
+
+<VBox spacing="20.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.codejava.center.controller.AuditLogController"
+      style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
+
+    <HBox spacing="20.0" alignment="CENTER_LEFT">
+        <Label text="%audit.title" textFill="#2c3e50">
+            <font><Font name="System Bold" size="26.0" /></font>
+        </Label>
+        <Region HBox.hgrow="ALWAYS" />
+        <Button text="%common.refresh" onAction="#handleRefresh"
+                style="-fx-background-color: #7f8c8d; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+        <Button text="%common.print" onAction="#handlePrint"
+                style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+    </HBox>
+
+    <Label text="%audit.note" textFill="#7f8c8d" wrapText="true" />
+
+    <GridPane hgap="15.0" vgap="15.0"
+              style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
+        <Label text="%audit.from" GridPane.columnIndex="0" GridPane.rowIndex="0">
+            <font><Font name="System Bold" size="14.0" /></font>
+        </Label>
+        <DatePicker fx:id="fromPicker" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+
+        <Label text="%audit.to" GridPane.columnIndex="2" GridPane.rowIndex="0">
+            <font><Font name="System Bold" size="14.0" /></font>
+        </Label>
+        <DatePicker fx:id="toPicker" editable="false" GridPane.columnIndex="3" GridPane.rowIndex="0" />
+
+        <Label text="%audit.actor" GridPane.columnIndex="4" GridPane.rowIndex="0">
+            <font><Font name="System Bold" size="14.0" /></font>
+        </Label>
+        <ComboBox fx:id="actorCombo" prefWidth="180.0" GridPane.columnIndex="5" GridPane.rowIndex="0" />
+
+        <Label text="%audit.category" GridPane.columnIndex="6" GridPane.rowIndex="0">
+            <font><Font name="System Bold" size="14.0" /></font>
+        </Label>
+        <ComboBox fx:id="categoryCombo" prefWidth="180.0" GridPane.columnIndex="7" GridPane.rowIndex="0" />
+
+        <HBox spacing="10.0" GridPane.columnIndex="1" GridPane.rowIndex="1" GridPane.columnSpan="7"
+              alignment="CENTER_RIGHT">
+            <Button text="%audit.build" onAction="#handleBuild"
+                    style="-fx-background-color: #2c3e50; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+        </HBox>
+    </GridPane>
+
+    <HBox spacing="15.0" alignment="CENTER_LEFT">
+        <TextField fx:id="searchField" promptText="%audit.searchPrompt" prefWidth="320.0" />
+        <CheckBox fx:id="failuresOnlyCheck" text="%audit.failuresOnly" />
+        <Region HBox.hgrow="ALWAYS" />
+        <Label fx:id="summaryLabel" text="" textFill="#2c3e50">
+            <font><Font name="System Bold" size="14.0" /></font>
+        </Label>
+    </HBox>
+
+    <Label fx:id="truncationLabel" text="" textFill="#e67e22" wrapText="true" visible="false" managed="false" />
+
+    <TableView fx:id="auditTable" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="colTime" text="%audit.col.time" prefWidth="150.0" />
+            <TableColumn fx:id="colActor" text="%audit.col.actor" prefWidth="110.0" />
+            <TableColumn fx:id="colRole" text="%audit.col.role" prefWidth="90.0" />
+            <TableColumn fx:id="colAction" text="%audit.col.action" prefWidth="180.0" />
+            <TableColumn fx:id="colTarget" text="%audit.col.target" prefWidth="180.0" />
+            <TableColumn fx:id="colAmount" text="%audit.col.amount" prefWidth="110.0" />
+            <TableColumn fx:id="colDetails" text="%audit.col.details" prefWidth="320.0" />
+            <TableColumn fx:id="colStatus" text="%audit.col.status" prefWidth="80.0" />
+        </columns>
+    </TableView>
+</VBox>
