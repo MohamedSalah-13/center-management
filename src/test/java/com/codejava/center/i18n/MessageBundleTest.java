@@ -1,5 +1,6 @@
 package com.codejava.center.i18n;
 
+import com.codejava.center.domain.enums.BackupFrequency;
 import com.codejava.center.domain.enums.NotificationType;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.domain.enums.TransactionType;
@@ -133,6 +134,9 @@ class MessageBundleTest {
         }
         for (DocumentKind kind : DocumentKind.values()) {
             requireKey(declared, "documentKind." + kind.name(), unresolved);
+        }
+        for (BackupFrequency frequency : BackupFrequency.values()) {
+            requireKey(declared, "backupFrequency." + frequency.name(), unresolved);
         }
         // نوع العمولة نص حر في قاعدة البيانات لا enum، والقيم الثلاث هي ما تعرضه الشاشة
         for (String commission : new String[]{"PERCENTAGE", "FIXED_AMOUNT", "RENT"}) {

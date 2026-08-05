@@ -1,9 +1,13 @@
 package com.codejava.center.controller;
 
 import com.codejava.center.domain.CenterSettings;
+import com.codejava.center.domain.enums.BackupFrequency;
+import com.codejava.center.service.BackupSchedule;
 import com.codejava.center.service.BackupService;
 import com.codejava.center.service.NotificationService;
 import com.codejava.center.service.SettingsService;
+import com.codejava.center.util.BackupCrypto;
+import com.codejava.center.util.BackupPreferences;
 import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.DocumentKind;
 import com.codejava.center.util.FxAsync;
@@ -19,6 +23,7 @@ import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.GridPane;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -33,9 +38,13 @@ import org.springframework.stereotype.Controller;
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 /**
  * كل إعدادات النظام في شاشة واحدة مقسّمة إلى تبويبات.
@@ -50,6 +59,10 @@ import java.util.Locale;
  * <p>تبويبا اللغة والطباعة يُحفظان في تفضيلات الجهاز لحظة الاختيار، وبقية التبويبات
  * تُحفظ في قاعدة البيانات بزر "حفظ الإعدادات". التقسيم مقصود: الأولان يخصّان الجهاز
  * (لغة المشغّل، الطابعة الموصولة) والباقي يخصّ السنتر كله.</p>
+ *
+ * <p>تبويب النسخ الاحتياطي وحده يجمع الاثنين: الموعد وعدد النسخ في قاعدة البيانات،
+ * وكلمة مرور التشفير في تفضيلات الجهاز - لأنها لا يصح أن تُحفظ داخل القاعدة التي
+ * تحميها. كلاهما يُحفظ بزر "حفظ الإعدادات": حقل كلمة مرور لا يُحفظ عند كل حرف.</p>
  */
 @Controller
 @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
@@ -92,6 +105,22 @@ public class SettingsController {
     @FXML private TextField backupPathField;
     @FXML private CheckBox autoBackupCheckBox;
 
+    @FXML private GridPane scheduleGrid;
+    @FXML private ComboBox<BackupFrequency> backupFrequencyCombo;
+    @FXML private Spinner<Integer> backupHourSpinner;
+    @FXML private Spinner<Integer> backupMinuteSpinner;
+    @FXML private Label backupDayOfWeekLabel;
+    @FXML private ComboBox<Integer> backupDayOfWeekCombo;
+    @FXML private Label backupDayOfMonthLabel;
+    @FXML private Spinner<Integer> backupDayOfMonthSpinner;
+    @FXML private Spinner<Integer> backupRetentionSpinner;
+    @FXML private Label backupNextRunLabel;
+    @FXML private Label backupLastRunLabel;
+
+    @FXML private CheckBox backupEncryptCheckBox;
+    @FXML private PasswordField backupPassphraseField;
+    @FXML private PasswordField backupPassphraseConfirmField;
+
     @FXML private DatePicker ledgerStartDatePicker;
 
     @FXML private Label notificationChannelLabel;
@@ -104,8 +133,25 @@ public class SettingsController {
     private String loadedCenterName;
     private String loadedLogoPath;
 
+    /**
+     * تُحفظ كما جاءت: الشاشة تبني كائن إعدادات جديداً بالكامل عند الحفظ، فأي حقل لا تعرضه
+     * يُكتب فارغاً فوق القيمة الموجودة. لحظة آخر نسخة تلقائية يكتبها المجدوِل لا المستخدم.
+     */
+    private LocalDateTime loadedLastAutoBackupAt;
+
     /** يمنع إعادة تعبئة قائمة الطابعات من أن تُحفظ كاختيار من المستخدم */
     private boolean reloadingPrinters;
+
+    private static final DateTimeFormatter MOMENT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
+    /** أدنى طول مقبول لكلمة مرور النسخة؛ ما دونه لا يصمد أمام تخمين آلي */
+    private static final int MIN_PASSPHRASE_LENGTH = 8;
+
+    /**
+     * عدد النسخ المقترح للاحتفاظ بها. شهر من النسخ اليومية يكفي لاكتشاف خطأ والرجوع قبله،
+     * ولا يملأ قرصاً صغيراً. الصفر يعني الاحتفاظ بالكل، وهو ما تحفظه قاعدة بيانات لم تُضبط.
+     */
+    private static final int DEFAULT_RETENTION = 30;
 
     @FXML
     public void initialize() {
@@ -114,8 +160,135 @@ public class SettingsController {
         LanguageSelector.configure(languageCombo, this::reloadDashboard);
 
         configurePrinting();
+        configureBackup();
         showSystemInfo();
         loadSettings();
+    }
+
+    /**
+     * تبويب النسخ الاحتياطي.
+     *
+     * <p>الجدولة تُحفظ في قاعدة البيانات مع بقية إعدادات السنتر بزر "حفظ الإعدادات".
+     * أما التشفير - رغم أنه يُحفظ لكل جهاز مثل الطابعة واللغة - فيُحفظ بالزر نفسه لا
+     * لحظة التعديل: حقل كلمة مرور لا يمكن حفظه عند كل حرف يُكتب، ولا يصحّ حفظ كلمة
+     * قبل مطابقتها بحقل التأكيد. راجع {@link BackupPreferences} لسبب كونه لكل جهاز.</p>
+     */
+    private void configureBackup() {
+        backupFrequencyCombo.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(BackupFrequency frequency) {
+                return frequency == null ? "" : frequency.getDisplayName();
+            }
+
+            @Override
+            public BackupFrequency fromString(String string) {
+                return null;
+            }
+        });
+        backupFrequencyCombo.getItems().setAll(BackupFrequency.values());
+        backupFrequencyCombo.valueProperty().addListener((observable, oldValue, newValue) -> {
+            showFieldsFor(newValue);
+            updateNextRunPreview();
+        });
+
+        backupDayOfWeekCombo.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(Integer day) {
+                return day == null ? "" : BackupSchedule.dayOfWeekName(day);
+            }
+
+            @Override
+            public Integer fromString(String string) {
+                return null;
+            }
+        });
+        backupDayOfWeekCombo.getItems().setAll(1, 2, 3, 4, 5, 6, 7);
+        backupDayOfWeekCombo.valueProperty().addListener((observable, oldValue, newValue) -> updateNextRunPreview());
+
+        configureSpinner(backupHourSpinner, 0, 23, BackupSchedule.DEFAULT_TIME.getHour(), true);
+        configureSpinner(backupMinuteSpinner, 0, 59, BackupSchedule.DEFAULT_TIME.getMinute(), true);
+        configureSpinner(backupDayOfMonthSpinner, 1, 31, BackupSchedule.DEFAULT_DAY_OF_MONTH, false);
+        configureSpinner(backupRetentionSpinner, 0, 999, DEFAULT_RETENTION, false);
+
+        // بلا مجلد ولا تفعيل لا معنى لضبط موعد: الحقول تبقى ظاهرة لتُقرأ، لكنها معطَّلة
+        scheduleGrid.disableProperty().bind(autoBackupCheckBox.selectedProperty().not());
+
+        backupEncryptCheckBox.setSelected(BackupPreferences.encryptionEnabled());
+        char[] saved = BackupPreferences.passphrase();
+        if (saved != null) {
+            // تُملأ الحقول بالمحفوظ حتى لا يضطر المستخدم لإعادة كتابتها كلما حفظ إعداداً آخر
+            backupPassphraseField.setText(new String(saved));
+            backupPassphraseConfirmField.setText(new String(saved));
+            java.util.Arrays.fill(saved, '\0');
+        }
+    }
+
+    /**
+     * يضبط مجال الـ Spinner ويربط مُحرِّره بقيمته.
+     *
+     * <p>الربط ضروري لا تجميلي: بدونه لا تصل الكتابة اليدوية في الحقل إلى قيمة الـ Spinner
+     * إلا بعد الضغط على أحد السهمين، فيكتب المستخدم "04" ويحفظ فتبقى النسخة على الساعة 2.
+     * ويرفض المُنقِّح النص الفارغ حتى لا تصبح القيمة {@code null}.</p>
+     */
+    private void configureSpinner(Spinner<Integer> spinner, int min, int max, int initial, boolean wrapAround) {
+        SpinnerValueFactory.IntegerSpinnerValueFactory factory =
+                new SpinnerValueFactory.IntegerSpinnerValueFactory(min, max, initial);
+        factory.setWrapAround(wrapAround);
+        spinner.setValueFactory(factory);
+
+        TextFormatter<Integer> formatter = new TextFormatter<>(factory.getConverter(), initial,
+                change -> change.getControlNewText().matches("[0-9]+") ? change : null);
+        spinner.getEditor().setTextFormatter(formatter);
+        factory.valueProperty().bindBidirectional(formatter.valueProperty());
+
+        factory.valueProperty().addListener((observable, oldValue, newValue) -> updateNextRunPreview());
+    }
+
+    /** يوم الأسبوع يخصّ التكرار الأسبوعي وحده، ويوم الشهر الشهريَّ وحده */
+    private void showFieldsFor(BackupFrequency frequency) {
+        setShown(frequency == BackupFrequency.WEEKLY, backupDayOfWeekLabel, backupDayOfWeekCombo);
+        setShown(frequency == BackupFrequency.MONTHLY, backupDayOfMonthLabel, backupDayOfMonthSpinner);
+    }
+
+    private void setShown(boolean shown, Node... nodes) {
+        for (Node node : nodes) {
+            node.setVisible(shown);
+            node.setManaged(shown);
+        }
+    }
+
+    /**
+     * يعرض الموعد القادم كما سيحسبه المجدوِل.
+     * "يومياً 02:00" وحدها لا تجيب سؤال المستخدم الحقيقي: متى تُؤخذ النسخة القادمة فعلاً؟
+     */
+    private void updateNextRunPreview() {
+        BackupSchedule schedule = scheduleFromFields();
+        backupNextRunLabel.setText(I18n.format("settings.nextRunAt",
+                schedule.describe(), schedule.nextRunAfter(LocalDateTime.now()).format(MOMENT)));
+    }
+
+    private BackupSchedule scheduleFromFields() {
+        return new BackupSchedule(
+                backupFrequencyCombo.getValue() == null
+                        ? BackupSchedule.DEFAULT_FREQUENCY : backupFrequencyCombo.getValue(),
+                LocalTime.of(spinnerValue(backupHourSpinner, 0, 23, BackupSchedule.DEFAULT_TIME.getHour()),
+                        spinnerValue(backupMinuteSpinner, 0, 59, BackupSchedule.DEFAULT_TIME.getMinute())),
+                backupDayOfWeekCombo.getValue() == null
+                        ? BackupSchedule.DEFAULT_DAY_OF_WEEK : backupDayOfWeekCombo.getValue(),
+                spinnerValue(backupDayOfMonthSpinner, 1, 31, BackupSchedule.DEFAULT_DAY_OF_MONTH));
+    }
+
+    /**
+     * قيمة الـ Spinner مقصورة على مجالها.
+     * {@code IntegerSpinnerValueFactory} لا يقصّ ما يُكتب باليد، و"99" في خانة الساعة
+     * ترمي {@code DateTimeException} من {@link LocalTime#of} عند بناء الموعد.
+     */
+    private int spinnerValue(Spinner<Integer> spinner, int min, int max, int fallback) {
+        Integer value = spinner.getValue();
+        if (value == null) {
+            return fallback;
+        }
+        return Math.min(Math.max(value, min), max);
     }
 
     /**
@@ -306,12 +479,14 @@ public class SettingsController {
         FxAsync.supply(settingsService::getSettings, settings -> {
             loadedCenterName = settings.getCenterName();
             loadedLogoPath = settings.getLogoPath();
+            loadedLastAutoBackupAt = settings.getLastAutoBackupAt();
 
             centerNameField.setText(settings.getCenterName());
             centerPhoneField.setText(settings.getCenterPhone());
             backupPathField.setText(settings.getBackupPath());
             autoBackupCheckBox.setSelected(settings.isAutoBackupEnabled());
             ledgerStartDatePicker.setValue(settings.getLedgerStartDate());
+            showBackupSchedule(settings);
 
             if (settings.getLogoPath() != null && !settings.getLogoPath().isBlank()) {
                 logoPathField.setText(settings.getLogoPath());
@@ -319,6 +494,38 @@ public class SettingsController {
             }
             statusLabel.setText("");
         }, error -> Dialogs.error(I18n.format("settings.loadFailed", FxAsync.messageOf(error))));
+    }
+
+    /**
+     * يملأ حقول الجدولة من الإعدادات المحفوظة.
+     * القيم الناقصة تأتي من {@link BackupSchedule} نفسه لا من ثوابت مكرَّرة هنا، حتى لا
+     * يعرض البرنامج موعداً ويجدول غيره.
+     */
+    private void showBackupSchedule(CenterSettings settings) {
+        BackupSchedule schedule = BackupSchedule.from(settings);
+
+        backupFrequencyCombo.setValue(schedule.frequency());
+        backupHourSpinner.getValueFactory().setValue(schedule.time().getHour());
+        backupMinuteSpinner.getValueFactory().setValue(schedule.time().getMinute());
+        backupDayOfWeekCombo.setValue(schedule.dayOfWeek());
+        backupDayOfMonthSpinner.getValueFactory().setValue(schedule.dayOfMonth());
+        backupRetentionSpinner.getValueFactory().setValue(
+                settings.getBackupRetentionCount() == null
+                        ? DEFAULT_RETENTION : settings.getBackupRetentionCount());
+
+        showFieldsFor(schedule.frequency());
+        updateNextRunPreview();
+
+        LocalDateTime lastRun = settings.getLastAutoBackupAt();
+        // تاريخ قديم أو غائب مع تفعيل النسخ التلقائي = نسخ تفشل ليلة بعد ليلة بلا أن يعلم أحد
+        boolean overdue = settings.isAutoBackupEnabled() && schedule.isOverdue(lastRun, LocalDateTime.now());
+        backupLastRunLabel.setText(lastRun == null
+                ? I18n.get("settings.backupNeverRun")
+                : lastRun.format(MOMENT) + (overdue ? " — " + I18n.get("settings.backupOverdue") : ""));
+        backupLastRunLabel.getStyleClass().removeAll("danger-text");
+        if (overdue && lastRun != null) {
+            backupLastRunLabel.getStyleClass().add("danger-text");
+        }
     }
 
     @FXML
@@ -384,12 +591,25 @@ public class SettingsController {
             return;
         }
 
+        // إعدادات الجهاز تُحفظ قبل إعدادات السنتر: فشلها يوقف الحفظ كله، بينما لو حُفظت
+        // بعده لبقيت نسخ مجدولة بلا كلمة مرور تشفير تفشل كل ليلة
+        if (!saveEncryptionPreferences()) {
+            return;
+        }
+
+        BackupSchedule schedule = scheduleFromFields();
         CenterSettings settings = CenterSettings.builder()
                 .centerName(trimmed(centerNameField))
                 .centerPhone(trimmed(centerPhoneField))
                 .logoPath(trimmed(logoPathField))
                 .backupPath(trimmed(backupPathField))
                 .autoBackupEnabled(autoBackupCheckBox.isSelected())
+                .backupFrequency(schedule.frequency())
+                .backupTime(schedule.time())
+                .backupDayOfWeek(schedule.dayOfWeek())
+                .backupDayOfMonth(schedule.dayOfMonth())
+                .backupRetentionCount(spinnerValue(backupRetentionSpinner, 0, 999, DEFAULT_RETENTION))
+                .lastAutoBackupAt(loadedLastAutoBackupAt) // الشاشة تعرضه ولا تعدّله
                 .ledgerStartDate(ledgerStart)
                 .build();
 
@@ -398,6 +618,7 @@ public class SettingsController {
 
         FxAsync.supply(() -> settingsService.save(settings), saved -> {
             statusLabel.setText(I18n.get("settings.saved"));
+            showBackupSchedule(saved);
             Dialogs.success(I18n.get("settings.savedDetail"));
 
             // إعادة بناء اللوحة تعيدنا إلى الرئيسية، فلا تُنفَّذ إلا حين تغيّرت الترويسة فعلاً
@@ -405,6 +626,41 @@ public class SettingsController {
                 reloadDashboard();
             }
         }, error -> Dialogs.error(I18n.format("settings.saveFailed", FxAsync.messageOf(error))));
+    }
+
+    /**
+     * يحفظ تفضيلات التشفير على هذا الجهاز.
+     *
+     * @return {@code false} إن كان الإدخال غير صالح، فلا يُكمَل الحفظ
+     */
+    private boolean saveEncryptionPreferences() {
+        boolean enabled = backupEncryptCheckBox.isSelected();
+        String passphrase = backupPassphraseField.getText();
+        String confirmation = backupPassphraseConfirmField.getText();
+
+        if (enabled) {
+            if (passphrase == null || passphrase.length() < MIN_PASSPHRASE_LENGTH) {
+                Dialogs.warning(I18n.format("settings.passphraseTooShort", MIN_PASSPHRASE_LENGTH));
+                return false;
+            }
+            if (!passphrase.equals(confirmation)) {
+                Dialogs.warning(I18n.get("settings.passphraseMismatch"));
+                return false;
+            }
+            // النسخ المأخوذة بكلمة قديمة لا تُفكّ بالجديدة، وهذا لا يمكن التراجع عنه بعد فقدانها
+            if (!Dialogs.confirm(I18n.get("settings.encryptionConfirmTitle"),
+                    I18n.get("settings.encryptionConfirm"))) {
+                return false;
+            }
+        }
+
+        try {
+            BackupPreferences.set(enabled, enabled ? passphrase.toCharArray() : null);
+            return true;
+        } catch (RuntimeException e) {
+            Dialogs.error(FxAsync.messageOf(e));
+            return false;
+        }
     }
 
     private String trimmed(TextField field) {
@@ -420,17 +676,17 @@ public class SettingsController {
             return;
         }
 
+        // النسخة اليدوية تحترم عدد النسخ المضبوط في الشاشة ولو لم يُحفظ بعد
+        Integer retention = spinnerValue(backupRetentionSpinner, 0, 999, DEFAULT_RETENTION);
+
         statusLabel.setText(I18n.get("settings.backupRunning"));
-        FxAsync.supply(() -> backupService.executeBackup(backupPath), success -> {
+        FxAsync.supply(() -> backupService.executeBackup(backupPath, retention), file -> {
             statusLabel.setText("");
-            if (success) {
-                Dialogs.success(I18n.format("settings.backupDone", backupPath));
-            } else {
-                Dialogs.error(I18n.get("settings.backupFailed"));
-            }
+            Dialogs.success(I18n.format("settings.backupDone", file));
         }, error -> {
             statusLabel.setText("");
-            Dialogs.error(FxAsync.messageOf(error));
+            // الرسالة تحمل الآن سبب الفشل من mysqldump نفسه بدل "فشلت العملية" وحدها
+            Dialogs.error(I18n.get("settings.backupFailed"), FxAsync.messageOf(error));
         });
     }
 
@@ -438,12 +694,32 @@ public class SettingsController {
     public void handleRestoreBackup(ActionEvent event) {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle(I18n.get("settings.chooseBackupFile"));
-        fileChooser.getExtensionFilters().add(
+        fileChooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter(I18n.get("settings.backupFiles"),
+                        "*.sql", "*" + BackupCrypto.ENCRYPTED_SUFFIX),
                 new FileChooser.ExtensionFilter(I18n.get("settings.sqlFiles"), "*.sql"));
+        if (backupPathField.getText() != null && !backupPathField.getText().isBlank()) {
+            File directory = new File(backupPathField.getText());
+            if (directory.isDirectory()) {
+                fileChooser.setInitialDirectory(directory);
+            }
+        }
 
         File selectedFile = fileChooser.showOpenDialog(windowOf(event));
         if (selectedFile == null) {
             return;
+        }
+
+        // كلمة المرور تُطلب قبل التأكيد المدمِّر: لا معنى لمحو القاعدة ثم اكتشاف أن الملف لا يُفكّ
+        char[] passphrase = null;
+        if (BackupCrypto.isEncrypted(selectedFile.toPath())) {
+            Optional<String> answer = Dialogs.password(I18n.get("settings.passphraseTitle"),
+                    I18n.format("settings.passphraseFor", selectedFile.getName()),
+                    storedPassphrase());
+            if (answer.isEmpty() || answer.get().isEmpty()) {
+                return;
+            }
+            passphrase = answer.get().toCharArray();
         }
 
         // عملية مدمّرة لا رجعة فيها: التأكيد يذكر اسم الملف صراحةً
@@ -452,18 +728,26 @@ public class SettingsController {
             return;
         }
 
+        char[] key = passphrase;
         statusLabel.setText(I18n.get("settings.restoreRunning"));
-        FxAsync.supply(() -> backupService.restoreBackup(selectedFile.getAbsolutePath()), success -> {
+        FxAsync.run(() -> backupService.restoreBackup(selectedFile.getAbsolutePath(), key), () -> {
             statusLabel.setText("");
-            if (success) {
-                Dialogs.success(I18n.get("settings.restoreDone"));
-            } else {
-                Dialogs.error(I18n.get("settings.restoreFailed"));
-            }
+            Dialogs.success(I18n.get("settings.restoreDone"));
         }, error -> {
             statusLabel.setText("");
-            Dialogs.error(FxAsync.messageOf(error));
+            Dialogs.error(I18n.get("settings.restoreFailed"), FxAsync.messageOf(error));
         });
+    }
+
+    /** كلمة المرور المحفوظة على الجهاز، لتُملأ مسبقاً في نافذة الاستعادة */
+    private String storedPassphrase() {
+        char[] saved = BackupPreferences.passphrase();
+        if (saved == null) {
+            return null;
+        }
+        String value = new String(saved);
+        java.util.Arrays.fill(saved, '\0');
+        return value;
     }
 
     private Window windowOf(ActionEvent event) {

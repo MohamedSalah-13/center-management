@@ -15,7 +15,8 @@ import java.security.SecureRandom;
 import java.util.Base64;
 
 @SpringBootApplication(exclude = { SecurityAutoConfiguration.class })
-@EnableScheduling // بدونها لا تعمل مهمة النسخ الاحتياطي المجدولة في BackupService إطلاقاً
+// بدونها لا يُنشئ Spring مشغّل المهام الذي يحقنه BackupScheduler، فلا تعمل أي نسخة تلقائية
+@EnableScheduling
 public class CenterApplication implements CommandLineRunner {
 
     @Autowired

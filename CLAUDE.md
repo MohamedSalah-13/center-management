@@ -78,8 +78,9 @@ would not propagate and every check would fail.
 
 Two constraints to respect when adding guards:
 
-- `BackupService.executeBackup` is intentionally **unguarded** — the 2 AM `@Scheduled` job
-  runs with no user session. Only `restoreBackup` (destructive) is restricted.
+- `BackupService.executeBackup` is intentionally **unguarded** — `BackupScheduler` runs it
+  from a scheduler thread with no user session. Only `restoreBackup` (destructive) is
+  restricted.
 - Callers must check the role *before* invoking an admin-only method when the screen is
   reachable by other roles (see `DashboardController.loadDashboardStats`), otherwise a
   SECRETARY hits `AccessDeniedException` on every open.
@@ -185,6 +186,75 @@ preview inherit the Arabic scene direction would show a mirrored version of what
 of the printer, which is the one thing a preview must not do. For the same reason the
 stylesheet is loaded onto the off-screen layout scene too — measuring in one font and
 printing in another makes the computed page breaks wrong.
+
+### Backup
+
+Three pieces: `BackupService` runs the tools, `BackupScheduler` decides when, `BackupCrypto`
+protects the file. `BackupSchedule` is the pure next-run calculation.
+
+**`executeBackup` throws with a translated message; it does not return a boolean.** The old
+signature returned `false` and printed the stack trace, and a jpackage build has no console —
+"the operation failed" was all the customer ever saw, whether the folder was gone, the
+password was wrong or `mysqldump` was not installed. The tool's own stderr now reaches the
+screen through `FxAsync`.
+
+`mysqldump` is invoked with `--host` and `--port` **read from the JDBC URL**. Without them it
+always went to `localhost:3306` — a centre running MySQL in Docker on another port had
+backups that were failing, or worse, were of a different database. `JdbcUrlParsingTest`
+covers the parsing; `docs/first-install.md` §7 has the Docker trap it comes from.
+
+The flags are chosen for the **least-privilege database user** that `docs/first-install.md`
+tells the installer to create — table-level rights on `center_db` only, nothing server-wide.
+`--single-transaction` is not a performance tweak: without it mysqldump falls
+back to `LOCK TABLES`, a privilege that user does not have, and the backup fails outright.
+`--skip-triggers` is there for the same reason — reading triggers needs the TRIGGER
+privilege, and the Flyway-owned schema has no triggers, routines or events to lose.
+`--skip-add-locks` is the one that is easy to miss: `--single-transaction` governs how
+mysqldump reads, while `--add-locks` (on by default) writes `LOCK TABLES` statements *into
+the file* that are executed at restore time and need the LOCK TABLES privilege — the restore
+dies with error 1044 at the first table while every grant looks correct.
+`--no-tablespaces` avoids PROCESS (a server-wide privilege, not a `center_db` one), and
+`--set-gtid-purged=OFF` keeps `SET @@SESSION.SQL_LOG_BIN` / `SET @@GLOBAL.GTID_PURGED` out of
+the file: on a server with GTID enabled — most Docker images — those two lines are the first
+thing `mysql` executes on restore, they need SUPER, and the restore dies with **error 1227**
+before touching a single table. They are replication bookkeeping and mean nothing to a
+single-server centre.
+
+**Restore needs `DROP` on `center_db`** — the dump replaces every table, so it drops them
+first. That one is a real privilege the installer must grant, not something a flag can avoid;
+`docs/first-install.md` §3 grants it and explains why. When the tool exits with MySQL error
+1044/1142/1227, `privilegeHint` appends the exact `GRANT` to run, because "DROP command
+denied" tells the person in front of the screen nothing about what to do next.
+
+Output is piped from the process, not written with `-r`, so it can pass through the cipher
+before it touches the disk: there is never a moment where a plaintext dump of the whole
+centre sits on the machine. Filenames carry a full timestamp — with the date alone, the
+second backup of a day silently replaced the first.
+
+**Encryption is AES-256-GCM with a PBKDF2 key** (`BackupCrypto`). GCM because a backup that
+rotted on a USB stick must fail loudly instead of half-restoring. Decryption writes a
+verified temp file *before* `mysql` is started, since the GCM tag is only checked at the last
+byte and a wrong password would otherwise pour garbage into a live database.
+
+The passphrase lives in **`BackupPreferences` (per machine, `java.util.prefs`)**, never in
+`CenterSettings`: storing it in the database it protects would ship the key inside the
+backup, and losing the database — the case backups exist for — would lose the passphrase with
+it. That is also why there is no Flyway migration for it. The stored value is obfuscated,
+which stops someone reading it out of the registry; it is not protection against an attacker
+already running as that user, and the doc comment says so.
+
+**The schedule is `CenterSettings`, not per machine** — unlike the printer and the language.
+It is one data-protection policy: the hour at which the centre is closed and the database is
+quiet. `BackupScheduler` builds a `Trigger` over `BackupSchedule` and reschedules on
+`SettingsChangedEvent` (after commit), because a cron string baked into `@Scheduled` is read
+once at startup and cannot be changed from a screen.
+
+`BackupSchedule.isOverdue` is the reason the feature works at all. The machine in a centre is
+switched off at night and the default slot is 02:00, so the practical result of the old
+`@Scheduled(cron = "0 0 2 * * ?")` was: no backup, ever, with the checkbox showing as
+enabled. A run whose slot has passed is taken a few minutes after the next startup, and
+`lastAutoBackupAt` — written only on success — is what makes a nightly failure visible in the
+settings screen instead of silent.
 
 ### Money
 
