@@ -491,7 +491,11 @@ public class DashboardController {
         ScrollPane scroll = new ScrollPane(rows);
         scroll.setFitToWidth(true);
         scroll.setPrefHeight(UiScale.scaled(Math.min(320, 74.0 * Math.max(1, open.size()) + 12)));
-        scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+        // -fx-background-color وحدها، ولا يُضاف إليها -fx-background أبداً: الثانية
+        // اللونُ المرجعيّ الذي تبني عليه modena لونَ النصّ عبر ladder، و transparent
+        // يُقرأ سطوعه صفراً فيصير نصّ كل ما تحتها أبيض على أبيض. راجع .content-scroll
+        scroll.setStyle("-fx-background-color: transparent;");
+        scroll.getStyleClass().add("content-scroll");
 
         Button openCentre = new Button(I18n.get("alerts.bellOpenCentre"));
         openCentre.setMaxWidth(Double.MAX_VALUE);

@@ -25,7 +25,7 @@
           <!-- fitToHeight: يملأ المحتوى الشاشة ما دام يسعها، ويظهر شريط التمرير حين لا
                تسعه. بدونه إمّا لا يكبر الجدول، وإمّا يُقصّ ما تحته بلا وسيلة للوصول إليه -->
           <ScrollPane fitToWidth="true" fitToHeight="true" hbarPolicy="NEVER"
-                      style="-fx-background-color: transparent; -fx-background: transparent;">
+                      styleClass="content-scroll">
             <VBox spacing="15.0" style="-fx-padding: 20;">
 
                 <GridPane hgap="15.0" vgap="15.0"
@@ -86,7 +86,7 @@
                الحفظ خارج الشاشة بلا وسيلة للوصول إليها - والمشكلة تتفاقم مع كل درجة
                تكبير للواجهة، لأن كل شيء يطول بينما النافذة لا تطول معه -->
           <ScrollPane fitToWidth="true" fitToHeight="true" hbarPolicy="NEVER"
-                      style="-fx-background-color: transparent; -fx-background: transparent;">
+                      styleClass="content-scroll">
             <VBox spacing="15.0" style="-fx-padding: 20;">
 
                 <!-- المفتاح الرئيسي وموعد الفحص: سياسة السنتر كله -->
