@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface CourseGroupRepository extends JpaRepository<CourseGroup, Long> {
@@ -25,4 +26,16 @@ public interface CourseGroupRepository extends JpaRepository<CourseGroup, Long> 
      */
     @Query("SELECT cg FROM CourseGroup cg JOIN FETCH cg.teacher WHERE cg.schoolLevel = :level ORDER BY cg.name")
     List<CourseGroup> findBySchoolLevel(@Param("level") SchoolLevel level);
+
+    /**
+     * مجموعة واحدة ومعها معلمها، لإعادتها إلى الشاشة بعد الحفظ.
+     *
+     * <p>{@code save} على كيان منفصل - وكل ما يأتي من شاشة فهو منفصل - يُنفَّذ كـ
+     * {@code merge}، وهو <b>لا يُعيد الكيان الذي أُرسل إليه</b> بل نسخة مُدارة يُحمَّلها
+     * من قاعدة البيانات، ويكون المعلم فيها وكيلاً كسولاً غير محمَّل. فإذا أُغلقت
+     * المعاملة سقط الجدول بـ {@code LazyInitializationException} عند أول قراءة لاسم
+     * المعلم - أي مباشرةً بعد نجاح التعديل.</p>
+     */
+    @Query("SELECT cg FROM CourseGroup cg JOIN FETCH cg.teacher WHERE cg.id = :id")
+    Optional<CourseGroup> findByIdWithTeacher(@Param("id") Long id);
 }

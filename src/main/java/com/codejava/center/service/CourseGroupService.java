@@ -70,7 +70,9 @@ public class CourseGroupService {
                         + "; days=" + daysAsText(saved.getMeetingDays())
                         + "; time=" + saved.getStartTime() + "-" + saved.getEndTime());
 
-        return saved;
+        // تُعاد المجموعة ومعلمها محمَّلاً: العائد من save بعد merge يحمل وكيلاً كسولاً
+        // للمعلم، والشاشة تقرأ اسمه بعد إغلاق المعاملة - انظر findByIdWithTeacher
+        return courseGroupRepository.findByIdWithTeacher(saved.getId()).orElse(saved);
     }
 
     /**

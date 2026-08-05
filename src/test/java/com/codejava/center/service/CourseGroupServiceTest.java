@@ -8,10 +8,12 @@ import com.codejava.center.repository.TeacherRepository;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.UserSession;
 import com.codejava.center.util.WeekDays;
+import org.hibernate.Hibernate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 
 import java.math.BigDecimal;
@@ -35,6 +37,7 @@ class CourseGroupServiceTest {
 
     @Autowired private CourseGroupService courseGroupService;
     @Autowired private TeacherRepository teacherRepository;
+    @Autowired private TestEntityManager entityManager;
 
     private Teacher teacher;
 
@@ -135,6 +138,31 @@ class CourseGroupServiceTest {
 
         assertThat(moved.getName()).contains(WeekDays.displayName(DayOfWeek.MONDAY));
         assertThat(moved.getName()).doesNotContain(WeekDays.displayName(DayOfWeek.SATURDAY));
+    }
+
+    /**
+     * التعديل يعيد المجموعة ومعلمها محمَّلاً.
+     *
+     * <p>ما يأتي من شاشة كيان منفصل، و{@code save} عليه {@code merge}: يُرجع نسخة مُدارة
+     * أخرى معلمُها وكيل كسول. وبإغلاق المعاملة كان جدول المجموعات يسقط بـ
+     * {@code LazyInitializationException} فور نجاح التعديل - وهو ما لا يظهر في اختبار
+     * تبقى جلسته مفتوحة، ولذلك يُفرَّغ سياق الإدامة هنا صراحةً قبل الاستدعاء.</p>
+     */
+    @Test
+    void returnsTheGroupWithItsTeacherLoadedAfterAnUpdate() {
+        CourseGroup saved = courseGroupService.saveGroup(
+                group(teacher, SchoolLevel.PREP1, Set.of(DayOfWeek.SATURDAY), 16, 18));
+
+        entityManager.flush();
+        entityManager.clear(); // الكيان صار منفصلاً، كما يعود من الشاشة
+
+        saved.setSessionPrice(new BigDecimal("60.00"));
+        CourseGroup updated = courseGroupService.saveGroup(saved);
+
+        assertThat(Hibernate.isInitialized(updated.getTeacher()))
+                .as("معلم المجموعة العائدة يجب أن يكون محمَّلاً قبل إغلاق المعاملة")
+                .isTrue();
+        assertThat(updated.getTeacher().getName()).isEqualTo(teacher.getName());
     }
 
     @Test
