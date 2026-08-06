@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<!--
+  ضبط قاعدة تنبيه واحدة، في نافذة تُفتح من زرّ سطرها في جدول القواعد.
+
+  كان هذا النموذج لوحاً بجوار الجدول يتبع الصف المحدَّد صامتاً: يحجز نصف عرض التبويب
+  وهو فارغ حتى يُحدَّد صف، ويُقرأ "حفظ القاعدة" وكأنه يخصّ ما في الجدول لا ما في اللوح.
+  النافذة تحمل اسم القاعدة في ترويستها، فلا يبقى سؤال عمّا يُحفظ.
+
+  الشكل ثلاث طبقات ثابتة: ترويسة تقول ما هذه القاعدة، وبطاقة مغيِّرات في الوسط تتمدّد
+  وتتحرّك وحدها، وشريط سفلي يبقى مرئياً مهما طال ما فوقه - فلا يخرج زرّ الحفظ خارج
+  الشاشة عند مقاسات الواجهة الكبيرة.
+
+  وكل صفّ ضبط سطر واحد: شرحٌ يبدأ من أول السطر ومغيِّرٌ في آخره بعرض واحد
+  (.setting-control)، فتصطفّ المغيِّرات الخمسة رغم اختلاف أطوال الشروح - وهو ما لم
+  يكن يفعله عنوانٌ فوق حقلٍ ممدود على العرض كله لرقم من خانتين.
+-->
+<VBox spacing="18.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.codejava.center.controller.AlertRuleEditorController"
+      styleClass="content-area">
+    <padding><Insets top="24.0" bottom="20.0" left="26.0" right="26.0"/></padding>
+
+    <!-- ما هذه القاعدة: اسمها، وتصنيفها، ومتى تُطلق -->
+    <VBox spacing="6.0">
+        <Label fx:id="ruleNameLabel" styleClass="header-label" wrapText="true"/>
+        <Label fx:id="ruleCategoryLabel" styleClass="muted-text" wrapText="true"/>
+        <Label fx:id="ruleDescriptionLabel" wrapText="true"/>
+    </VBox>
+
+    <!-- fitToHeight منزوع عن قصد: البطاقة تنتهي حيث ينتهي محتواها بدل أن تُمطّ إلى
+         أسفل النافذة. قاعدةٌ بمغيِّرين تركت بذلك مربّعاً أبيض فارغاً بارتفاع الثلث
+         يقول إن شيئاً كان يُفترض أن يكون فيه. والفراغ الآن خلفيةُ الشاشة كبقيّتها -->
+    <ScrollPane fitToWidth="true" hbarPolicy="NEVER" VBox.vgrow="ALWAYS"
+                styleClass="content-scroll">
+        <VBox spacing="16.0" styleClass="card">
+
+            <CheckBox fx:id="ruleEnabledCheck" text="%alerts.ruleEnabled"/>
+
+            <Separator/>
+
+            <HBox spacing="16.0" alignment="CENTER_LEFT">
+                <Label text="%alerts.ruleAudience" styleClass="sub-label" wrapText="true"
+                       maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                <ComboBox fx:id="ruleAudienceCombo" styleClass="setting-control"/>
+            </HBox>
+            <Label fx:id="ruleAudienceNoteLabel" styleClass="muted-text" wrapText="true"/>
+
+            <HBox spacing="16.0" alignment="CENTER_LEFT">
+                <Label text="%alerts.ruleSeverity" styleClass="sub-label" wrapText="true"
+                       maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                <ComboBox fx:id="ruleSeverityCombo" styleClass="setting-control"/>
+            </HBox>
+
+            <!-- الصفوف الثلاثة الباقية تخصّ نوعاً دون نوع، فتُخفى بصفّها كاملاً لا
+                 بعنوانها ومغيِّرها: صندوق الترتيب يطوي الصفّ المخفيّ بمسافته معه،
+                 فلا يبقى فراغ يقول إن شيئاً كان هنا -->
+            <HBox fx:id="thresholdRow" spacing="16.0" alignment="CENTER_LEFT">
+                <Label fx:id="ruleThresholdLabel" styleClass="sub-label" wrapText="true"
+                       maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                <Spinner fx:id="ruleThresholdSpinner" editable="true" styleClass="setting-control"/>
+            </HBox>
+
+            <HBox fx:id="windowRow" spacing="16.0" alignment="CENTER_LEFT">
+                <Label fx:id="ruleWindowLabel" styleClass="sub-label" wrapText="true"
+                       maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                <Spinner fx:id="ruleWindowSpinner" editable="true" styleClass="setting-control"/>
+            </HBox>
+
+            <HBox fx:id="cooldownRow" spacing="16.0" alignment="CENTER_LEFT">
+                <Label fx:id="ruleCooldownLabel" text="%alerts.ruleCooldown" styleClass="sub-label"
+                       wrapText="true" maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                <Spinner fx:id="ruleCooldownSpinner" editable="true" styleClass="setting-control"/>
+            </HBox>
+        </VBox>
+    </ScrollPane>
+
+    <!-- آخر تعديل بجوار الزرّين لا فوقهما: هو سطر معلومة عمّا حُفظ قبلاً،
+         وموضعه هنا يملأ أول الشريط بدل أن يترك الزرّين معلَّقين في فراغ -->
+    <HBox spacing="14.0" alignment="CENTER_LEFT">
+        <Label fx:id="ruleUpdatedLabel" styleClass="muted-text" wrapText="true"
+               maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+        <Button fx:id="saveRuleButton" text="%alerts.saveRule" onAction="#handleSaveRule"
+                styleClass="btn-success"/>
+        <Button text="%common.close" onAction="#handleCloseAction" styleClass="btn-secondary"/>
+    </HBox>
+</VBox>

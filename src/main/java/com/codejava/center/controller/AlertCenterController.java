@@ -2,7 +2,6 @@ package com.codejava.center.controller;
 
 import com.codejava.center.domain.Alert;
 import com.codejava.center.domain.AlertRule;
-import com.codejava.center.domain.enums.AlertAudience;
 import com.codejava.center.domain.enums.AlertCategory;
 import com.codejava.center.domain.enums.AlertSeverity;
 import com.codejava.center.domain.enums.AlertType;
@@ -14,13 +13,14 @@ import com.codejava.center.util.AlertPreferences;
 import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
+import com.codejava.center.util.ViewLoader;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
-import javafx.scene.Node;
+import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.util.StringConverter;
 import lombok.RequiredArgsConstructor;
@@ -42,9 +42,9 @@ import java.util.function.Function;
  * البيانات لأنها تحدّد ما يُجلب أصلاً، أما البحث النصّي و"غير المعالَجة فقط" فيعملان
  * على ما جُلب فيستجيبان مع كل حرف بلا رحلة إلى القاعدة.</p>
  *
- * <p>القواعد تُحرَّر في نموذج جانبي لا في خلايا الجدول: معنى كل حدّ يختلف باختلاف
- * النوع - "٣" تعني ثلاث غيابات هنا وخمسين جنيهاً هناك - ولا بد أن يُشرح بجواره لحظة
- * كتابته. خليةٌ قابلة للتحرير في جدول لا مكان فيها لهذا الشرح.</p>
+ * <p>ضبط القاعدة يقع في نافذة مستقلة تُفتح من زرّ سطرها - {@link AlertRuleEditorController} -
+ * لا في خلايا الجدول ولا في لوح بجواره: معنى كل حدّ يختلف باختلاف النوع، ولا بد أن
+ * يُشرح بجواره لحظة كتابته.</p>
  */
 @Controller
 @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
@@ -54,6 +54,14 @@ public class AlertCenterController {
     private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     private final AlertService alertService;
+    private final ViewLoader viewLoader;
+
+    // مقاس نافذة الضبط: عرضٌ يسع شرحاً طويلاً ومغيِّره في سطر واحد بلا لفّ،
+    // وارتفاعٌ يسع أطول قاعدة (ثلاثة مغيِّرات) بلا تمرير. وكلاهما يكبر مع مقاس
+    // الواجهة في ViewLoader ويُقصّ عند حدود الشاشة
+    private static final String RULE_EDITOR_FXML = "/fxml/AlertRuleEditor.fxml";
+    private static final double RULE_EDITOR_WIDTH = 640;
+    private static final double RULE_EDITOR_HEIGHT = 660;
 
     @FXML private Label masterStateLabel;
 
@@ -80,14 +88,7 @@ public class AlertCenterController {
     @FXML private TableView<AlertRule> rulesTable;
     @FXML private TableColumn<AlertRule, String> colRuleCategory, colRuleType, colRuleState,
             colRuleAudience, colRuleSeverity;
-
-    @FXML private Label ruleNameLabel, ruleDescriptionLabel, ruleAudienceNoteLabel,
-            ruleThresholdLabel, ruleWindowLabel, ruleCooldownLabel, ruleUpdatedLabel;
-    @FXML private CheckBox ruleEnabledCheck;
-    @FXML private ComboBox<AlertAudience> ruleAudienceCombo;
-    @FXML private ComboBox<AlertSeverity> ruleSeverityCombo;
-    @FXML private Spinner<Integer> ruleThresholdSpinner, ruleWindowSpinner, ruleCooldownSpinner;
-    @FXML private Button saveRuleButton;
+    @FXML private TableColumn<AlertRule, Void> colRuleEdit;
 
     private final ObservableList<Alert> alerts = FXCollections.observableArrayList();
     private FilteredList<Alert> visible;
@@ -110,7 +111,7 @@ public class AlertCenterController {
         alertsTable.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
 
         configureRulesTable();
-        configureRuleForm();
+        configureScanSpinners();
         loadDevicePreferences();
 
         loadAlerts();
@@ -324,38 +325,86 @@ public class AlertCenterController {
                 d.getValue().getAudience().getDisplayName()));
         colRuleSeverity.setCellValueFactory(d -> new SimpleStringProperty(
                 d.getValue().getSeverity().getDisplayName()));
+        configureEditColumn();
 
-        // القاعدة الموقفة تُقرأ رمادية: نصف الشاشة سؤاله "ما الذي يعمل الآن؟"
-        rulesTable.setRowFactory(table -> new TableRow<>() {
-            @Override
-            protected void updateItem(AlertRule item, boolean empty) {
-                super.updateItem(item, empty);
-                setStyle(empty || item == null || item.isEnabled()
-                        ? "" : "-fx-background-color: #f1f2f6; -fx-text-fill: #95a5a6;");
-            }
+        rulesTable.setRowFactory(table -> {
+            // القاعدة الموقفة تُقرأ رمادية: نصف الشاشة سؤاله "ما الذي يعمل الآن؟"
+            TableRow<AlertRule> row = new TableRow<>() {
+                @Override
+                protected void updateItem(AlertRule item, boolean empty) {
+                    super.updateItem(item, empty);
+                    setStyle(empty || item == null || item.isEnabled()
+                            ? "" : "-fx-background-color: #f1f2f6; -fx-text-fill: #95a5a6;");
+                }
+            };
+
+            // النقر المزدوج على الصف يفتح ما يفتحه زرّه. على الصف لا على الجدول:
+            // معالِج على الجدول كله يستجيب للنقر المزدوج على فراغ أسفل الصفوف أيضاً،
+            // فيفتح نافذة القاعدة التي بقيت محدَّدة من قبل
+            row.setOnMouseClicked(event -> {
+                if (event.getClickCount() == 2 && !row.isEmpty()) {
+                    openRuleEditor(row.getItem());
+                }
+            });
+            return row;
         });
 
         rulesTable.setItems(rules);
-        rulesTable.getSelectionModel().selectedItemProperty().addListener(
-                (obs, oldRule, newRule) -> showRule(newRule));
     }
 
-    private void configureRuleForm() {
-        ruleSeverityCombo.getItems().setAll(AlertSeverity.values());
-        ruleSeverityCombo.setConverter(converter(AlertSeverity::getDisplayName));
-        ruleAudienceCombo.setConverter(converter(AlertAudience::getDisplayName));
+    /**
+     * زر الضبط داخل كل صف.
+     *
+     * <p>الزر في الصف لا في شريط الأدوات، لنفس سبب زر اشتراكات الطالب: ضبط قاعدة يُطلب
+     * وأنت تنظر إلى سطرها. واللوح الجانبي حين كان داخل التبويب كان يتبع الصف المحدَّد
+     * صامتاً، فيُقرأ "حفظ القاعدة" وكأنه يخصّ ما في الجدول لا ما في اللوح.</p>
+     */
+    private void configureEditColumn() {
+        colRuleEdit.setCellFactory(column -> new TableCell<>() {
+            private final Button editButton = new Button(I18n.get("alerts.editRule"));
 
-        ruleAudienceCombo.valueProperty().addListener((obs, oldVal, newVal) -> showAudienceNote(newVal));
+            {
+                editButton.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-padding: 2 10;");
+                editButton.setOnAction(event -> openRuleEditor(getTableView().getItems().get(getIndex())));
+                setAlignment(Pos.CENTER);
+            }
 
-        configureSpinner(ruleThresholdSpinner, 0, 100000, 0);
-        configureSpinner(ruleWindowSpinner, 1, 365, 1);
-        configureSpinner(ruleCooldownSpinner, 0, 365, 0);
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                setGraphic(empty ? null : editButton);
+            }
+        });
+    }
 
+    /**
+     * نافذة ضبط قاعدة واحدة: مستقلة، وتُفتح بالقاعدة مضبوطة فيها قبل عرضها.
+     *
+     * <p>القواعد تُعاد قراءتها بعد إغلاقها لا بعد حفظٍ داخلها: النافذة محجوزة
+     * ({@code showAndWait}) فلا يعود التنفيذ هنا إلا وقد انتهى صاحبها منها، والحالة
+     * والوجهة والدرجة في الجدول لا بد أن تقول ما حُفظ.</p>
+     */
+    private void openRuleEditor(AlertRule rule) {
+        // الضغط على زرّ داخل خلية لا يحدّد صفها: يُحدَّد هنا كي يبقى السطر مميَّزاً
+        // بعد إغلاق النافذة، فيعرف من ضبط قاعدة أيّها كان يضبط
+        rulesTable.getSelectionModel().select(rule);
+
+        try {
+            viewLoader.<AlertRuleEditorController>showModal(RULE_EDITOR_FXML,
+                    I18n.format("alerts.ruleEditorTitle", rule.getType().getDisplayName()),
+                    rulesTable.getScene().getWindow(),
+                    RULE_EDITOR_WIDTH, RULE_EDITOR_HEIGHT,
+                    controller -> controller.setRule(rule));
+        } catch (Exception e) {
+            Dialogs.error(I18n.format("alerts.ruleOpenFailed", FxAsync.messageOf(e)));
+            return;
+        }
+        loadRules();
+    }
+
+    private void configureScanSpinners() {
         configureSpinner(scanHourSpinner, 0, 23, AlertSchedule.DEFAULT_TIME.getHour());
         configureSpinner(scanMinuteSpinner, 0, 59, AlertSchedule.DEFAULT_TIME.getMinute());
-
-        // نفس ما يفعله showRule(null): لا حقول أرقام بلا عناوين قبل اختيار قاعدة
-        showRule(null);
     }
 
     private <T> StringConverter<T> converter(Function<T, String> display) {
@@ -398,8 +447,8 @@ public class AlertCenterController {
             rules.setAll(loaded);
             masterStateLabel.setText(summaryOfRules(loaded));
 
-            // الاختيار السابق يُستعاد: setAll يمسحه، وإلا قفز النموذج إلى الفراغ
-            // بعد كل حفظ بينما المستخدم يضبط قاعدة بعينها
+            // الاختيار السابق يُستعاد: setAll يمسحه، فيفقد المستخدم موضع القاعدة
+            // التي كان يضبطها بعد كل عودة من نافذتها
             loaded.stream().filter(rule -> rule.getType() == previous).findFirst()
                     .ifPresent(rule -> rulesTable.getSelectionModel().select(rule));
         }, error -> Dialogs.error(I18n.format("alerts.loadFailed", FxAsync.messageOf(error))));
@@ -414,126 +463,6 @@ public class AlertCenterController {
         long enabled = loaded.stream().filter(AlertRule::isEnabled).count();
         long toParents = loaded.stream().filter(AlertRule::notifiesParents).count();
         return I18n.format("alerts.rulesSummary", enabled, loaded.size(), toParents);
-    }
-
-    private void showRule(AlertRule rule) {
-        if (rule == null) {
-            ruleNameLabel.setText(I18n.get("alerts.selectRule"));
-            ruleDescriptionLabel.setText("");
-
-            // المغيِّرات تُخفى لا تُعطَّل فقط: عنوانها يأتي من النوع المحدَّد، وقبل
-            // الاختيار كانت تظهر ثلاثة حقول أرقام فوقها عناوين فارغة لا تقول ما هي
-            showSpinner(ruleThresholdLabel, ruleThresholdSpinner, false, "", 0);
-            showSpinner(ruleWindowLabel, ruleWindowSpinner, false, "", 0);
-            showSpinner(ruleCooldownLabel, ruleCooldownSpinner, false, "", 0);
-
-            setDetailEnabled(false);
-            return;
-        }
-
-        AlertType type = rule.getType();
-        ruleNameLabel.setText(type.getDisplayName());
-        ruleDescriptionLabel.setText(type.getDescription());
-        ruleEnabledCheck.setSelected(rule.isEnabled());
-        ruleSeverityCombo.setValue(rule.getSeverity());
-
-        // الوجهات المتاحة تتبع النوع: فشل نسخة احتياطية لا يُرسل إلى هاتف ولي أمر،
-        // وعرض الخيار ثم رفضه عند الحفظ أسوأ من عدم عرضه
-        ruleAudienceCombo.getItems().setAll(type.isParentCapable()
-                ? List.of(AlertAudience.values())
-                : List.of(AlertAudience.INTERNAL));
-        ruleAudienceCombo.setValue(rule.getAudience());
-
-        showSpinner(ruleThresholdLabel, ruleThresholdSpinner, type.usesThreshold(),
-                type.getThresholdLabel(), rule.thresholdOrDefault());
-        showSpinner(ruleWindowLabel, ruleWindowSpinner, type.usesWindow(),
-                type.getWindowLabel(), rule.windowDaysOrDefault());
-
-        // تهدئة صفرية تعني نوعاً حَدَثياً يُطلق لحظة وقوعه: لا معنى لضبطها
-        boolean scheduled = type.usesThreshold() || type.usesWindow();
-        showSpinner(ruleCooldownLabel, ruleCooldownSpinner, scheduled,
-                I18n.get("alerts.ruleCooldown"), rule.cooldownDaysOrDefault());
-
-        ruleUpdatedLabel.setText(rule.getUpdatedAt() == null
-                ? I18n.get("alerts.ruleUntouched")
-                : I18n.format("alerts.ruleUpdated", rule.getUpdatedAt().format(TIMESTAMP),
-                        rule.getUpdatedBy() == null ? I18n.get("audit.systemActor") : rule.getUpdatedBy()));
-
-        setDetailEnabled(true);
-    }
-
-    private void showSpinner(Label label, Spinner<Integer> spinner, boolean shown,
-                             String text, int value) {
-        label.setText(text);
-        for (Node node : new Node[]{label, spinner}) {
-            node.setVisible(shown);
-            node.setManaged(shown);
-        }
-        if (shown) {
-            spinner.getValueFactory().setValue(value);
-        }
-    }
-
-    private void showAudienceNote(AlertAudience audience) {
-        boolean toParents = audience != null && audience.includesParents();
-        ruleAudienceNoteLabel.setText(toParents
-                ? I18n.get("alerts.audienceParentsNote") : I18n.get("alerts.audienceInternalNote"));
-        ruleAudienceNoteLabel.setStyle(toParents ? "-fx-text-fill: #c0392b;" : "");
-    }
-
-    private void setDetailEnabled(boolean enabled) {
-        for (Node node : new Node[]{ruleEnabledCheck, ruleAudienceCombo, ruleSeverityCombo,
-                ruleThresholdSpinner, ruleWindowSpinner, ruleCooldownSpinner, saveRuleButton}) {
-            node.setDisable(!enabled);
-        }
-    }
-
-    /**
-     * حفظ ضبط القاعدة المحددة.
-     *
-     * <p>تأكيدٌ صريح حين تصير الوجهة أولياء الأمور: هذه هي اللحظة التي يبدأ فيها
-     * البرنامج بمراسلة أرقام حقيقية باسم السنتر بلا ضغطة من موظف. الشاشة تقول ذلك
-     * بصريح العبارة لأن ما بعده لا يمكن سحبه.</p>
-     */
-    @FXML
-    public void handleSaveRule(ActionEvent event) {
-        AlertRule selected = rulesTable.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            return;
-        }
-
-        AlertType type = selected.getType();
-        AlertAudience audience = ruleAudienceCombo.getValue();
-        boolean startsMessagingParents = ruleEnabledCheck.isSelected()
-                && audience != null && audience.includesParents()
-                && !selected.notifiesParents();
-
-        if (startsMessagingParents && !Dialogs.confirm(I18n.get("alerts.parentConfirmTitle"),
-                I18n.format("alerts.parentConfirm", type.getDisplayName()))) {
-            return;
-        }
-
-        AlertRule edited = AlertRule.builder()
-                .type(type)
-                .enabled(ruleEnabledCheck.isSelected())
-                .audience(audience == null ? AlertAudience.INTERNAL : audience)
-                .severity(ruleSeverityCombo.getValue() == null
-                        ? type.getDefaultSeverity() : ruleSeverityCombo.getValue())
-                .threshold(type.usesThreshold() ? ruleThresholdSpinner.getValue() : null)
-                .windowDays(type.usesWindow() ? ruleWindowSpinner.getValue() : null)
-                .cooldownDays(ruleCooldownSpinner.isManaged()
-                        ? ruleCooldownSpinner.getValue() : type.getDefaultCooldownDays())
-                .build();
-
-        saveRuleButton.setDisable(true);
-        FxAsync.supply(() -> alertService.saveRule(edited), saved -> {
-            saveRuleButton.setDisable(false);
-            Dialogs.success(I18n.get("common.updated"));
-            loadRules();
-        }, error -> {
-            saveRuleButton.setDisable(false);
-            Dialogs.error(FxAsync.messageOf(error));
-        });
     }
 
     // ================================================================= الجدولة

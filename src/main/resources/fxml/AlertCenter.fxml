@@ -144,59 +144,18 @@
                     </HBox>
                 </GridPane>
 
-                <HBox spacing="20.0" VBox.vgrow="ALWAYS">
-
-                    <!-- أعمدة أضيق: الجدول والنموذج جنباً إلى جنب داخل ٨٢٨ نقطة هي كل ما
-                         يتبقّى بعد القائمة الجانبية عند أضيق نافذة مسموح بها -->
-                    <TableView fx:id="rulesTable" HBox.hgrow="ALWAYS" minHeight="260.0" minWidth="380.0">
-                        <columns>
-                            <TableColumn fx:id="colRuleCategory" text="%alerts.col.category" prefWidth="100.0"/>
-                            <TableColumn fx:id="colRuleType" text="%alerts.col.type" prefWidth="170.0"/>
-                            <TableColumn fx:id="colRuleState" text="%alerts.col.state" prefWidth="80.0"/>
-                            <TableColumn fx:id="colRuleAudience" text="%alerts.col.audience" prefWidth="120.0"/>
-                            <TableColumn fx:id="colRuleSeverity" text="%alerts.col.severity" prefWidth="80.0"/>
-                        </columns>
-                    </TableView>
-
-                    <!-- تفاصيل القاعدة المحددة: نموذج لا خلايا قابلة للتحرير، لأن معنى
-                         كل حدّ يختلف باختلاف النوع ولا بد أن يُشرح بجواره.
-
-                         minHeight="-Infinity" أي USE_PREF_SIZE: يجعل النموذج يعلن ارتفاعه
-                         الكامل حدّاً أدنى، فيتولّى الغلاف المتحرّك عرضَ ما لا يسعه بدل أن
-                         يضغطه صندوق الترتيب فيبتلع زرّ الحفظ -->
-                    <VBox spacing="12.0" prefWidth="400.0" minWidth="340.0" minHeight="-Infinity"
-                          style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
-
-                        <Label fx:id="ruleNameLabel" text="%alerts.selectRule" textFill="#2c3e50" wrapText="true" style="-fx-font-size: 1.21em; -fx-font-weight: bold;"/>
-                        <Label fx:id="ruleDescriptionLabel" text="" textFill="#7f8c8d" wrapText="true"/>
-
-                        <Separator/>
-
-                        <CheckBox fx:id="ruleEnabledCheck" text="%alerts.ruleEnabled"/>
-
-                        <Label text="%alerts.ruleAudience" style="-fx-font-weight: bold;"/>
-                        <ComboBox fx:id="ruleAudienceCombo" maxWidth="Infinity"/>
-                        <Label fx:id="ruleAudienceNoteLabel" text="" textFill="#7f8c8d" wrapText="true"/>
-
-                        <Label text="%alerts.ruleSeverity" style="-fx-font-weight: bold;"/>
-                        <ComboBox fx:id="ruleSeverityCombo" maxWidth="Infinity"/>
-
-                        <Label fx:id="ruleThresholdLabel" text="" style="-fx-font-weight: bold;"/>
-                        <Spinner fx:id="ruleThresholdSpinner" editable="true" maxWidth="Infinity"/>
-
-                        <Label fx:id="ruleWindowLabel" text="" style="-fx-font-weight: bold;"/>
-                        <Spinner fx:id="ruleWindowSpinner" editable="true" maxWidth="Infinity"/>
-
-                        <Label fx:id="ruleCooldownLabel" text="%alerts.ruleCooldown" style="-fx-font-weight: bold;"/>
-                        <Spinner fx:id="ruleCooldownSpinner" editable="true" maxWidth="Infinity"/>
-
-                        <Label fx:id="ruleUpdatedLabel" text="" textFill="#7f8c8d" wrapText="true"/>
-
-                        <Button fx:id="saveRuleButton" text="%alerts.saveRule" onAction="#handleSaveRule"
-                                maxWidth="Infinity"
-                                style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 20;"/>
-                    </VBox>
-                </HBox>
+                <!-- الجدول وحده بعرض التبويب: الضبط يُفتح في نافذة مستقلة من زرّ الصف،
+                     فلم يعد نصف العرض محجوزاً لنموذجٍ فارغٍ ما لم تُحدَّد قاعدة -->
+                <TableView fx:id="rulesTable" VBox.vgrow="ALWAYS" minHeight="260.0">
+                    <columns>
+                        <TableColumn fx:id="colRuleCategory" text="%alerts.col.category" prefWidth="130.0"/>
+                        <TableColumn fx:id="colRuleType" text="%alerts.col.type" prefWidth="230.0"/>
+                        <TableColumn fx:id="colRuleState" text="%alerts.col.state" prefWidth="100.0"/>
+                        <TableColumn fx:id="colRuleAudience" text="%alerts.col.audience" prefWidth="150.0"/>
+                        <TableColumn fx:id="colRuleSeverity" text="%alerts.col.severity" prefWidth="100.0"/>
+                        <TableColumn fx:id="colRuleEdit" text="%alerts.col.settings" prefWidth="120.0"/>
+                    </columns>
+                </TableView>
             </VBox>
           </ScrollPane>
         </Tab>

@@ -52,8 +52,8 @@ renders literal `%keys`), and the scene's node orientation. `showLogin` / `showD
 also own the window sizing, because switching language rebuilds the scene and needs exactly
 the same setup.
 
-`showModal` is the same rule for a **separate window** (`StudentEnrollments.fxml` is the
-one). A new `Stage` is a new scene that inherits nothing from the window that opened it —
+`showModal` is the same rule for a **separate window** (`StudentEnrollments.fxml` and
+`AlertRuleEditor.fxml` are the two). A new `Stage` is a new scene that inherits nothing from the window that opened it —
 not direction, not the stylesheet, not the root font size — exactly like `Dialogs.decorate`
 and the bell dropdown. Its `prepare` callback runs on the controller after the load and
 *before* the window is shown, because a window opened for one row has to know its subject
