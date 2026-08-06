@@ -1,43 +1,67 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<VBox spacing="15.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
-      fx:controller="com.codejava.center.controller.StudentEnrollmentsController"
-      style="-fx-background-color: #f4f4f4; -fx-padding: 20;">
+<!--
+  إدارة اشتراكات طالب واحد، في نافذة تُفتح من زرّ سطره في جدول الطلاب.
 
-    <!-- اسم الطالب ومرحلته: النافذة منفصلة عن الجدول الذي فُتحت منه، فلا بدّ أن تقول لمن هي -->
-    <VBox spacing="4.0">
-        <Label fx:id="studentNameLabel" textFill="#2c3e50" style="-fx-font-size: 1.43em; -fx-font-weight: bold;"/>
-        <Label fx:id="studentLevelLabel" textFill="#7f8c8d" />
+  الشكل ثلاث طبقات ثابتة كما في نافذة ضبط القاعدة: ترويسة تقول لمن هذه النافذة،
+  بطاقةٌ في الوسط تتمدّد بجدولها، وشريط سفلي يبقى مرئياً مهما طال ما فوقه - فلا
+  يخرج زرّ الطباعة خارج الشاشة عند مقاسات الواجهة الكبيرة.
+
+  لا لون ولا حشوة مكتوبة هنا: كلها أصناف من style.css (card، header-label، btn-*)،
+  فتتبع لوحة ألوان البرنامج ومقاسه بلا رقم يتخلّف عن البقية حين تتغيّر.
+-->
+<VBox spacing="18.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.codejava.center.controller.StudentEnrollmentsController"
+      styleClass="content-area">
+    <padding><Insets top="24.0" bottom="20.0" left="26.0" right="26.0"/></padding>
+
+    <!-- لمن هذه النافذة: اسمه، ومرحلته، وحصاد اشتراكاته في سطر -->
+    <VBox spacing="6.0">
+        <Label fx:id="studentNameLabel" styleClass="header-label" wrapText="true"/>
+        <Label fx:id="studentLevelLabel" styleClass="muted-text" wrapText="true"/>
+        <Label fx:id="studentSummaryLabel" wrapText="true"/>
     </VBox>
 
-    <VBox spacing="10.0" VBox.vgrow="ALWAYS"
-          style="-fx-padding: 15; -fx-background-color: white; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
-        <Label text="%student.enrollmentSection" textFill="#2c3e50" style="-fx-font-size: 1.14em; -fx-font-weight: bold;"/>
+    <VBox spacing="14.0" styleClass="card" VBox.vgrow="ALWAYS">
+        <Label text="%student.enrollmentSection" styleClass="sub-label"/>
 
-        <FlowPane hgap="15.0" vgap="10.0">
-            <ComboBox fx:id="groupComboBox" promptText="%student.groupPrompt" prefWidth="250.0" />
-            <Label fx:id="groupCapacityLabel" text="%student.capacityUnknown" textFill="#7f8c8d" style="-fx-font-weight: bold;"/>
-            <Button fx:id="subscribeButton" text="%student.subscribe" onAction="#handleSubscribeAction" style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold;" />
-            <Button fx:id="unsubscribeButton" text="%student.unsubscribe" disable="true" onAction="#handleUnsubscribeAction" style="-fx-background-color: #e67e22; -fx-text-fill: white; -fx-font-weight: bold;" />
+        <!-- FlowPane لا HBox: عند تكبير الواجهة إلى 175% لا يتّسع السطر للقائمة
+             وزرَّيها، فينزل ما لا يتّسع سطراً تحته بدل أن يُقصّ من طرف النافذة -->
+        <FlowPane hgap="14.0" vgap="10.0">
+            <ComboBox fx:id="groupComboBox" promptText="%student.groupPrompt" prefWidth="260.0"/>
+            <Button fx:id="subscribeButton" text="%student.subscribe" onAction="#handleSubscribeAction"/>
+            <Button fx:id="unsubscribeButton" text="%student.unsubscribe" disable="true"
+                    onAction="#handleUnsubscribeAction" styleClass="btn-warning"/>
         </FlowPane>
 
-        <Label fx:id="enrollmentHintLabel" textFill="#7f8c8d" wrapText="true" />
+        <HBox spacing="14.0" alignment="CENTER_LEFT">
+            <Label fx:id="groupCapacityLabel" text="%student.capacityUnknown" styleClass="sub-label"/>
+            <Label fx:id="enrollmentHintLabel" styleClass="muted-text" wrapText="true"
+                   maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+        </HBox>
+
+        <Separator/>
 
         <TableView fx:id="membershipsTable" VBox.vgrow="ALWAYS">
             <columns>
-                <TableColumn fx:id="colMemGroup" text="%student.col.group" prefWidth="230.0" />
-                <TableColumn fx:id="colMemJoined" text="%student.col.joined" prefWidth="110.0" />
-                <TableColumn fx:id="colMemLeft" text="%student.col.left" prefWidth="110.0" />
-                <TableColumn fx:id="colMemHeld" text="%student.col.sessionsHeld" prefWidth="130.0" />
-                <TableColumn fx:id="colMemAttended" text="%student.col.sessionsAttended" prefWidth="110.0" />
-                <TableColumn fx:id="colMemRate" text="%student.col.attendanceRate" prefWidth="90.0" />
+                <TableColumn fx:id="colMemGroup" text="%student.col.group" prefWidth="230.0"/>
+                <TableColumn fx:id="colMemJoined" text="%student.col.joined" prefWidth="110.0"/>
+                <TableColumn fx:id="colMemLeft" text="%student.col.left" prefWidth="110.0"/>
+                <TableColumn fx:id="colMemHeld" text="%student.col.sessionsHeld" prefWidth="130.0"/>
+                <TableColumn fx:id="colMemAttended" text="%student.col.sessionsAttended" prefWidth="110.0"/>
+                <TableColumn fx:id="colMemRate" text="%student.col.attendanceRate" prefWidth="90.0"/>
             </columns>
         </TableView>
     </VBox>
 
-    <HBox alignment="CENTER_LEFT" spacing="15.0">
-        <Button text="%common.close" onAction="#handleCloseAction" style="-fx-background-color: #95a5a6; -fx-text-fill: white; -fx-font-weight: bold;" />
+    <!-- الطباعة أول الشريط والإغلاق آخره: زرّ يخرج ورقة لا يُجاور زرّ إنهاء العمل -->
+    <HBox spacing="14.0" alignment="CENTER_LEFT">
+        <Button fx:id="printButton" text="%student.printEnrollments" onAction="#handlePrintAction"
+                styleClass="btn-purple"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Button text="%common.close" onAction="#handleCloseAction" styleClass="btn-secondary"/>
     </HBox>
 </VBox>

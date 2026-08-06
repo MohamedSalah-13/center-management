@@ -5,6 +5,7 @@ import com.codejava.center.domain.Student;
 import com.codejava.center.domain.enums.SchoolLevel;
 import com.codejava.center.service.CourseGroupService;
 import com.codejava.center.service.EnrollmentService;
+import com.codejava.center.service.ReportService;
 import com.codejava.center.service.dto.MembershipRow;
 import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
@@ -26,6 +27,12 @@ import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 
+import java.awt.Desktop;
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * إدارة اشتراكات طالب واحد، في نافذة مستقلة تُفتح من سطره في جدول الطلاب.
  *
@@ -43,14 +50,17 @@ public class StudentEnrollmentsController {
 
     private final CourseGroupService courseGroupService;
     private final EnrollmentService enrollmentService;
+    private final ReportService reportService;
 
     @FXML private Label studentNameLabel;
     @FXML private Label studentLevelLabel;
+    @FXML private Label studentSummaryLabel;
     @FXML private ComboBox<CourseGroup> groupComboBox;
     @FXML private Label groupCapacityLabel;
     @FXML private Label enrollmentHintLabel;
     @FXML private Button subscribeButton;
     @FXML private Button unsubscribeButton;
+    @FXML private Button printButton;
 
     @FXML private TableView<MembershipRow> membershipsTable;
     @FXML private TableColumn<MembershipRow, String> colMemGroup, colMemJoined, colMemLeft,
@@ -61,6 +71,8 @@ public class StudentEnrollmentsController {
 
     @FXML
     public void initialize() {
+        // معطَّل حتى تصل العضويات: زرّ طباعة يعمل قبل أن يُعرض شيء يُخرج ورقة فارغة
+        printButton.setDisable(true);
         setupGroupComboBox();
         setupMembershipsTable();
     }
@@ -95,17 +107,25 @@ public class StudentEnrollmentsController {
                     groupCapacityLabel.setText(I18n.format("student.capacity",
                             currentStudents, newVal.getMaxCapacity()));
 
-                    // تلوين النص بالأحمر إذا اكتملت السعة
-                    if (currentStudents >= newVal.getMaxCapacity()) {
-                        groupCapacityLabel.setStyle("-fx-text-fill: #e74c3c;");
-                    } else {
-                        groupCapacityLabel.setStyle("-fx-text-fill: #7f8c8d;");
-                    }
-                }, error -> groupCapacityLabel.setText(I18n.get("student.capacityFailed")));
+                    // اكتمال السعة يُقال بالأحمر - وبصنف من التنسيق لا بلون مكتوب هنا،
+                    // وإلا بقي رقماً لا يتبع لوحة ألوان البرنامج حين تتغيّر
+                    markFull(newVal.getMaxCapacity() != null && currentStudents >= newVal.getMaxCapacity());
+                }, error -> {
+                    groupCapacityLabel.setText(I18n.get("student.capacityFailed"));
+                    markFull(false);
+                });
             } else {
                 groupCapacityLabel.setText(I18n.get("student.capacityUnknown"));
+                markFull(false);
             }
         });
+    }
+
+    private void markFull(boolean full) {
+        groupCapacityLabel.getStyleClass().remove("danger-text");
+        if (full) {
+            groupCapacityLabel.getStyleClass().add("danger-text");
+        }
     }
 
     /**
@@ -137,11 +157,21 @@ public class StudentEnrollmentsController {
                 rows -> {
                     memberships.setAll(rows);
                     unsubscribeButton.setDisable(true);
+                    refreshSummary();
                 },
                 error -> {
                     memberships.clear();
+                    refreshSummary();
                     Dialogs.error(I18n.format("student.groupsLoadFailed", FxAsync.messageOf(error)));
                 });
+    }
+
+    /** حصاد الاشتراكات في سطر: كم مجموعة، وكم منها سارٍ - وهو أول ما يُسأل عنه */
+    private void refreshSummary() {
+        long active = memberships.stream().filter(MembershipRow::active).count();
+        studentSummaryLabel.setText(I18n.format("student.enrollmentsSummary",
+                memberships.size(), active, memberships.size() - active));
+        printButton.setDisable(memberships.isEmpty());
     }
 
     /**
@@ -214,6 +244,54 @@ public class StudentEnrollmentsController {
             Dialogs.success(I18n.get("student.unsubscribed"));
             loadMemberships();
         }, error -> Dialogs.error(FxAsync.messageOf(error)));
+    }
+
+    /**
+     * كشف الاشتراكات: تقرير جاسبر يُبنى في الخلفية ثم يُفتح PDF جاهزاً للطباعة.
+     *
+     * <p>ملء التقرير وتصديره عمل ثقيل - ترجمة التصميم ورسم الصفحات - فلا يجري على خيط
+     * الواجهة، وإلا تجمّدت النافذة حتى تخرج الورقة. والصفوف تُنسخ قبل الانتقال إلى
+     * الخلفية: {@code memberships} قائمة الجدول الحيّة، وقراءتها من خيط آخر بينما
+     * اشتراكٌ جديد يُضاف إليها من خيط الواجهة تعارضٌ صريح.</p>
+     */
+    @FXML
+    public void handlePrintAction(ActionEvent event) {
+        if (memberships.isEmpty()) {
+            Dialogs.warning(I18n.get("student.nothingToPrint"));
+            return;
+        }
+
+        List<MembershipRow> rows = new ArrayList<>(memberships);
+        String details = I18n.format("report.enrollments.student",
+                student.getBarcode() == null ? I18n.get("common.none") : student.getBarcode(),
+                student.getSchoolLevel() == null
+                        ? I18n.get("common.none") : student.getSchoolLevel().getDisplayName(),
+                student.getPhone() == null ? I18n.get("common.none") : student.getPhone(),
+                student.getParentPhone() == null ? I18n.get("common.none") : student.getParentPhone());
+
+        printButton.setDisable(true);
+        FxAsync.supply(() -> reportService.exportStudentEnrollments(student.getName(), details, rows),
+                pdf -> {
+                    printButton.setDisable(false);
+                    open(pdf);
+                },
+                error -> {
+                    printButton.setDisable(false);
+                    Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(error));
+                });
+    }
+
+    /** فتح الملف بعارض PDF المثبَّت على الجهاز؛ تعذُّر الفتح يُقال ولا يُبتلع */
+    private void open(File pdf) {
+        try {
+            if (Desktop.isDesktopSupported()) {
+                Desktop.getDesktop().open(pdf);
+            } else {
+                Dialogs.info(I18n.format("student.enrollmentsPrinted", pdf.getAbsolutePath()));
+            }
+        } catch (IOException e) {
+            Dialogs.error(I18n.format("student.enrollmentsPrinted", pdf.getAbsolutePath()));
+        }
     }
 
     @FXML

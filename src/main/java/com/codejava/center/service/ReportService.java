@@ -5,6 +5,7 @@ import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Teacher;
 import com.codejava.center.domain.Transaction;
 import com.codejava.center.service.dto.AttendanceSummary;
+import com.codejava.center.service.dto.EnrollmentReportRow;
 import com.codejava.center.service.dto.GroupAttendanceReport;
 import com.codejava.center.service.dto.MembershipRow;
 import com.codejava.center.service.dto.SessionPayout;
@@ -425,6 +426,78 @@ public class ReportService {
         JasperExportManager.exportReportToPdfFile(jasperPrint, outputPath);
 
         return outputPath;
+    }
+
+    /**
+     * كشف اشتراكات طالب: تقرير جاسبر يُملأ من العضويات المعروضة على الشاشة نفسها.
+     *
+     * <p>البيانات تصل قائمةً جاهزة لا استعلاماً داخل الـ jrxml: ما يُطبع هو ما يراه
+     * المستخدم في الجدول أمامه، وسؤال قاعدة البيانات مرة أخرى يفتح باب أن يختلف
+     * الاثنان - والورقة التي تخالف الشاشة تُفقد الثقة في الاثنتين معاً.</p>
+     *
+     * <p>وكل نصّ في الورقة يُبنى هنا بـ {@code I18n} ويُمرَّر معاملاً: ملف التصميم لا
+     * تراه حزم النصوص، فنصٌّ مكتوب داخله يخرج بلغته مهما كانت لغة البرنامج.</p>
+     *
+     * @return ملف PDF مؤقت يُحذف عند إغلاق البرنامج - الكشف يحمل أسماء طلاب وأرقام
+     *         أولياء أمورهم، فلا يُترك متراكماً في مجلد المستخدم بعد طباعته
+     */
+    public File exportStudentEnrollments(String studentName, String studentDetails,
+                                         List<MembershipRow> memberships) {
+        CenterSettings settings = settingsService.getSettings();
+        String none = I18n.get("common.none");
+
+        long active = memberships.stream().filter(MembershipRow::active).count();
+
+        Map<String, Object> parameters = new java.util.HashMap<>();
+        parameters.put("CENTER_NAME", settings != null && settings.getCenterName() != null
+                && !settings.getCenterName().isBlank()
+                ? settings.getCenterName()
+                : I18n.get("report.header.defaultCenterName"));
+        parameters.put("CENTER_PHONE", settings == null || settings.getCenterPhone() == null
+                || settings.getCenterPhone().isBlank()
+                ? "" : I18n.format("report.header.phone", settings.getCenterPhone()));
+        parameters.put("REPORT_TITLE", I18n.get("report.enrollments.title"));
+        parameters.put("STUDENT_NAME", studentName);
+        parameters.put("STUDENT_DETAILS", studentDetails);
+        parameters.put("SUMMARY", I18n.format("report.enrollments.summary",
+                memberships.size(), active, memberships.size() - active));
+        parameters.put("COL_GROUP", I18n.get("student.col.group"));
+        parameters.put("COL_JOINED", I18n.get("student.col.joined"));
+        parameters.put("COL_LEFT", I18n.get("student.col.left"));
+        parameters.put("COL_HELD", I18n.get("student.col.sessionsHeld"));
+        parameters.put("COL_ATTENDED", I18n.get("student.col.sessionsAttended"));
+        parameters.put("COL_RATE", I18n.get("student.col.attendanceRate"));
+        parameters.put("PRINTED_AT", I18n.format("report.enrollments.printedAt",
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))));
+        parameters.put("PAGE_LABEL", I18n.get("report.enrollments.page"));
+        parameters.put("NO_ROWS", I18n.get("report.enrollments.noRows"));
+
+        List<EnrollmentReportRow> rows = memberships.stream()
+                .map(row -> new EnrollmentReportRow(
+                        row.groupName(),
+                        String.valueOf(row.joinDate()),
+                        row.active() ? I18n.get("student.membershipActive")
+                                : (row.leaveDate() == null ? none : String.valueOf(row.leaveDate())),
+                        String.valueOf(row.sessionsHeld()),
+                        String.valueOf(row.sessionsAttended()),
+                        row.attendanceRate() == null ? none : row.attendanceRate() + "%"))
+                .toList();
+
+        try {
+            JasperReport report = compile("StudentEnrollments.jrxml");
+            JasperPrint print = JasperFillManager.fillReport(report, parameters,
+                    new JRBeanCollectionDataSource(rows));
+
+            File pdf = File.createTempFile("student_enrollments_", ".pdf");
+            pdf.deleteOnExit();
+            JasperExportManager.exportReportToPdfFile(print, pdf.getAbsolutePath());
+            return pdf;
+        } catch (JRException e) {
+            throw new IllegalStateException(I18n.format("error.report.generateFailed",
+                    e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()), e);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     /**

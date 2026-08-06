@@ -292,6 +292,30 @@ of the printer, which is the one thing a preview must not do. For the same reaso
 stylesheet is loaded onto the off-screen layout scene too — measuring in one font and
 printing in another makes the computed page breaks wrong.
 
+#### The other printing path: JasperReports
+
+`PrintDocument` is for what the app lays out itself. **Anything that has to look like a
+form — a bordered table, an ID card, a barcode — is a `.jrxml` under
+`src/main/resources/reports/`,** filled by `ReportService` and exported to PDF.
+
+Three rules that are not obvious from the existing files:
+
+- **No Arabic in a `.jrxml`.** Every caption arrives as a `$P{}` parameter built with `I18n`
+  in Java. The bundles do not see the file and `MessageBundleTest` does not scan it, so a
+  string typed inside it prints in its own language whatever the user chose — which is what
+  `GroupStudents.jrxml` and `StudentIdCards.jrxml` still do.
+- **Rows are beans, not records.** Jasper reads `getGroupName()`; a record names its accessor
+  `groupName()` and the column comes out **blank with no error**. That is why
+  `EnrollmentReportRow` is a class with getters while `MembershipRow` beside it is a record.
+- **Columns are laid out right-to-left** (subject first at the right edge). Jasper places
+  elements at fixed coordinates and does not mirror them by language the way the UI does, so
+  one file cannot serve both — and the centre reads Arabic.
+
+Text uses `fontName="ArabicFont"`, registered by `jasperreports_extension.properties` →
+`fonts/fonts.xml`; without it Arabic renders as boxes in the PDF. `ReportTemplateCompileTest`
+compiles every template and fills the enrolments sheet, because a `.jrxml` is parsed at run
+time only: a bad expression or a renamed field reaches the customer as a failed print.
+
 ### Backup
 
 Three pieces: `BackupService` runs the tools, `BackupScheduler` decides when, `BackupCrypto`
@@ -699,9 +723,12 @@ cross a transaction boundary into the UI.
 
 ## Testing
 
-The three test classes exist because these failure modes are invisible to the compiler:
+The test classes below exist because these failure modes are invisible to the compiler:
 
 - `@Query` JPQL is parsed at runtime.
+- `.jrxml` report templates are compiled at runtime too, and a wrong field name prints an
+  empty column rather than failing — `ReportTemplateCompileTest` compiles them all and fills
+  one with values it then asserts are on the page.
 - Derived query names resolve against property names — the field is `isActive` while the
   getter is `isActive()`, a classic spot for resolution to fail.
 - AOP advice silently does not run if the starter is missing or the call is self-invocation,
