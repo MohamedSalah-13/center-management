@@ -5,6 +5,7 @@ import com.codejava.center.service.dto.AttendanceReportRow;
 import com.codejava.center.service.dto.AuditReportRow;
 import com.codejava.center.service.dto.EnrollmentReportRow;
 import com.codejava.center.service.dto.ShiftMovementRow;
+import com.codejava.center.service.dto.TeacherListRow;
 import com.codejava.center.service.dto.TeacherSessionRow;
 import com.codejava.center.service.dto.GroupListRow;
 import com.codejava.center.service.dto.IdCardRow;
@@ -194,6 +195,42 @@ class ReportTemplateCompileTest {
                 .contains("75.00");
 
         // تصفية لا تطابق شيئاً: ورقة تقول ذلك ومعها وصف التصفية، لا ورقة فارغة
+        assertThat(JasperExportManager.exportReportToXml(
+                JasperFillManager.fillReport(report, parameters, new JRBeanCollectionDataSource(List.of()))))
+                .contains("NO_ROWS")
+                .contains("SCOPE");
+    }
+
+    /** كشف المعلمين: ترويسته، ووصف التصفية، وصفوفه، وورقته حين لا تطابق التصفية أحداً */
+    @Test
+    void teachersListSheetFillsWithItsHeaderAndSaysWhenEmpty() throws Exception {
+        Map<String, Object> parameters = new HashMap<>();
+        for (String key : new String[]{"CENTER_NAME", "CENTER_PHONE", "REPORT_TITLE", "SCOPE",
+                "COL_SERIAL", "COL_NAME", "COL_SUBJECT", "COL_TYPE", "COL_VALUE",
+                "PRINTED_AT", "PAGE_LABEL", "NO_ROWS"}) {
+            parameters.put(key, key);
+        }
+        parameters.put("SHOW_CENTER", true);
+        parameters.put("LOGO_PATH", null);
+        parameters.put("HEADER_REPORT", compiled("CenterHeader.jrxml"));
+
+        List<TeacherListRow> rows = List.of(
+                new TeacherListRow("1", "سامي عبد الله", "رياضيات", "نسبة مئوية", "50.00"),
+                new TeacherListRow("2", "Huda Kamal", "Physics", "إيجار قاعة", "200.00"));
+
+        JasperReport report = compiled("TeachersList.jrxml");
+
+        assertThat(JasperExportManager.exportReportToXml(
+                JasperFillManager.fillReport(report, parameters, new JRBeanCollectionDataSource(rows))))
+                .contains("CENTER_NAME")
+                .contains("SCOPE")
+                .contains("COL_SUBJECT")
+                .contains("سامي عبد الله")
+                .contains("رياضيات")
+                .contains("نسبة مئوية")
+                .contains("50.00");
+
+        // تصفية لا تطابق أحداً: ورقة تقول ذلك ومعها وصف التصفية، لا ورقة فارغة
         assertThat(JasperExportManager.exportReportToXml(
                 JasperFillManager.fillReport(report, parameters, new JRBeanCollectionDataSource(List.of()))))
                 .contains("NO_ROWS")

@@ -17,6 +17,7 @@ import com.codejava.center.service.dto.IdCardRow;
 import com.codejava.center.service.dto.MembershipRow;
 import com.codejava.center.service.dto.SheetDelivery;
 import com.codejava.center.service.dto.ShiftMovementRow;
+import com.codejava.center.service.dto.TeacherListRow;
 import com.codejava.center.service.dto.TeacherSessionRow;
 import com.codejava.center.service.dto.SessionPayout;
 import com.codejava.center.service.dto.ShiftSummary;
@@ -277,6 +278,42 @@ public class ReportService {
                 .toList();
 
         return deliver(fill("AuditReport.jrxml", parameters, rows), "audit_", DocumentKind.REPORT);
+    }
+
+    /**
+     * كشف المعلمين كما تعرضهم الشاشة بعد التصفية.
+     *
+     * <p>وصف التصفية يُطبع في أعلى الورقة ويتكرّر في رأس كل صفحة، لنفس سبب
+     * {@link #deliverGroupsList}: كشفٌ يقول "المادة: رياضيات - نوع العمولة: نسبة مئوية"
+     * يُقرأ بعد شهر، وكشفٌ بلا وصف يبدو أنه كل معلمي السنتر وليس كذلك.</p>
+     *
+     * <p>وقيمة العمولة تُكتب بلا رمز عملة: هي نسبة مئوية في اتفاق النسبة ومبلغٌ في اتفاق
+     * المبلغ الثابت والإيجار، وإلحاق العملة بها يجعل "50" تُقرأ خمسين جنيهاً وهي خمسون
+     * في المئة - وهو الفرق بين حصة معلم وحصة السنتر كلها.</p>
+     */
+    public SheetDelivery deliverTeachersList(List<Teacher> teachers, String filterDescription) {
+        Map<String, Object> parameters = withSheetFooter(withCenterHeader(new java.util.HashMap<>()));
+        parameters.put("REPORT_TITLE", I18n.get("report.teachers.title"));
+        parameters.put("SCOPE", I18n.format("report.teachers.scope", filterDescription, teachers.size()));
+        parameters.put("COL_SERIAL", I18n.get("report.group.col.serial"));
+        parameters.put("COL_NAME", I18n.get("teacher.col.name"));
+        parameters.put("COL_SUBJECT", I18n.get("teacher.col.subject"));
+        parameters.put("COL_TYPE", I18n.get("teacher.col.type"));
+        parameters.put("COL_VALUE", I18n.get("teacher.col.value"));
+        parameters.put("NO_ROWS", I18n.get("report.teachers.noTeachers"));
+
+        int[] serial = {0};
+        List<TeacherListRow> rows = teachers.stream()
+                .map(teacher -> new TeacherListRow(
+                        String.valueOf(++serial[0]),
+                        teacher.getName(),
+                        teacher.getSubject(),
+                        CommissionTypes.displayName(teacher.getCommissionType()),
+                        MoneyUtils.format(teacher.getCommissionValue())))
+                .toList();
+
+        return deliver(fill("TeachersList.jrxml", parameters, rows), "teachers_list_",
+                DocumentKind.REPORT);
     }
 
     /** سطر "بند: مبلغ" في الملخّصات، بنصّ عنوانه مترجَماً وعملة السنتر مذيَّلة به */
