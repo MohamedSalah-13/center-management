@@ -63,23 +63,7 @@ class ReportTemplateCompileTest {
      */
     @Test
     void enrollmentsSheetFillsAndExportsWithItsValues() throws Exception {
-        Map<String, Object> parameters = new HashMap<>();
-        for (String key : new String[]{"CENTER_NAME", "CENTER_PHONE", "REPORT_TITLE", "STUDENT_NAME",
-                "STUDENT_DETAILS", "SUMMARY", "COL_GROUP", "COL_JOINED", "COL_LEFT", "COL_HELD",
-                "COL_ATTENDED", "COL_RATE", "PRINTED_AT", "PAGE_LABEL", "NO_ROWS"}) {
-            parameters.put(key, key);
-        }
-
-        List<EnrollmentReportRow> rows = List.of(
-                new EnrollmentReportRow("مجموعة الأحد", "2026-01-05", "مستمر", "12", "10", "83%"),
-                new EnrollmentReportRow("Sunday Group", "2026-02-01", "2026-03-01", "8", "4", "50%"));
-
-        JasperReport report;
-        try (InputStream stream = Files.newInputStream(REPORTS_DIR.resolve("StudentEnrollments.jrxml"))) {
-            report = JasperCompileManager.compileReport(stream);
-        }
-        JasperPrint print = JasperFillManager.fillReport(report, parameters,
-                new JRBeanCollectionDataSource(rows));
+        JasperPrint print = fillEnrollments(true);
 
         assertThat(print.getPages()).as("صفحات الكشف").isNotEmpty();
 
@@ -88,6 +72,48 @@ class ReportTemplateCompileTest {
                 .contains("مجموعة الأحد")
                 .contains("83%")
                 .contains("COL_GROUP");
+    }
+
+    /**
+     * ترويسة السنتر تصل الورقة عبر التقرير الفرعي، وتغيب حين تُطفأ.
+     *
+     * <p>التقرير الفرعي حلقة تُوصَل وقت التشغيل: مُعامل غير مُمرَّر أو {@code dataSource}
+     * منسيّ يعني ترويسةً غائبة عن كل ورقة بلا خطأ واحد. والغياب حين تُطفأ يُفحص كذلك، لأن
+     * شرطاً مكتوباً على العنصر بدل الفرقة يُخفي الترويسة ويُبقي فراغها.</p>
+     */
+    @Test
+    void centerHeaderIsPrintedThroughItsSubreportAndCanBeTurnedOff() throws Exception {
+        assertThat(JasperExportManager.exportReportToXml(fillEnrollments(true)))
+                .as("الترويسة معروضة").contains("CENTER_NAME");
+
+        assertThat(JasperExportManager.exportReportToXml(fillEnrollments(false)))
+                .as("الترويسة مُطفأة").doesNotContain("CENTER_NAME");
+    }
+
+    /** يملأ الكشف بقيم يساوي كلٌّ منها اسم معامله، ليُعرف في الورقة ما جاء من أين */
+    private JasperPrint fillEnrollments(boolean showCenter) throws Exception {
+        Map<String, Object> parameters = new HashMap<>();
+        for (String key : new String[]{"CENTER_NAME", "CENTER_PHONE", "REPORT_TITLE", "STUDENT_NAME",
+                "STUDENT_DETAILS", "SUMMARY", "COL_GROUP", "COL_JOINED", "COL_LEFT", "COL_HELD",
+                "COL_ATTENDED", "COL_RATE", "PRINTED_AT", "PAGE_LABEL", "NO_ROWS"}) {
+            parameters.put(key, key);
+        }
+        parameters.put("SHOW_CENTER", showCenter);
+        parameters.put("LOGO_PATH", null);
+        parameters.put("HEADER_REPORT", compiled("CenterHeader.jrxml"));
+
+        List<EnrollmentReportRow> rows = List.of(
+                new EnrollmentReportRow("مجموعة الأحد", "2026-01-05", "مستمر", "12", "10", "83%"),
+                new EnrollmentReportRow("Sunday Group", "2026-02-01", "2026-03-01", "8", "4", "50%"));
+
+        return JasperFillManager.fillReport(compiled("StudentEnrollments.jrxml"), parameters,
+                new JRBeanCollectionDataSource(rows));
+    }
+
+    private JasperReport compiled(String fileName) throws Exception {
+        try (InputStream stream = Files.newInputStream(REPORTS_DIR.resolve(fileName))) {
+            return JasperCompileManager.compileReport(stream);
+        }
     }
 
     private List<Path> templates() throws Exception {

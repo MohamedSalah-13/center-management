@@ -520,6 +520,54 @@ public class ReportService {
         return fallback;
     }
 
+    /**
+     * ترويسة السنتر لأي تقرير جاسبر: شعارٌ يميناً، واسمٌ وهاتفٌ يساراً.
+     *
+     * <p><b>هذه هي الطريقة التي يُبنى بها كل تقرير جاسبر جديد.</b> ملف التصميم يعلن الخمسة
+     * أدناه معاملاتٍ ويضع في {@code pageHeader} عنصر {@code subreport} واحداً يشير إلى
+     * {@code $P{HEADER_REPORT}} - انسخ الفرقة من {@code StudentEnrollments.jrxml} - ثم يمرّ
+     * الملء من هنا. لا شعار يُرسم ولا اسم يُكتب في ملف التصميم نفسه: نسخُ الكتلة في كل ملف
+     * يعني أن تغيير مقاس الشعار تحريرٌ في عشرة ملفات، ونسيان واحد لا يظهر إلا في ورقة.</p>
+     *
+     * <p>الشرط مكتوب على الفرقة لا على العنصر، فتنطوي بارتفاعها كله حين يُطفئ المستخدم
+     * الترويسة بدل أن تترك فراغاً أبيض في رأس كل صفحة.</p>
+     *
+     * <p>وبيانات السنتر تُقرأ مرة واحدة هنا لا داخل التصميم، تماماً كما يفعل
+     * {@code headerFactory} لمطبوعات JavaFX: التقرير الفرعي يُنفَّذ مرة لكل صفحة، وقراءةُ
+     * الإعدادات داخله تعني استعلاماً لكل صفحة.</p>
+     *
+     * @param parameters خريطة معاملات التقرير - تُعدَّل ويُعاد نفسها للتسلسل
+     */
+    public Map<String, Object> withCenterHeader(Map<String, Object> parameters) {
+        CenterSettings settings = settingsService.getSettings();
+
+        parameters.put("HEADER_REPORT", compile("CenterHeader.jrxml"));
+        parameters.put("SHOW_CENTER", PrintPreferences.printsCenterHeader());
+        parameters.put("CENTER_NAME", settings != null && settings.getCenterName() != null
+                && !settings.getCenterName().isBlank()
+                ? settings.getCenterName()
+                : I18n.get("report.header.defaultCenterName"));
+        parameters.put("CENTER_PHONE", settings == null || settings.getCenterPhone() == null
+                || settings.getCenterPhone().isBlank()
+                ? null : I18n.format("report.header.phone", settings.getCenterPhone()));
+        parameters.put("LOGO_PATH", existingLogoPath(settings));
+
+        return parameters;
+    }
+
+    /**
+     * مسار ملف الشعار إن كان موجوداً فعلاً، وإلا {@code null}.
+     * الفحص هنا لا في التصميم: جاسبر يرمي على ملف غائب، والشعار الذي نقله أحدهم يجب
+     * أن يعني ورقةً بلا شعار لا طباعةً تفشل.
+     */
+    private String existingLogoPath(CenterSettings settings) {
+        if (settings == null || settings.getLogoPath() == null || settings.getLogoPath().isBlank()) {
+            return null;
+        }
+        File logo = new File(settings.getLogoPath());
+        return logo.isFile() ? logo.getAbsolutePath() : null;
+    }
+
     private IllegalStateException generationFailed(JRException e) {
         return new IllegalStateException(I18n.format("error.report.generateFailed",
                 e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()), e);
@@ -527,19 +575,10 @@ public class ReportService {
 
     private JasperPrint fillStudentEnrollments(String studentName, String studentDetails,
                                                List<MembershipRow> memberships) {
-        CenterSettings settings = settingsService.getSettings();
         String none = I18n.get("common.none");
-
         long active = memberships.stream().filter(MembershipRow::active).count();
 
-        Map<String, Object> parameters = new java.util.HashMap<>();
-        parameters.put("CENTER_NAME", settings != null && settings.getCenterName() != null
-                && !settings.getCenterName().isBlank()
-                ? settings.getCenterName()
-                : I18n.get("report.header.defaultCenterName"));
-        parameters.put("CENTER_PHONE", settings == null || settings.getCenterPhone() == null
-                || settings.getCenterPhone().isBlank()
-                ? "" : I18n.format("report.header.phone", settings.getCenterPhone()));
+        Map<String, Object> parameters = withCenterHeader(new java.util.HashMap<>());
         parameters.put("REPORT_TITLE", I18n.get("report.enrollments.title"));
         parameters.put("STUDENT_NAME", studentName);
         parameters.put("STUDENT_DETAILS", studentDetails);

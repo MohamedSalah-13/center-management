@@ -117,6 +117,9 @@
                     <CheckBox fx:id="directSheetPrintCheck" text="%settings.printSheetsDirect"/>
                     <Label text="%settings.printSheetsDirectNote" styleClass="muted-text" wrapText="true"/>
 
+                    <CheckBox fx:id="centerHeaderCheck" text="%settings.printCenterHeader"/>
+                    <Label text="%settings.printCenterHeaderNote" styleClass="muted-text" wrapText="true"/>
+
                     <Separator/>
 
                     <!-- التقارير: ورق مقطوع، تُقسَّم على صفحات -->

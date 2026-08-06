@@ -298,7 +298,30 @@ printing in another makes the computed page breaks wrong.
 form — a bordered table, an ID card, a barcode — is a `.jrxml` under
 `src/main/resources/reports/`,** filled by `ReportService` and exported to PDF.
 
-Three rules that are not obvious from the existing files:
+**Every new Jasper report is built the same way. The recipe is three steps:**
+
+1. Declare the five header parameters (`HEADER_REPORT`, `SHOW_CENTER`, `CENTER_NAME`,
+   `CENTER_PHONE`, `LOGO_PATH`) and copy the `pageHeader` band from
+   `StudentEnrollments.jrxml` — one `<subreport>` element pointing at `$P{HEADER_REPORT}`.
+2. Fill the parameter map through **`ReportService.withCenterHeader(map)`**, which compiles
+   `CenterHeader.jrxml`, reads the centre row once, and resolves the logo path.
+3. Put the report's own title and subject in **`columnHeader`, never `title`.** Jasper prints
+   the title band *above* the page header on page one, which would place the letterhead under
+   the heading; and `columnHeader` repeats, so page two found on the printer still says what
+   it is and whose it is.
+
+`CenterHeader.jrxml` is the only file that draws the letterhead — logo right, name and phone
+left. Copying that block into each report instead would make "resize the logo" an edit in ten
+files, and the one that gets missed only shows up on paper at the customer.
+
+The band carries `<printWhenExpression>$P{SHOW_CENTER}</printWhenExpression>`, **on the band
+and not on the subreport element**: a band collapses to zero height and everything below
+moves up, while a hidden element leaves its 78 points of white space at the top of every page.
+`PrintPreferences.printsCenterHeader()` (per machine, default on) is the checkbox behind it —
+per machine because the reason to switch it off is that *this* printer is loaded with
+pre-printed letterhead paper, which is a property of the paper tray, not of the centre.
+
+Three more rules that are not obvious from the existing files:
 
 - **No Arabic in a `.jrxml`.** Every caption arrives as a `$P{}` parameter built with `I18n`
   in Java. The bundles do not see the file and `MessageBundleTest` does not scan it, so a
@@ -313,8 +336,14 @@ Three rules that are not obvious from the existing files:
 
 Text uses `fontName="ArabicFont"`, registered by `jasperreports_extension.properties` →
 `fonts/fonts.xml`; without it Arabic renders as boxes in the PDF. `ReportTemplateCompileTest`
-compiles every template and fills the enrolments sheet, because a `.jrxml` is parsed at run
-time only: a bad expression or a renamed field reaches the customer as a failed print.
+compiles every template, fills the enrolments sheet, and checks the letterhead both appears
+and disappears — a `.jrxml` is parsed at run time only, and a subreport is wired at run time
+too: one forgotten parameter means a header missing from every page with no error anywhere.
+
+**Do not judge Arabic by `JasperPrintManager.printPageToImage`.** The fill marks Arabic text
+`RunDirection.RTL` and the PDF renderer honours it; the AWT renderer behind that debug image
+does not, so it shows every word reversed while the real PDF is correct. Positions in that
+image are trustworthy, letter order is not.
 
 **Delivery is a per-machine checkbox: `PrintPreferences.printsSheetsDirectly()`.** Unticked
 (the default) exports a temp PDF and opens it in the system viewer; ticked sends the sheet

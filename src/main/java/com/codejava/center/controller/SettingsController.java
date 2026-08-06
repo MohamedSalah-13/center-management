@@ -102,6 +102,7 @@ public class SettingsController {
 
     @FXML private ComboBox<PrintPreferences.PrintMode> printModeCombo;
     @FXML private CheckBox directSheetPrintCheck;
+    @FXML private CheckBox centerHeaderCheck;
 
     @FXML private ComboBox<String> reportPrinterCombo;
     @FXML private ComboBox<String> reportPaperCombo;
@@ -605,6 +606,12 @@ public class SettingsController {
         directSheetPrintCheck.setSelected(PrintPreferences.printsSheetsDirectly());
         directSheetPrintCheck.selectedProperty().addListener((observable, was, direct) -> {
             PrintPreferences.setPrintsSheetsDirectly(direct);
+            statusLabel.setText(I18n.get("settings.printSaved"));
+        });
+
+        centerHeaderCheck.setSelected(PrintPreferences.printsCenterHeader());
+        centerHeaderCheck.selectedProperty().addListener((observable, was, print) -> {
+            PrintPreferences.setPrintsCenterHeader(print);
             statusLabel.setText(I18n.get("settings.printSaved"));
         });
 

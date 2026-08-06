@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ترويسة السنتر: شعارٌ في اليمين، واسمٌ وهاتفٌ في اليسار.
+
+  ملف واحد يخدم كل تقارير جاسبر بوصفه تقريراً فرعياً (subreport)، لا كتلةً تُنسخ في كل
+  ملف تصميم: نسخُها يعني أن تغيير مقاس الشعار - أو إضافة سطر العنوان يوماً - تحرير في
+  عشرة ملفات، ونسيان واحد منها لا يظهر إلا في ورقة عند العميل.
+
+  كيف يُستعمل في تقرير جديد: راجع ReportService.withCenterHeader، وانسخ كتلة الـ
+  pageHeader من StudentEnrollments.jrxml. شرطُ ظهورها مكتوب على الفرقة نفسها لا على
+  عناصرها، فتنطوي الفرقة بارتفاعها كله حين تُطفأ الترويسة بدل أن تترك فراغاً أبيض.
+
+  والشعار قد يكون غير مضبوط أو نُقل ملفه، فيُفحص وجوده بشرطٍ على العنصر ويُطفأ الخطأ
+  بـ onErrorType: ورقةٌ بلا شعار أفضل من طباعة تفشل لأن أحداً نقل صورة.
+-->
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
+              name="CenterHeader" pageWidth="555" pageHeight="842" columnWidth="555"
+              leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0"
+              uuid="e1f2a3b4-c5d6-4e7f-8a9b-0c1d2e3f4a5b">
+
+    <parameter name="CENTER_NAME" class="java.lang.String"/>
+    <parameter name="CENTER_PHONE" class="java.lang.String"/>
+    <parameter name="LOGO_PATH" class="java.lang.String"/>
+
+    <detail>
+        <band height="70" splitType="Prevent">
+
+            <textField>
+                <reportElement x="0" y="4" width="345" height="26" forecolor="#22303F"
+                               uuid="e1000000-0000-4000-8000-000000000001"/>
+                <textElement textAlignment="Left" verticalAlignment="Middle">
+                    <font fontName="ArabicFont" size="16" isBold="true"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{CENTER_NAME}]]></textFieldExpression>
+            </textField>
+
+            <textField isBlankWhenNull="true">
+                <reportElement x="0" y="30" width="345" height="18" forecolor="#7B8A9A"
+                               uuid="e1000000-0000-4000-8000-000000000002"/>
+                <textElement textAlignment="Left" verticalAlignment="Middle">
+                    <font fontName="ArabicFont" size="10"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{CENTER_PHONE}]]></textFieldExpression>
+            </textField>
+
+            <image scaleImage="RetainShape" hAlign="Right" vAlign="Middle" onErrorType="Blank">
+                <reportElement x="425" y="2" width="130" height="56"
+                               uuid="e1000000-0000-4000-8000-000000000003">
+                    <printWhenExpression><![CDATA[$P{LOGO_PATH} != null]]></printWhenExpression>
+                </reportElement>
+                <imageExpression><![CDATA[$P{LOGO_PATH}]]></imageExpression>
+            </image>
+
+            <line>
+                <reportElement x="0" y="66" width="555" height="1" forecolor="#E3E8EF"
+                               uuid="e1000000-0000-4000-8000-000000000004"/>
+            </line>
+        </band>
+    </detail>
+</jasperReport>

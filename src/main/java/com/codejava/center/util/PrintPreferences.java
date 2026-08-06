@@ -43,6 +43,7 @@ public final class PrintPreferences {
 
     private static final String MODE_KEY = "print.mode";
     private static final String DIRECT_SHEETS_KEY = "print.sheetsDirect";
+    private static final String CENTER_HEADER_KEY = "print.centerHeader";
 
     /**
      * مفتاح الطابعة قبل فصل الإعداد حسب نوع المستند. يُقرأ كقيمة احتياطية للنوعين معاً
@@ -188,6 +189,29 @@ public final class PrintPreferences {
 
     public static void setPrintsSheetsDirectly(boolean direct) {
         write(DIRECT_SHEETS_KEY, String.valueOf(direct));
+    }
+
+    /**
+     * هل تُطبع ترويسة السنتر - الشعار والاسم والهاتف - في رأس كشوف جاسبر.
+     *
+     * <p>تفضيل جهاز لا سياسة سنتر رغم أن ما تحمله بيانات السنتر: السبب الذي يُطفئها هو أن
+     * الورق المحمّل في <b>هذه</b> الطابعة ورق مطبوعة عليه الترويسة سلفاً، وهذه خاصية الورق
+     * في درج طابعة بعينها لا قرارٌ يخصّ السنتر كله - تماماً كمقاس الورق فوقها. ولذلك لا ملف
+     * ترحيل لها.</p>
+     *
+     * <p>الافتراضي {@code true}: هو سلوك النسخ السابقة، وورقةٌ بلا اسم مُصدِرها لا تُعرف
+     * بعد شهر من أي سنتر خرجت.</p>
+     */
+    public static boolean printsCenterHeader() {
+        try {
+            return prefs().getBoolean(CENTER_HEADER_KEY, true);
+        } catch (SecurityException e) {
+            return true;
+        }
+    }
+
+    public static void setPrintsCenterHeader(boolean print) {
+        write(CENTER_HEADER_KEY, String.valueOf(print));
     }
 
     // ---------------------------------------------------------------- التخزين
