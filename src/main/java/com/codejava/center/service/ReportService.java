@@ -8,6 +8,7 @@ import com.codejava.center.domain.Transaction;
 import com.codejava.center.service.dto.AttendanceSummary;
 import com.codejava.center.service.dto.EnrollmentReportRow;
 import com.codejava.center.service.dto.GroupAttendanceReport;
+import com.codejava.center.service.dto.GroupListRow;
 import com.codejava.center.service.dto.GroupRosterRow;
 import com.codejava.center.service.dto.IdCardRow;
 import com.codejava.center.service.dto.MembershipRow;
@@ -262,30 +263,36 @@ public class ReportService {
      * <p>وصف التصفية يُطبع في أعلى الورقة: كشف يقول "مجموعات المعلم فلان يوم السبت"
      * يُقرأ بعد شهر، وكشف بلا وصف يبدو أنه كل مجموعات السنتر وليس كذلك.</p>
      */
-    public void printGroupsList(List<CourseGroup> groups, Map<Long, Long> memberCounts,
-                                String filterDescription, Window ownerWindow) {
-        PrintDocument document = PrintDocument.report()
-                .header(headerFactory(I18n.get("report.groups.title")));
-
-        Label scope = new Label(I18n.format("report.groups.scope", filterDescription, groups.size()));
-        scope.setFont(Font.font("System", FontWeight.BOLD, 14));
-        document.add(scope, new Separator());
-
+    public SheetDelivery deliverGroupsList(List<CourseGroup> groups, Map<Long, Long> memberCounts,
+                                           String filterDescription) {
         String none = I18n.get("common.none");
-        for (CourseGroup group : groups) {
-            document.add(new Label(I18n.format("report.groups.row",
-                    group.getName(),
-                    group.getTeacher().getName(),
-                    group.getSchoolLevel() == null ? none : group.getSchoolLevel().getDisplayName(),
-                    WeekDays.describe(group.getMeetingDays()),
-                    WeekDays.describeRange(group.getStartTime(), group.getEndTime()),
-                    memberCounts.getOrDefault(group.getId(), 0L),
-                    group.getMaxCapacity() == null ? none : group.getMaxCapacity(),
-                    MoneyUtils.format(group.getSessionPrice()))));
-        }
 
-        document.add(new Separator(), stamp("report.issuedAt"));
-        Printing.print(document, ownerWindow);
+        Map<String, Object> parameters = withSheetFooter(withCenterHeader(new java.util.HashMap<>()));
+        parameters.put("REPORT_TITLE", I18n.get("report.groups.title"));
+        parameters.put("SCOPE", I18n.format("report.groups.scope", filterDescription, groups.size()));
+        parameters.put("COL_NAME", I18n.get("group.col.name"));
+        parameters.put("COL_TEACHER", I18n.get("group.col.teacher"));
+        parameters.put("COL_LEVEL", I18n.get("group.col.level"));
+        parameters.put("COL_DAYS", I18n.get("group.col.days"));
+        parameters.put("COL_TIME", I18n.get("group.col.time"));
+        parameters.put("COL_MEMBERS", I18n.get("group.col.members"));
+        parameters.put("COL_PRICE", I18n.get("group.col.price"));
+        parameters.put("NO_ROWS", I18n.get("report.groups.noGroups"));
+
+        List<GroupListRow> rows = groups.stream()
+                .map(group -> new GroupListRow(
+                        group.getName(),
+                        group.getTeacher().getName(),
+                        group.getSchoolLevel() == null ? none : group.getSchoolLevel().getDisplayName(),
+                        WeekDays.describe(group.getMeetingDays()),
+                        WeekDays.describeRange(group.getStartTime(), group.getEndTime()),
+                        I18n.format("group.membersOf",
+                                memberCounts.getOrDefault(group.getId(), 0L),
+                                group.getMaxCapacity() == null ? none : group.getMaxCapacity()),
+                        MoneyUtils.format(group.getSessionPrice())))
+                .toList();
+
+        return deliver(fill("GroupsList.jrxml", parameters, rows), "groups_list_");
     }
 
     /**

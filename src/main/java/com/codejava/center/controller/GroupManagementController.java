@@ -581,12 +581,14 @@ public class GroupManagementController {
             return;
         }
 
-        try {
-            reportService.printGroupsList(shown, Map.copyOf(memberCounts), describeFilters(),
-                    groupsTable.getScene().getWindow());
-        } catch (Exception e) {
-            Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(e));
-        }
+        // نسخة من الصفوف والأعداد ووصف التصفية تُؤخذ هنا: البناء يجري في الخلفية،
+        // وقراءة قائمة الجدول الحيّة من هناك تتعارض مع تعديلها من خيط الواجهة
+        Map<Long, Long> counts = Map.copyOf(memberCounts);
+        String filters = describeFilters();
+
+        FxAsync.supply(() -> reportService.deliverGroupsList(shown, counts, filters),
+                Sheets::show,
+                error -> Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(error)));
     }
 
     /** وصف التصفية كما يُطبع في ترويسة الكشف */

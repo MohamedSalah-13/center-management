@@ -316,8 +316,8 @@ form — a bordered table, an ID card, a barcode — is a `.jrxml` under
 `CenterHeader.jrxml` is the only file that draws the letterhead — logo right, name and phone
 left. Copying that block into each report instead would make "resize the logo" an edit in ten
 files, and the one that gets missed only shows up on paper at the customer.
-All three templates follow the recipe — `StudentEnrollments.jrxml`, `StudentIdCards.jrxml` and
-`GroupStudents.jrxml`; copy the band from any of them.
+All four templates follow the recipe — `StudentEnrollments.jrxml`, `StudentIdCards.jrxml`,
+`GroupStudents.jrxml` and `GroupsList.jrxml`; copy the band from any of them.
 
 **Delivery goes through `ReportService.deliver` → `SheetDelivery` → `util/Sheets.show`.** The
 service fills the sheet and then either sends it to the printer or writes a temp PDF, according
@@ -760,17 +760,15 @@ The same window answers "how many were enrolled the day this session ran"
 (percentage, fixed, rent). A membership ended before this feature (no `leaveDate`, inactive) is
 excluded from that count rather than assumed still open.
 
-Printing follows the same split as everywhere else: `ReportService.deliverGroupRoster` for one
-group (button per table row — the roster is asked for while looking at its line) and
-`printGroupsList` for whatever the filters currently show, with the filter description printed
-on the sheet so a page found later says what it is a list of.
+Two printouts, both Jasper sheets: `deliverGroupRoster` for one group (button per table row —
+the roster is asked for while looking at its line) and `deliverGroupsList` for whatever the
+filters currently show. The filter description is printed on the sheet and **repeats in the
+column header on every page**, so neither a page found later nor a second page reads as a list
+of all the centre's groups when it is not.
 
-The two take **different printing paths on purpose**, and the reason is the shape of the page.
-The roster is a bordered table with repeating column headings — a Jasper sheet
-(`GroupStudents.jrxml`, fed from `getRoster` so the membership window governs each row's
-attendance). The groups list is a flat run of lines with no ruling, which `PrintDocument` lays
-out in a few lines of Java without a template. Do not "unify" them: the cost of a `.jrxml` is
-a file to keep in step with a DTO, and a list of sentences does not earn it.
+The list's columns are the screen's columns, down to the same `group.col.*` keys: the sheet is
+a copy of what was in front of the user when they pressed the button, not a second arrangement
+they have to read afresh.
 
 ### Sessions
 

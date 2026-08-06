@@ -1,6 +1,7 @@
 package com.codejava.center.reports;
 
 import com.codejava.center.service.dto.EnrollmentReportRow;
+import com.codejava.center.service.dto.GroupListRow;
 import com.codejava.center.service.dto.IdCardRow;
 import net.sf.jasperreports.engine.JasperCompileManager;
 import net.sf.jasperreports.engine.JasperExportManager;
@@ -155,6 +156,43 @@ class ReportTemplateCompileTest {
         assertThat(JasperExportManager.exportReportToXml(
                 JasperFillManager.fillReport(report, parameters, new JRBeanCollectionDataSource(List.of()))))
                 .contains("NO_ROWS");
+    }
+
+    /** كشف المجموعات: ترويسته، ووصف التصفية، وصفوفه، وورقته حين لا تطابق التصفية شيئاً */
+    @Test
+    void groupsListSheetFillsWithItsHeaderAndSaysWhenEmpty() throws Exception {
+        Map<String, Object> parameters = new HashMap<>();
+        for (String key : new String[]{"CENTER_NAME", "CENTER_PHONE", "REPORT_TITLE", "SCOPE",
+                "COL_NAME", "COL_TEACHER", "COL_LEVEL", "COL_DAYS", "COL_TIME", "COL_MEMBERS",
+                "COL_PRICE", "PRINTED_AT", "PAGE_LABEL", "NO_ROWS"}) {
+            parameters.put(key, key);
+        }
+        parameters.put("SHOW_CENTER", true);
+        parameters.put("LOGO_PATH", null);
+        parameters.put("HEADER_REPORT", compiled("CenterHeader.jrxml"));
+
+        List<GroupListRow> rows = List.of(
+                new GroupListRow("٣ث - أ. سامي", "سامي عبد الله", "الصف الثالث الثانوي",
+                        "السبت، الثلاثاء", "16:00 - 18:00", "5 / 20", "75.00"),
+                new GroupListRow("٢ث - أ. هدى", "هدى كمال", "الصف الثاني الثانوي",
+                        "الأحد", "18:00 - 20:00", "12 / 15", "60.00"));
+
+        JasperReport report = compiled("GroupsList.jrxml");
+
+        assertThat(JasperExportManager.exportReportToXml(
+                JasperFillManager.fillReport(report, parameters, new JRBeanCollectionDataSource(rows))))
+                .contains("CENTER_NAME")
+                .contains("SCOPE")
+                .contains("COL_TEACHER")
+                .contains("سامي عبد الله")
+                .contains("5 / 20")
+                .contains("75.00");
+
+        // تصفية لا تطابق شيئاً: ورقة تقول ذلك ومعها وصف التصفية، لا ورقة فارغة
+        assertThat(JasperExportManager.exportReportToXml(
+                JasperFillManager.fillReport(report, parameters, new JRBeanCollectionDataSource(List.of()))))
+                .contains("NO_ROWS")
+                .contains("SCOPE");
     }
 
     /** يملأ الكشف بقيم يساوي كلٌّ منها اسم معامله، ليُعرف في الورقة ما جاء من أين */
