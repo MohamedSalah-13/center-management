@@ -313,6 +313,7 @@ form — a bordered table, an ID card, a barcode — is a `.jrxml` under
 `CenterHeader.jrxml` is the only file that draws the letterhead — logo right, name and phone
 left. Copying that block into each report instead would make "resize the logo" an edit in ten
 files, and the one that gets missed only shows up on paper at the customer.
+`StudentEnrollments.jrxml` and `StudentIdCards.jrxml` both follow the recipe; copy from either.
 
 The band carries `<printWhenExpression>$P{SHOW_CENTER}</printWhenExpression>`, **on the band
 and not on the subreport element**: a band collapses to zero height and everything below
@@ -327,9 +328,14 @@ Three more rules that are not obvious from the existing files:
   in Java. The bundles do not see the file and `MessageBundleTest` does not scan it, so a
   string typed inside it prints in its own language whatever the user chose — which is what
   `GroupStudents.jrxml` and `StudentIdCards.jrxml` still do.
-- **Rows are beans, not records.** Jasper reads `getGroupName()`; a record names its accessor
-  `groupName()` and the column comes out **blank with no error**. That is why
-  `EnrollmentReportRow` is a class with getters while `MembershipRow` beside it is a record.
+- **Rows are beans, not records — and not entities either.** Jasper reads `getGroupName()`; a
+  record names its accessor `groupName()` and the column comes out **blank with no error**.
+  That is why `EnrollmentReportRow` is a class with getters while `MembershipRow` beside it is
+  a record. Entities fail differently and louder: `StudentIdCards.jrxml` declared
+  `schoolLevel` as `java.lang.String` while `Student.getSchoolLevel()` returns the enum, so
+  the whole export died with `JRExpressionEvalException` for every student who had a level.
+  `IdCardRow` is the layer that turns entity values into the strings the sheet declares — and
+  it is where a `SchoolLevel` becomes its *translated* name rather than its constant.
 - **Columns are laid out right-to-left** (subject first at the right edge). Jasper places
   elements at fixed coordinates and does not mirror them by language the way the UI does, so
   one file cannot serve both — and the centre reads Arabic.

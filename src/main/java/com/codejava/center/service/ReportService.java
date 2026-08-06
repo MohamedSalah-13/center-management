@@ -2,11 +2,13 @@ package com.codejava.center.service;
 
 import com.codejava.center.domain.CenterSettings;
 import com.codejava.center.domain.CourseGroup;
+import com.codejava.center.domain.Student;
 import com.codejava.center.domain.Teacher;
 import com.codejava.center.domain.Transaction;
 import com.codejava.center.service.dto.AttendanceSummary;
 import com.codejava.center.service.dto.EnrollmentReportRow;
 import com.codejava.center.service.dto.GroupAttendanceReport;
+import com.codejava.center.service.dto.IdCardRow;
 import com.codejava.center.service.dto.MembershipRow;
 import com.codejava.center.service.dto.SessionPayout;
 import com.codejava.center.service.dto.ShiftSummary;
@@ -433,6 +435,32 @@ public class ReportService {
         JasperExportManager.exportReportToPdfFile(jasperPrint, outputPath);
 
         return outputPath;
+    }
+
+    /**
+     * كارنيهات الطلاب المعروضين، بترويسة السنتر فوقها.
+     *
+     * <p>الطلاب لا يُمرَّرون إلى ملف التصميم كما هم: مرحلة الطالب قيمة {@code enum} في
+     * الكيان بينما التصميم يعلن الحقل نصاً - وكان ذلك يُسقط التصدير - واسمها المعروض
+     * ترجمةٌ لا {@code toString()}. {@link IdCardRow} هو ما يقف بينهما.</p>
+     *
+     * <p>الترويسة تصل عبر {@link #withCenterHeader(Map)} كما في كل تقرير جاسبر: ملف
+     * التصميم يعلن معاملاتها ويضع عنصر التقرير الفرعي، ولا يرسم شعاراً بنفسه.</p>
+     *
+     * @return المسار الفعلي لملف الـ PDF الناتج
+     */
+    public String exportStudentIdCards(List<Student> students, String outputFileName) throws JRException {
+        Map<String, Object> parameters = withCenterHeader(new java.util.HashMap<>());
+        parameters.put("CARD_TITLE", I18n.get("report.idCards.cardTitle"));
+
+        List<IdCardRow> cards = students.stream()
+                .map(student -> new IdCardRow(
+                        student.getName(),
+                        student.getBarcode(),
+                        student.getSchoolLevel() == null ? null : student.getSchoolLevel().getDisplayName()))
+                .toList();
+
+        return exportReportToPdf("StudentIdCards.jrxml", parameters, cards, outputFileName);
     }
 
     /**

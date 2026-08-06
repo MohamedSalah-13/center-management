@@ -1,4 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  كارنيهات دخول الطلاب، كارنيهان في كل سطر.
+
+  ترويسة السنتر في pageHeader عبر التقرير الفرعي الموحّد، كما في كشف الاشتراكات:
+  راجع ReportService.withCenterHeader. والشرط مكتوب على الفرقة لا على العنصر، فتنطوي
+  بارتفاعها كله حين تُطفأ الترويسة وتصعد الكارنيهات مكانها - وفي ورقة كارنيهات ذلك
+  كارنيهان إضافيان في الصفحة لا فراغ في رأسها.
+
+  ولا نصّ عربياً في الملف: عنوان الكارنيه معامل يصل من I18n. كان مكتوباً هنا، فكان
+  الكارنيه يخرج عربياً لمن ضبط برنامجه على الإنجليزية.
+-->
 <jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
               xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
               xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
@@ -8,13 +19,42 @@
               leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20"
               uuid="b1c2d3e4-f5a6-7b8c-9d0e-1f2a3b4c5d6e">
 
-    <!-- الحقول التي سيتم تمريرها من كود الجافا (Student Entity) -->
+    <!-- ترويسة السنتر الموحّدة: يملؤها ReportService.withCenterHeader -->
+    <parameter name="HEADER_REPORT" class="net.sf.jasperreports.engine.JasperReport" isForPrompting="false"/>
+    <parameter name="SHOW_CENTER" class="java.lang.Boolean"/>
+    <parameter name="CENTER_NAME" class="java.lang.String"/>
+    <parameter name="CENTER_PHONE" class="java.lang.String"/>
+    <parameter name="LOGO_PATH" class="java.lang.String"/>
+
+    <parameter name="CARD_TITLE" class="java.lang.String"/>
+
+    <!-- الحقول تصل من IdCardRow لا من الكيان: المرحلة enum في الكيان ونصّ هنا -->
     <field name="name" class="java.lang.String"/>
     <field name="barcode" class="java.lang.String"/>
-    <field name="schoolLevel" class="java.lang.String"/>
+    <field name="level" class="java.lang.String"/>
+
+    <pageHeader>
+        <band height="78" splitType="Prevent">
+            <printWhenExpression><![CDATA[$P{SHOW_CENTER}]]></printWhenExpression>
+            <subreport>
+                <reportElement x="0" y="0" width="555" height="70" uuid="b1000000-0000-4000-8000-000000000001"/>
+                <subreportParameter name="CENTER_NAME">
+                    <subreportParameterExpression><![CDATA[$P{CENTER_NAME}]]></subreportParameterExpression>
+                </subreportParameter>
+                <subreportParameter name="CENTER_PHONE">
+                    <subreportParameterExpression><![CDATA[$P{CENTER_PHONE}]]></subreportParameterExpression>
+                </subreportParameter>
+                <subreportParameter name="LOGO_PATH">
+                    <subreportParameterExpression><![CDATA[$P{LOGO_PATH}]]></subreportParameterExpression>
+                </subreportParameter>
+                <dataSourceExpression><![CDATA[new net.sf.jasperreports.engine.JREmptyDataSource(1)]]></dataSourceExpression>
+                <subreportExpression><![CDATA[$P{HEADER_REPORT}]]></subreportExpression>
+            </subreport>
+        </band>
+    </pageHeader>
 
     <detail>
-        <!-- ارتفاع الكارنيه الواحد (مثلاً 160 بيكسل) -->
+        <!-- ارتفاع الكارنيه الواحد -->
         <band height="170" splitType="Stretch">
 
             <!-- إطار الكارنيه الخارجي -->
@@ -25,36 +65,36 @@
                 </graphicElement>
             </rectangle>
 
-            <!-- ترويسة الكارنيه (اسم السنتر) -->
+            <!-- ترويسة الكارنيه -->
             <rectangle radius="10">
                 <reportElement x="0" y="0" width="265" height="35" backcolor="#3498DB" uuid="87654321-4321-4321-4321-210987654321"/>
                 <graphicElement>
                     <pen lineWidth="0.0"/>
                 </graphicElement>
             </rectangle>
-            <staticText>
+            <textField>
                 <reportElement x="0" y="5" width="265" height="25" forecolor="#FFFFFF" uuid="aabbccdd-eeff-1122-3344-556677889900"/>
-                <textElement textAlignment="Right" verticalAlignment="Middle">
+                <textElement textAlignment="Center" verticalAlignment="Middle">
                     <font fontName="ArabicFont" size="14" isBold="true"/>
                 </textElement>
-                <text><![CDATA[كارنيه دخول الطالب]]></text>
-            </staticText>
+                <textFieldExpression><![CDATA[$P{CARD_TITLE}]]></textFieldExpression>
+            </textField>
 
             <!-- بيانات الطالب -->
             <textField>
                 <reportElement x="10" y="45" width="245" height="20" forecolor="#2C3E50" uuid="11223344-5566-7788-9900-aabbccddeeff"/>
-                <textElement textAlignment="Right" verticalAlignment="Middle">
+                <textElement textAlignment="Center" verticalAlignment="Middle">
                     <font fontName="ArabicFont" size="14" isBold="true"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$F{name}]]></textFieldExpression>
             </textField>
 
-            <textField>
+            <textField isBlankWhenNull="true">
                 <reportElement x="10" y="65" width="245" height="15" forecolor="#7F8C8D" uuid="22334455-6677-8899-00aa-bbccddeeff11"/>
-                <textElement textAlignment="Right" verticalAlignment="Middle">
+                <textElement textAlignment="Center" verticalAlignment="Middle">
                     <font fontName="ArabicFont" size="10" isBold="false"/>
                 </textElement>
-                <textFieldExpression><![CDATA[$F{schoolLevel}]]></textFieldExpression>
+                <textFieldExpression><![CDATA[$F{level}]]></textFieldExpression>
             </textField>
 
             <!-- الباركود الآلي -->

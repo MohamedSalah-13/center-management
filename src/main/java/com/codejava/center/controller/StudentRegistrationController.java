@@ -11,7 +11,6 @@ import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.Forms;
 import com.codejava.center.util.ViewLoader;
-import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
@@ -24,14 +23,16 @@ import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.util.StringConverter;
 import lombok.RequiredArgsConstructor;
+import net.sf.jasperreports.engine.JRException;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 
+import java.awt.Desktop;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Controller
@@ -339,37 +340,29 @@ public class StudentRegistrationController {
         }
 
         // تجهيز مسار الحفظ (مثلاً سطح المكتب) بملف يحمل تاريخ اليوم
-        String fileName = "Student_ID_Cards_" + java.time.LocalDate.now().toString();
+        String fileName = "Student_ID_Cards_" + java.time.LocalDate.now();
 
-        CompletableFuture.supplyAsync(() -> {
+        FxAsync.supply(() -> {
             try {
-                // استدعاء دالة التصدير الموجودة مسبقاً في ReportService
-                // يتم تمرير studentsList كمصدر بيانات (DataSource) بدلاً من استعلام قاعدة البيانات
-                return reportService.exportReportToPdf(
-                        "StudentIdCards.jrxml",
-                        new HashMap<>(), // لا توجد بارامترات إضافية نحتاجها هنا
-                        shown,
-                        fileName
-                );
-            } catch (Exception e) {
-                throw new RuntimeException(e);
+                return reportService.exportStudentIdCards(shown, fileName);
+            } catch (JRException e) {
+                throw new IllegalStateException(FxAsync.messageOf(e), e);
             }
-        }).thenAccept(outputPath -> Platform.runLater(() -> {
+        }, outputPath -> {
             Dialogs.success(I18n.format("student.idCardsExported", outputPath));
+            openExported(outputPath);
+        }, error -> Dialogs.error(I18n.get("common.exportError"),
+                I18n.format("student.idCardsFailed", FxAsync.messageOf(error))));
+    }
 
-            // (اختياري) فتح الملف تلقائياً بعد إنشائه
-            try {
-                java.awt.Desktop.getDesktop().open(new java.io.File(outputPath));
-            } catch (Exception e) {
-                // تجاهل الخطأ إذا كان نظام التشغيل لا يدعم الفتح التلقائي
+    /** فتح الملف بعد إنشائه؛ نظامٌ لا يدعم الفتح لا يعني فشل التصدير، فالمسار مذكور سلفاً */
+    private void openExported(String outputPath) {
+        try {
+            if (Desktop.isDesktopSupported()) {
+                Desktop.getDesktop().open(new File(outputPath));
             }
-        })).exceptionally(ex -> {
-            Platform.runLater(() -> {
-                ex.printStackTrace();
-                Dialogs.error(I18n.get("common.exportError"),
-                        I18n.format("student.idCardsFailed", FxAsync.messageOf(ex)));
-            });
-            return null;
-        });
+        } catch (IOException e) {
+            // المسار معروض في رسالة النجاح، فالمستخدم يصل إليه بيده
+        }
     }
 }

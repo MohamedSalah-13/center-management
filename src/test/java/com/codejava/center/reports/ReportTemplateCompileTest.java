@@ -1,6 +1,7 @@
 package com.codejava.center.reports;
 
 import com.codejava.center.service.dto.EnrollmentReportRow;
+import com.codejava.center.service.dto.IdCardRow;
 import net.sf.jasperreports.engine.JasperCompileManager;
 import net.sf.jasperreports.engine.JasperExportManager;
 import net.sf.jasperreports.engine.JasperFillManager;
@@ -88,6 +89,37 @@ class ReportTemplateCompileTest {
 
         assertThat(JasperExportManager.exportReportToXml(fillEnrollments(false)))
                 .as("الترويسة مُطفأة").doesNotContain("CENTER_NAME");
+    }
+
+    /**
+     * الكارنيهات تُملأ من {@link IdCardRow} لا من الكيان.
+     *
+     * <p>كان التصميم يعلن المرحلة نصاً بينما هي {@code enum} في {@code Student}، فيسقط
+     * التصدير عند أول كارنيه. الملء هنا هو ما يمسك عودةَ ذلك: تمرير الكيان مباشرةً يبدو
+     * في الكود اختصاراً بريئاً.</p>
+     */
+    @Test
+    void idCardsFillWithTheirHeaderAndValues() throws Exception {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("CARD_TITLE", "CARD_TITLE");
+        parameters.put("CENTER_NAME", "CENTER_NAME");
+        parameters.put("CENTER_PHONE", "CENTER_PHONE");
+        parameters.put("SHOW_CENTER", true);
+        parameters.put("LOGO_PATH", null);
+        parameters.put("HEADER_REPORT", compiled("CenterHeader.jrxml"));
+
+        List<IdCardRow> cards = List.of(
+                new IdCardRow("أحمد محمود", "100234", "الصف الثالث الثانوي"),
+                new IdCardRow("Sara Ali", "100235", null));
+
+        JasperPrint print = JasperFillManager.fillReport(compiled("StudentIdCards.jrxml"), parameters,
+                new JRBeanCollectionDataSource(cards));
+
+        assertThat(JasperExportManager.exportReportToXml(print))
+                .contains("CENTER_NAME")
+                .contains("CARD_TITLE")
+                .contains("أحمد محمود")
+                .contains("الصف الثالث الثانوي");
     }
 
     /** يملأ الكشف بقيم يساوي كلٌّ منها اسم معامله، ليُعرف في الورقة ما جاء من أين */
