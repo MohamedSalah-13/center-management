@@ -8,6 +8,7 @@ import net.sf.jasperreports.engine.JasperFillManager;
 import net.sf.jasperreports.engine.JasperPrint;
 import net.sf.jasperreports.engine.JasperReport;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
+import net.sf.jasperreports.engine.data.JRMapCollectionDataSource;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
@@ -120,6 +121,44 @@ class ReportTemplateCompileTest {
                 .contains("CARD_TITLE")
                 .contains("أحمد محمود")
                 .contains("الصف الثالث الثانوي");
+    }
+
+    /**
+     * كشف طلاب المجموعة: ترويسته، وصفوفه، وورقته حين لا مشترك.
+     *
+     * <p>هذا الكشف يعلن {@code queryString}، لكن الملء بمصدر بيانات يتجاوز الاستعلام - وهو
+     * ما يتيح فحصه هنا بلا قاعدة بيانات. المفحوص بنية الورقة لا صحّة الـ SQL.</p>
+     */
+    @Test
+    void groupStudentsSheetFillsWithItsHeaderAndSaysWhenEmpty() throws Exception {
+        Map<String, Object> parameters = new HashMap<>();
+        for (String key : new String[]{"CENTER_NAME", "CENTER_PHONE", "REPORT_TITLE", "COL_ID",
+                "COL_NAME", "COL_PHONE", "PRINTED_AT", "PAGE_LABEL", "NO_ROWS"}) {
+            parameters.put(key, key);
+        }
+        parameters.put("SHOW_CENTER", true);
+        parameters.put("LOGO_PATH", null);
+        parameters.put("HEADER_REPORT", compiled("CenterHeader.jrxml"));
+        parameters.put("GROUP_ID", 7L);
+
+        Map<String, Object> row = new HashMap<>();
+        row.put("id", 412L);
+        row.put("name", "أحمد محمود");
+        row.put("phone", "01000000000");
+
+        JasperReport report = compiled("GroupStudents.jrxml");
+
+        assertThat(JasperExportManager.exportReportToXml(
+                JasperFillManager.fillReport(report, parameters, new JRMapCollectionDataSource(List.of(row)))))
+                .contains("CENTER_NAME")
+                .contains("COL_NAME")
+                .contains("أحمد محمود")
+                .contains("412");
+
+        // بلا مشتركين: ورقة تقول ذلك، لا ورقة فارغة تُقرأ كعطل في الطباعة
+        assertThat(JasperExportManager.exportReportToXml(
+                JasperFillManager.fillReport(report, parameters, new JRMapCollectionDataSource(List.of()))))
+                .contains("NO_ROWS");
     }
 
     /** يملأ الكشف بقيم يساوي كلٌّ منها اسم معامله، ليُعرف في الورقة ما جاء من أين */

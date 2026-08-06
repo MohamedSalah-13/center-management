@@ -399,6 +399,47 @@ public class ReportService {
     }
 
     /**
+     * كشف أسماء طلاب مجموعة، بترويسة السنتر فوقه.
+     *
+     * <p>هذا الكشف وحده بين كشوف جاسبر يُملأ باستعلام SQL داخل ملف التصميم لا بقائمة
+     * كائنات، فيحتاج {@code Connection}. الترويسة لا تتأثر بذلك: هي معاملات، ومصدر
+     * البيانات شيء آخر.</p>
+     *
+     * <p>وجودها هنا لا في الشاشة مقصود: نصوص الكشف كلها - عنوانه وعناوين أعمدته وذيله -
+     * تُبنى بـ {@code I18n} في مكان واحد، فلا يكون على من يستدعيه أن يتذكّر سبعة معاملات
+     * ولا أن يعرف أسماءها.</p>
+     *
+     * @return ملف PDF مؤقت يُحذف عند إغلاق البرنامج - الكشف يحمل أسماء طلاب وأرقامهم
+     */
+    public File exportGroupStudents(Long groupId) {
+        Map<String, Object> parameters = withCenterHeader(new java.util.HashMap<>());
+        parameters.put("GROUP_ID", groupId);
+        parameters.put("REPORT_TITLE", I18n.format("report.groupStudents.title", groupId));
+        parameters.put("COL_ID", I18n.get("report.groupStudents.col.id"));
+        parameters.put("COL_NAME", I18n.get("report.groupStudents.col.name"));
+        parameters.put("COL_PHONE", I18n.get("report.groupStudents.col.phone"));
+        parameters.put("NO_ROWS", I18n.get("report.groupStudents.noRows"));
+        withSheetFooter(parameters);
+
+        try (Connection connection = dataSource.getConnection()) {
+            JasperPrint print = JasperFillManager.fillReport(
+                    compile("GroupStudents.jrxml"), parameters, connection);
+
+            File pdf = File.createTempFile("group_students_", ".pdf");
+            pdf.deleteOnExit();
+            JasperExportManager.exportReportToPdfFile(print, pdf.getAbsolutePath());
+            return pdf;
+        } catch (JRException e) {
+            throw generationFailed(e);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        } catch (java.sql.SQLException e) {
+            throw new IllegalStateException(I18n.format("error.report.generateFailed",
+                    e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()), e);
+        }
+    }
+
+    /**
      * دالة لعرض التقرير مباشرة في نافذة معاينة
      */
     public void showReportPreview(String reportName, Map<String, Object> parameters) throws Exception {
@@ -584,6 +625,19 @@ public class ReportService {
     }
 
     /**
+     * ذيل الورقة الموحّد: تاريخ الطباعة ورقم الصفحة.
+     *
+     * <p>مفتاحان مشتركان لا مفتاحان لكل كشف: "الصفحة" و"تاريخ الطباعة" لا يختلفان من
+     * تقرير إلى تقرير، ونسخُهما مع كل ملف تصميم جديد يعني ترجمةً تُراجَع في عشرة مواضع.</p>
+     */
+    public Map<String, Object> withSheetFooter(Map<String, Object> parameters) {
+        parameters.put("PRINTED_AT", I18n.format("report.sheet.printedAt",
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))));
+        parameters.put("PAGE_LABEL", I18n.get("report.sheet.page"));
+        return parameters;
+    }
+
+    /**
      * مسار ملف الشعار إن كان موجوداً فعلاً، وإلا {@code null}.
      * الفحص هنا لا في التصميم: جاسبر يرمي على ملف غائب، والشعار الذي نقله أحدهم يجب
      * أن يعني ورقةً بلا شعار لا طباعةً تفشل.
@@ -618,10 +672,8 @@ public class ReportService {
         parameters.put("COL_HELD", I18n.get("student.col.sessionsHeld"));
         parameters.put("COL_ATTENDED", I18n.get("student.col.sessionsAttended"));
         parameters.put("COL_RATE", I18n.get("student.col.attendanceRate"));
-        parameters.put("PRINTED_AT", I18n.format("report.enrollments.printedAt",
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))));
-        parameters.put("PAGE_LABEL", I18n.get("report.enrollments.page"));
         parameters.put("NO_ROWS", I18n.get("report.enrollments.noRows"));
+        withSheetFooter(parameters);
 
         List<EnrollmentReportRow> rows = memberships.stream()
                 .map(row -> new EnrollmentReportRow(

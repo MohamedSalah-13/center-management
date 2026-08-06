@@ -304,7 +304,10 @@ form — a bordered table, an ID card, a barcode — is a `.jrxml` under
    `CENTER_PHONE`, `LOGO_PATH`) and copy the `pageHeader` band from
    `StudentEnrollments.jrxml` — one `<subreport>` element pointing at `$P{HEADER_REPORT}`.
 2. Fill the parameter map through **`ReportService.withCenterHeader(map)`**, which compiles
-   `CenterHeader.jrxml`, reads the centre row once, and resolves the logo path.
+   `CenterHeader.jrxml`, reads the centre row once, and resolves the logo path — and through
+   **`withSheetFooter(map)`** for `PRINTED_AT` / `PAGE_LABEL`. Those two are shared keys
+   (`report.sheet.*`), not per-report ones: "Page" does not differ between reports, and a copy
+   per template is a translation to review in ten places.
 3. Put the report's own title and subject in **`columnHeader`, never `title`.** Jasper prints
    the title band *above* the page header on page one, which would place the letterhead under
    the heading; and `columnHeader` repeats, so page two found on the printer still says what
@@ -313,7 +316,12 @@ form — a bordered table, an ID card, a barcode — is a `.jrxml` under
 `CenterHeader.jrxml` is the only file that draws the letterhead — logo right, name and phone
 left. Copying that block into each report instead would make "resize the logo" an edit in ten
 files, and the one that gets missed only shows up on paper at the customer.
-`StudentEnrollments.jrxml` and `StudentIdCards.jrxml` both follow the recipe; copy from either.
+All three templates follow the recipe — `StudentEnrollments.jrxml`, `StudentIdCards.jrxml` and
+`GroupStudents.jrxml`; copy the band from any of them. `GroupStudents` is the only one filled
+from a **SQL `queryString` and a `Connection`** rather than a bean list, which changes nothing
+about the header: the letterhead is parameters, and the data source is a separate question.
+It is also, as of now, the only one no screen calls — `exportGroupStudents` exists and works,
+but nothing is wired to it.
 
 The band carries `<printWhenExpression>$P{SHOW_CENTER}</printWhenExpression>`, **on the band
 and not on the subreport element**: a band collapses to zero height and everything below
