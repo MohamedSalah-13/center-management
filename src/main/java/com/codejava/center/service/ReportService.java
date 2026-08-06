@@ -12,9 +12,11 @@ import com.codejava.center.service.dto.SessionPayout;
 import com.codejava.center.service.dto.ShiftSummary;
 import com.codejava.center.service.dto.StudentBalance;
 import com.codejava.center.util.CommissionTypes;
+import com.codejava.center.util.DocumentKind;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
 import com.codejava.center.util.PrintDocument;
+import com.codejava.center.util.PrintPreferences;
 import com.codejava.center.util.Printing;
 import com.codejava.center.util.WeekDays;
 import javafx.geometry.Pos;
@@ -29,8 +31,13 @@ import javafx.scene.text.FontWeight;
 import javafx.stage.Window;
 import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
+import net.sf.jasperreports.engine.export.JRPrintServiceExporter;
+import net.sf.jasperreports.export.SimpleExporterInput;
+import net.sf.jasperreports.export.SimplePrintServiceExporterConfiguration;
 import org.springframework.stereotype.Service;
 
+import javax.print.PrintService;
+import javax.print.PrintServiceLookup;
 import javax.sql.DataSource;
 import java.io.File;
 import java.io.IOException;
@@ -443,6 +450,83 @@ public class ReportService {
      */
     public File exportStudentEnrollments(String studentName, String studentDetails,
                                          List<MembershipRow> memberships) {
+        JasperPrint print = fillStudentEnrollments(studentName, studentDetails, memberships);
+        try {
+            File pdf = File.createTempFile("student_enrollments_", ".pdf");
+            pdf.deleteOnExit();
+            JasperExportManager.exportReportToPdfFile(print, pdf.getAbsolutePath());
+            return pdf;
+        } catch (JRException e) {
+            throw generationFailed(e);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /**
+     * نفس الكشف، مُرسَلاً إلى الطابعة بلا ورقة وسيطة ولا نافذة.
+     *
+     * <p>الطابعة هي المختارة لـ {@link DocumentKind#REPORT} في الإعدادات، تُلتمس بالاسم بين
+     * خدمات الطباعة: جاسبر يطبع عبر {@code javax.print} بينما تختار الشاشة {@code javafx.print
+     * .Printer}، والاسمان يأتيان من مُخطِّط الطباعة نفسه في ويندوز فيتطابقان. ولولا الالتماس
+     * لذهب الكشف إلى طابعة النظام الافتراضية بينما تعلن شاشة الإعدادات طابعةً أخرى.</p>
+     *
+     * <p>ولا نافذة طابعة تُعرض: نوافذ {@code javax.print} نوافذ AWT، وهذه الدالة تجري على خيط
+     * خلفي - وفتح نافذة AWT منه مقامرة. ومن أراد النافذة يترك الخانة غير معلَّمة فيفتح الـ PDF
+     * ويطبع منه.</p>
+     *
+     * @return اسم الطابعة التي استُلم الكشف عليها، ليُقال للمستخدم أين يذهب ليأخذه
+     */
+    public String printStudentEnrollments(String studentName, String studentDetails,
+                                          List<MembershipRow> memberships) {
+        PrintService service = resolvePrintService();
+        JasperPrint print = fillStudentEnrollments(studentName, studentDetails, memberships);
+
+        SimplePrintServiceExporterConfiguration configuration = new SimplePrintServiceExporterConfiguration();
+        configuration.setPrintService(service);
+        configuration.setDisplayPageDialog(false);
+        configuration.setDisplayPrintDialog(false);
+
+        JRPrintServiceExporter exporter = new JRPrintServiceExporter();
+        exporter.setExporterInput(new SimpleExporterInput(print));
+        exporter.setConfiguration(configuration);
+
+        try {
+            exporter.exportReport();
+        } catch (JRException e) {
+            throw generationFailed(e);
+        }
+        return service.getName();
+    }
+
+    /**
+     * خدمة الطباعة المقابلة للطابعة المختارة للتقارير، أو الافتراضية.
+     * غياب أي طابعة يُقال صراحةً: الطباعة المباشرة بلا طابعة تفشل بصمت في أعماق جاسبر.
+     */
+    private PrintService resolvePrintService() {
+        String chosen = PrintPreferences.printerName(DocumentKind.REPORT);
+        if (chosen != null) {
+            for (PrintService service : PrintServiceLookup.lookupPrintServices(null, null)) {
+                if (service.getName().equals(chosen)) {
+                    return service;
+                }
+            }
+        }
+
+        PrintService fallback = PrintServiceLookup.lookupDefaultPrintService();
+        if (fallback == null) {
+            throw new IllegalStateException(I18n.get("error.report.noPrinter"));
+        }
+        return fallback;
+    }
+
+    private IllegalStateException generationFailed(JRException e) {
+        return new IllegalStateException(I18n.format("error.report.generateFailed",
+                e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()), e);
+    }
+
+    private JasperPrint fillStudentEnrollments(String studentName, String studentDetails,
+                                               List<MembershipRow> memberships) {
         CenterSettings settings = settingsService.getSettings();
         String none = I18n.get("common.none");
 
@@ -484,19 +568,10 @@ public class ReportService {
                 .toList();
 
         try {
-            JasperReport report = compile("StudentEnrollments.jrxml");
-            JasperPrint print = JasperFillManager.fillReport(report, parameters,
+            return JasperFillManager.fillReport(compile("StudentEnrollments.jrxml"), parameters,
                     new JRBeanCollectionDataSource(rows));
-
-            File pdf = File.createTempFile("student_enrollments_", ".pdf");
-            pdf.deleteOnExit();
-            JasperExportManager.exportReportToPdfFile(print, pdf.getAbsolutePath());
-            return pdf;
         } catch (JRException e) {
-            throw new IllegalStateException(I18n.format("error.report.generateFailed",
-                    e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()), e);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+            throw generationFailed(e);
         }
     }
 

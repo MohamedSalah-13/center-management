@@ -42,6 +42,7 @@ public final class PrintPreferences {
     }
 
     private static final String MODE_KEY = "print.mode";
+    private static final String DIRECT_SHEETS_KEY = "print.sheetsDirect";
 
     /**
      * مفتاح الطابعة قبل فصل الإعداد حسب نوع المستند. يُقرأ كقيمة احتياطية للنوعين معاً
@@ -162,6 +163,31 @@ public final class PrintPreferences {
 
     public static void setMode(PrintMode mode) {
         write(MODE_KEY, mode.name());
+    }
+
+    // ------------------------------------------------------- كشوف جاسبر
+
+    /**
+     * هل تُرسَل كشوف جاسبر إلى الطابعة مباشرةً بدل فتحها PDF.
+     *
+     * <p>هذا تفضيل ثانٍ إلى جانب {@link PrintMode}، وليس تكراراً له: {@code PrintMode} يحكم
+     * مطبوعات {@code Printing} التي يرسمها البرنامج بنفسه من عُقد JavaFX، وهذا يحكم كشوف
+     * {@code .jrxml} التي يبنيها {@code ReportService} - مسارا طباعة مختلفان لا يشتركان في
+     * سطر واحد. و{@code PREVIEW} لا مقابل له هنا: فتح الـ PDF <b>هو</b> المعاينة.</p>
+     *
+     * <p>الافتراضي {@code false} - أي فتح الـ PDF. الطباعة المباشرة تخرج ورقة بلا سؤال، وترقية
+     * تشغّلها من تلقاء نفسها تعني ورقاً يخرج من طابعة لم يطلبه أحد. من يريدها يعلّم الخانة.</p>
+     */
+    public static boolean printsSheetsDirectly() {
+        try {
+            return prefs().getBoolean(DIRECT_SHEETS_KEY, false);
+        } catch (SecurityException e) {
+            return false;
+        }
+    }
+
+    public static void setPrintsSheetsDirectly(boolean direct) {
+        write(DIRECT_SHEETS_KEY, String.valueOf(direct));
     }
 
     // ---------------------------------------------------------------- التخزين

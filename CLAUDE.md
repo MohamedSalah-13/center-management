@@ -316,6 +316,22 @@ Text uses `fontName="ArabicFont"`, registered by `jasperreports_extension.proper
 compiles every template and fills the enrolments sheet, because a `.jrxml` is parsed at run
 time only: a bad expression or a renamed field reaches the customer as a failed print.
 
+**Delivery is a per-machine checkbox: `PrintPreferences.printsSheetsDirectly()`.** Unticked
+(the default) exports a temp PDF and opens it in the system viewer; ticked sends the sheet
+straight to the printer through `JRPrintServiceExporter`, no window. It is a *second* setting
+beside `PrintMode` and not a duplicate of it — `PrintMode` governs the `Printing` path drawn
+from JavaFX nodes, this one governs `.jrxml` sheets, and the two share no code. `PREVIEW` has
+no counterpart here because opening the PDF **is** the preview.
+
+Direct printing looks the `javax.print.PrintService` up **by name** against the JavaFX printer
+chosen for `DocumentKind.REPORT`; both names come from the same Windows spooler. Without that
+lookup the sheet goes to the system default while the settings screen names another printer.
+No page or print dialog is ever shown: this runs on a background thread (`FxAsync`), and
+opening an AWT dialog from there is a gamble — someone who wants the dialog leaves the box
+unticked and prints from the PDF viewer. The default stays "open the PDF" deliberately: an
+upgrade that starts pushing paper out of a printer nobody asked is not a bug anyone reports,
+it is just wasted paper.
+
 ### Backup
 
 Three pieces: `BackupService` runs the tools, `BackupScheduler` decides when, `BackupCrypto`

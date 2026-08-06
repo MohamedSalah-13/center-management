@@ -101,6 +101,7 @@ public class SettingsController {
     @FXML private ComboBox<Double> fontScaleCombo;
 
     @FXML private ComboBox<PrintPreferences.PrintMode> printModeCombo;
+    @FXML private CheckBox directSheetPrintCheck;
 
     @FXML private ComboBox<String> reportPrinterCombo;
     @FXML private ComboBox<String> reportPaperCombo;
@@ -599,6 +600,12 @@ public class SettingsController {
                 PrintPreferences.setMode(newMode);
                 statusLabel.setText(I18n.get("settings.printSaved"));
             }
+        });
+
+        directSheetPrintCheck.setSelected(PrintPreferences.printsSheetsDirectly());
+        directSheetPrintCheck.selectedProperty().addListener((observable, was, direct) -> {
+            PrintPreferences.setPrintsSheetsDirectly(direct);
+            statusLabel.setText(I18n.get("settings.printSaved"));
         });
 
         configureKind(DocumentKind.REPORT, reportPrinterCombo, reportPaperCombo,

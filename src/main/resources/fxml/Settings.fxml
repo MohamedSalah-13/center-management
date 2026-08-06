@@ -111,6 +111,12 @@
 
                     <Label text="%settings.printModeNote" styleClass="muted-text" wrapText="true"/>
 
+                    <!-- تفضيل ثانٍ لا تكرار للأول: أعلاه مطبوعات البرنامج، وهذا كشوف
+                         جاسبر - مسارا طباعة لا يشتركان في سطر، ولذلك جاورا بعضهما بشرحٍ
+                         يقول أيّ الكشوف يخصّ -->
+                    <CheckBox fx:id="directSheetPrintCheck" text="%settings.printSheetsDirect"/>
+                    <Label text="%settings.printSheetsDirectNote" styleClass="muted-text" wrapText="true"/>
+
                     <Separator/>
 
                     <!-- التقارير: ورق مقطوع، تُقسَّم على صفحات -->

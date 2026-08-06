@@ -10,6 +10,7 @@ import com.codejava.center.service.dto.MembershipRow;
 import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
+import com.codejava.center.util.PrintPreferences;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -270,15 +271,29 @@ public class StudentEnrollmentsController {
                 student.getParentPhone() == null ? I18n.get("common.none") : student.getParentPhone());
 
         printButton.setDisable(true);
-        FxAsync.supply(() -> reportService.exportStudentEnrollments(student.getName(), details, rows),
-                pdf -> {
-                    printButton.setDisable(false);
-                    open(pdf);
-                },
-                error -> {
-                    printButton.setDisable(false);
-                    Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(error));
-                });
+
+        // القرار هنا لا في الخدمة: "مباشرةً أم PDF" تفضيل جهازٍ يخصّ التسليم وحده،
+        // والورقة نفسها تُبنى بالطريقة ذاتها في الحالتين
+        if (PrintPreferences.printsSheetsDirectly()) {
+            FxAsync.supply(() -> reportService.printStudentEnrollments(student.getName(), details, rows),
+                    printer -> {
+                        printButton.setDisable(false);
+                        Dialogs.success(I18n.format("student.enrollmentsSentTo", printer));
+                    },
+                    this::printFailed);
+        } else {
+            FxAsync.supply(() -> reportService.exportStudentEnrollments(student.getName(), details, rows),
+                    pdf -> {
+                        printButton.setDisable(false);
+                        open(pdf);
+                    },
+                    this::printFailed);
+        }
+    }
+
+    private void printFailed(Throwable error) {
+        printButton.setDisable(false);
+        Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(error));
     }
 
     /** فتح الملف بعارض PDF المثبَّت على الجهاز؛ تعذُّر الفتح يُقال ولا يُبتلع */
