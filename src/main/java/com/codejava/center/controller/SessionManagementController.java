@@ -7,6 +7,7 @@ import com.codejava.center.service.SessionService;
 import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
+import com.codejava.center.util.Moments;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -20,8 +21,6 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
 
@@ -32,9 +31,6 @@ public class SessionManagementController {
 
     /** الصف المفتوح يُظلَّل بهذا الصنف؛ لونه في style.css لا هنا */
     private static final String OPEN_ROW_STYLE_CLASS = "session-open";
-
-    private static final DateTimeFormatter TIME_ONLY = DateTimeFormatter.ofPattern("HH:mm");
-    private static final DateTimeFormatter DATE_AND_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     private final SessionService sessionService;
     private final CourseGroupService courseGroupService;
@@ -73,9 +69,9 @@ public class SessionManagementController {
         colDate.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getSessionDate().toString()));
 
         colStart.setCellValueFactory(data -> new SimpleStringProperty(
-                moment(data.getValue().getStartedAt(), data.getValue().getSessionDate())));
+                Moments.describe(data.getValue().getStartedAt(), data.getValue().getSessionDate())));
         colEnd.setCellValueFactory(data -> new SimpleStringProperty(
-                moment(data.getValue().getEndedAt(), data.getValue().getSessionDate())));
+                Moments.describe(data.getValue().getEndedAt(), data.getValue().getSessionDate())));
 
         colStatus.setCellValueFactory(data -> new SimpleStringProperty(
                 I18n.get(data.getValue().isActive() ? "session.status.active" : "session.status.closed")));
@@ -95,24 +91,6 @@ public class SessionManagementController {
         });
 
         sessionsTable.setItems(sessionsList);
-    }
-
-    /**
-     * الساعة وحدها ما دامت اللحظة في يوم الحصة نفسه، ومعها التاريخ إن خرجت عنه.
-     *
-     * <p>الحصة تُترك مفتوحة إلى صباح اليوم التالي أحياناً، و"09:15" وحدها في صفٍّ
-     * تاريخه أمس تُقرأ على أنها انتهت قبل أن تبدأ. والتاريخ لا يُكتب في كل صف لأنه
-     * حينها تكرارٌ لعمود التاريخ المجاور في كل حصة عادية.</p>
-     *
-     * <p>الحصص المسجَّلة قبل هذه الإضافة بلا وقت، والحصة المفتوحة بلا نهاية بعد:
-     * خانة فارغة تقول "غير معلوم" ولا تخترع رقماً.</p>
-     */
-    private String moment(LocalDateTime instant, LocalDate sessionDate) {
-        if (instant == null) {
-            return I18n.get("common.empty");
-        }
-        return instant.toLocalDate().equals(sessionDate)
-                ? instant.format(TIME_ONLY) : instant.format(DATE_AND_TIME);
     }
 
     private void setupComboBox() {

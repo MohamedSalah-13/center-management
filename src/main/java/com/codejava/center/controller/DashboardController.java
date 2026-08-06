@@ -141,6 +141,8 @@ public class DashboardController {
     @FXML
     private Button sessionsButton;
     @FXML
+    private Button dayScheduleButton;
+    @FXML
     private Button attendanceReportButton;
     @FXML
     private VBox navDailyBox;
@@ -296,6 +298,11 @@ public class DashboardController {
     @FXML
     public void showSessionManagement(ActionEvent event) {
         loadView("/fxml/SessionManagement.fxml", sessionsButton);
+    }
+
+    @FXML
+    public void showDaySchedule(ActionEvent event) {
+        loadView("/fxml/DaySchedule.fxml", dayScheduleButton);
     }
 
     @FXML

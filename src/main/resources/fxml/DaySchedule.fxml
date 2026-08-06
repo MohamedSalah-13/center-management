@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox spacing="20.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.codejava.center.controller.DayScheduleController"
+      style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
+
+    <HBox spacing="20.0" alignment="CENTER_LEFT">
+        <Label text="%daySchedule.title" textFill="#2c3e50" style="-fx-font-size: 1.86em; -fx-font-weight: bold;"/>
+        <Region HBox.hgrow="ALWAYS" />
+        <Button text="%common.refresh" onAction="#handleRefresh"
+                style="-fx-background-color: #7f8c8d; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+        <Button text="%daySchedule.print" onAction="#handlePrint"
+                style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+    </HBox>
+
+    <HBox spacing="15.0" alignment="CENTER_LEFT"
+          style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
+        <Label text="%daySchedule.date" style="-fx-font-weight: bold;" />
+        <DatePicker fx:id="datePicker" editable="false" />
+        <Button text="%daySchedule.today" onAction="#handleToday"
+                style="-fx-background-color: #2c3e50; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+        <Label fx:id="dayNameLabel" text="" textFill="#7f8c8d" style="-fx-font-weight: bold;" />
+
+        <Region HBox.hgrow="ALWAYS" />
+        <Label fx:id="summaryLabel" text="" textFill="#2c3e50" style="-fx-font-weight: bold;" />
+    </HBox>
+
+    <TableView fx:id="scheduleTable" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="colGroup" text="%daySchedule.col.group" prefWidth="200.0" />
+            <TableColumn fx:id="colTeacher" text="%daySchedule.col.teacher" prefWidth="150.0" />
+            <TableColumn fx:id="colLevel" text="%daySchedule.col.level" prefWidth="130.0" />
+            <TableColumn fx:id="colTime" text="%daySchedule.col.time" prefWidth="170.0" />
+            <TableColumn fx:id="colStatus" text="%daySchedule.col.status" prefWidth="110.0" />
+            <TableColumn fx:id="colStarted" text="%daySchedule.col.started" prefWidth="110.0" />
+            <TableColumn fx:id="colEnded" text="%daySchedule.col.ended" prefWidth="110.0" />
+            <TableColumn fx:id="colAttendance" text="%daySchedule.col.attendance" prefWidth="90.0" />
+        </columns>
+    </TableView>
+</VBox>

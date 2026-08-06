@@ -9,6 +9,7 @@ import com.codejava.center.service.dto.ArrearsReportRow;
 import com.codejava.center.service.dto.AttendanceReportRow;
 import com.codejava.center.service.dto.AttendanceSummary;
 import com.codejava.center.service.dto.AuditReportRow;
+import com.codejava.center.service.dto.DayScheduleRow;
 import com.codejava.center.service.dto.EnrollmentReportRow;
 import com.codejava.center.service.dto.GroupAttendanceReport;
 import com.codejava.center.service.dto.GroupListRow;
@@ -235,6 +236,34 @@ public class ReportService {
                 .toList();
 
         return deliver(fill("GroupsList.jrxml", parameters, rows), "groups_list_", DocumentKind.REPORT);
+    }
+
+    /**
+     * جدول حصص يوم واحد كما تعرضه الشاشة.
+     *
+     * <p>ورقة تُعلَّق على المكتب أو تُسلَّم لمن يفتح السنتر، ولذلك يُطبع اليوم وملخّصه في
+     * رأس كل صفحة: جدولٌ بلا يومه يبدو جدول اليوم الذي وُجد فيه، وهو أسوأ من ورقة غائبة
+     * لأنه يُصدَّق.</p>
+     *
+     * <p>الصفوف تصل جاهزة من {@code DayScheduleService}: هي بعينها صفوف الجدول على
+     * الشاشة، فالورقة نسخة ممّا كان أمام الموظف لا حساب ثانٍ قد يخالفه.</p>
+     */
+    public SheetDelivery deliverDaySchedule(LocalDate date, List<DayScheduleRow> rows, String summary) {
+        Map<String, Object> parameters = withSheetFooter(withCenterHeader(new java.util.HashMap<>()));
+        parameters.put("REPORT_TITLE", I18n.get("report.daySchedule.title"));
+        parameters.put("SCOPE", I18n.format("report.daySchedule.scope",
+                WeekDays.displayName(date.getDayOfWeek()), date, summary));
+        parameters.put("COL_GROUP", I18n.get("daySchedule.col.group"));
+        parameters.put("COL_TEACHER", I18n.get("daySchedule.col.teacher"));
+        parameters.put("COL_LEVEL", I18n.get("daySchedule.col.level"));
+        parameters.put("COL_TIME", I18n.get("daySchedule.col.time"));
+        parameters.put("COL_STATUS", I18n.get("daySchedule.col.status"));
+        parameters.put("COL_STARTED", I18n.get("daySchedule.col.started"));
+        parameters.put("COL_ENDED", I18n.get("daySchedule.col.ended"));
+        parameters.put("COL_ATTENDANCE", I18n.get("daySchedule.col.attendance"));
+        parameters.put("NO_ROWS", I18n.get("daySchedule.noRows"));
+
+        return deliver(fill("DaySchedule.jrxml", parameters, rows), "day_schedule_", DocumentKind.REPORT);
     }
 
     /**

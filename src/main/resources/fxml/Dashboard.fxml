@@ -66,6 +66,8 @@
                                 maxWidth="Infinity" styleClass="sidebar-btn"/>
                         <Button fx:id="sessionsButton" text="%nav.sessions" onAction="#showSessionManagement"
                                 maxWidth="Infinity" styleClass="sidebar-btn"/>
+                        <Button fx:id="dayScheduleButton" text="%nav.daySchedule" onAction="#showDaySchedule"
+                                maxWidth="Infinity" styleClass="sidebar-btn"/>
                     </VBox>
 
                     <VBox fx:id="navFinanceBox" spacing="3.0">

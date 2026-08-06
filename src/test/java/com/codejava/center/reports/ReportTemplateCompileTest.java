@@ -3,6 +3,7 @@ package com.codejava.center.reports;
 import com.codejava.center.service.dto.ArrearsReportRow;
 import com.codejava.center.service.dto.AttendanceReportRow;
 import com.codejava.center.service.dto.AuditReportRow;
+import com.codejava.center.service.dto.DayScheduleRow;
 import com.codejava.center.service.dto.EnrollmentReportRow;
 import com.codejava.center.service.dto.ShiftMovementRow;
 import com.codejava.center.service.dto.TeacherListRow;
@@ -280,6 +281,14 @@ class ReportTemplateCompileTest {
                                 "PRINTED_AT", "PAGE_LABEL", "NO_ROWS"),
                         List.of(new AttendanceReportRow("1", "سارة علي", "100235", "01333333333",
                                 "10", "2", "83%")), "83%"),
+
+                new Sheet("DaySchedule.jrxml",
+                        List.of("REPORT_TITLE", "SCOPE", "COL_GROUP", "COL_TEACHER", "COL_LEVEL",
+                                "COL_TIME", "COL_STATUS", "COL_STARTED", "COL_ENDED",
+                                "COL_ATTENDANCE", "PRINTED_AT", "PAGE_LABEL", "NO_ROWS"),
+                        List.of(new DayScheduleRow("٣ث - أ. سامي", "سامي عبد الله",
+                                "الصف الثالث الثانوي", "04:00 م - 06:00 م", "جارية الآن",
+                                "16:05", "—", "12 / 20", DayScheduleRow.State.OPEN)), "16:05"),
 
                 new Sheet("AuditReport.jrxml",
                         List.of("REPORT_TITLE", "PERIOD", "COL_TIME", "COL_ACTOR", "COL_ACTION",
