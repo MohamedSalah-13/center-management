@@ -21,20 +21,34 @@ public class SessionService {
 
     /**
      * فتح حصة جديدة لمجموعة.
-     * يُسمح بعدة حصص مفتوحة في نفس الوقت (قاعات متوازية)،
-     * والقيد الوحيد أن المجموعة الواحدة لا يكون لها حصتان مفتوحتان معاً.
+     *
+     * <p>يُسمح بعدة حصص مفتوحة في نفس الوقت (قاعات متوازية)، والقيدان:</p>
+     * <ul>
+     *   <li>المجموعة الواحدة لا يكون لها حصتان مفتوحتان معاً؛</li>
+     *   <li>ولا حصتان بنفس المواصفات - نفس المجموعة ونفس اليوم - ولو أُغلقت الأولى.
+     *       تكرار الحصة يخصم رسومها من الطالب مرتين ويُحتسب للمعلم يومان عن يوم واحد.</li>
+     * </ul>
      */
     @Transactional
     public Session openSession(CourseGroup group, LocalDate date) {
+        LocalDate sessionDate = date != null ? date : LocalDate.now();
+
+        // الحصة المفتوحة تُذكر برسالتها الخاصة حتى لو كانت في نفس اليوم:
+        // المطلوب من المستخدم حينها إغلاقها، لا الاكتفاء بعلمه أن اليوم محجوز
         Optional<Session> alreadyOpen = sessionRepository.findByGroupAndIsActiveTrue(group);
         if (alreadyOpen.isPresent()) {
             throw new IllegalStateException(I18n.format("error.session.alreadyOpen",
                     group.getName(), alreadyOpen.get().getSessionDate()));
         }
 
+        if (sessionRepository.existsByGroupAndSessionDate(group, sessionDate)) {
+            throw new IllegalStateException(I18n.format("error.session.duplicateOnDate",
+                    group.getName(), sessionDate));
+        }
+
         Session session = Session.builder()
                 .group(group)
-                .sessionDate(date != null ? date : LocalDate.now())
+                .sessionDate(sessionDate)
                 .isActive(true)
                 .isPaidOut(false)
                 .build();
@@ -75,5 +89,16 @@ public class SessionService {
     @Transactional(readOnly = true)
     public List<Session> getAllSessions() {
         return sessionRepository.findAll();
+    }
+
+    /**
+     * الحصص المطابقة للتصفية المعروضة في شاشة إدارة الحصص.
+     *
+     * @param date   يوم بعينه، أو {@code null} لكل الأيام
+     * @param active {@code true} للمفتوحة و{@code false} للمغلقة، أو {@code null} للحالتين
+     */
+    @Transactional(readOnly = true)
+    public List<Session> findSessions(LocalDate date, Boolean active) {
+        return sessionRepository.findFiltered(date, active);
     }
 }

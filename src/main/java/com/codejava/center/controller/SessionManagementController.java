@@ -19,16 +19,27 @@ import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Objects;
+
 @Controller
 @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE) // نسخة جديدة لكل فتح للشاشة - يمنع تراكم الـ listeners والحالة القديمة
 @RequiredArgsConstructor
 public class SessionManagementController {
+
+    /** الصف المفتوح يُظلَّل بهذا الصنف؛ لونه في style.css لا هنا */
+    private static final String OPEN_ROW_STYLE_CLASS = "session-open";
 
     private final SessionService sessionService;
     private final CourseGroupService courseGroupService;
 
     @FXML private ComboBox<CourseGroup> groupComboBox;
     @FXML private DatePicker sessionDatePicker;
+
+    @FXML private DatePicker filterDatePicker;
+    @FXML private ComboBox<Boolean> statusFilterCombo;
+    @FXML private Label countLabel;
 
     @FXML private TableView<Session> sessionsTable;
     @FXML private TableColumn<Session, String> colId;
@@ -38,10 +49,14 @@ public class SessionManagementController {
 
     private final ObservableList<Session> sessionsList = FXCollections.observableArrayList();
 
+    /** حارس إعادة الدخول: ضبط قيم التصفية برمجياً يُطلق حدثها، فيُحمَّل الجدول مرتين بلا سبب */
+    private boolean adjustingFilters;
+
     @FXML
     public void initialize() {
         setupTable();
         setupComboBox();
+        setupFilters();
         loadData();
     }
 
@@ -51,6 +66,20 @@ public class SessionManagementController {
         colDate.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getSessionDate().toString()));
         colStatus.setCellValueFactory(data -> new SimpleStringProperty(
                 I18n.get(data.getValue().isActive() ? "session.status.active" : "session.status.closed")));
+
+        // التظليل بصنف لا بـ setStyle مباشر: النمط المكتوب على الصف يغلب تنسيق التحديد،
+        // فيبقى الصف المفتوح بلونه حين يُختار ولا يظهر أنه محدَّد أصلاً
+        sessionsTable.setRowFactory(table -> new TableRow<>() {
+            @Override
+            protected void updateItem(Session item, boolean empty) {
+                super.updateItem(item, empty);
+                boolean open = !empty && item != null && item.isActive();
+                getStyleClass().remove(OPEN_ROW_STYLE_CLASS);
+                if (open) {
+                    getStyleClass().add(OPEN_ROW_STYLE_CLASS);
+                }
+            }
+        });
 
         sessionsTable.setItems(sessionsList);
     }
@@ -66,16 +95,94 @@ public class SessionManagementController {
         });
     }
 
+    private void setupFilters() {
+        // العنصر null معناه "الكل"، ووجوده داخل القائمة هو ما يتيح العودة إليه بعد اختيار حالة
+        statusFilterCombo.getItems().setAll(null, Boolean.TRUE, Boolean.FALSE);
+        statusFilterCombo.setCellFactory(list -> statusCell());
+        statusFilterCombo.setButtonCell(statusCell());
+        statusFilterCombo.setValue(null);
+
+        // اليوم هو المبدأ: الحصص المقصودة في شاشة الإدارة هي حصص اليوم،
+        // ومن أراد ما قبله ضغط "عرض الكل" أو اختار تاريخاً
+        filterDatePicker.setValue(LocalDate.now());
+
+        filterDatePicker.setOnAction(event -> onFilterChanged());
+        statusFilterCombo.setOnAction(event -> onFilterChanged());
+    }
+
+    /**
+     * خلية مكتوبة لا {@code StringConverter}: الخلية الافتراضية لا تسأل المحوّل حين تكون
+     * القيمة {@code null}، فكان خيار "الكل" - وهو الوضع الابتدائي - يظهر فراغاً.
+     */
+    private ListCell<Boolean> statusCell() {
+        return new ListCell<>() {
+            @Override
+            protected void updateItem(Boolean item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty ? null : I18n.get(item == null ? "common.all"
+                        : item ? "session.status.active" : "session.status.closed"));
+            }
+        };
+    }
+
+    private void onFilterChanged() {
+        if (!adjustingFilters) {
+            loadSessions();
+        }
+    }
+
+    /** تحميل المجموعات والحصص معاً - عند فتح الشاشة وعند طلب التحديث */
     private void loadData() {
-        FxAsync.supply(() -> new LoadedData(courseGroupService.getAllGroups(), sessionService.getAllSessions()),
+        FxAsync.supply(() -> new LoadedData(courseGroupService.getAllGroups(), readSessions()),
                 data -> {
-                    groupComboBox.getItems().setAll(data.groups());
-                    sessionsList.setAll(data.sessions());
+                    keepSelectedGroup(data.groups());
+                    showSessions(data.sessions());
                 },
                 error -> Dialogs.error(I18n.format("common.loadFailed", FxAsync.messageOf(error))));
     }
 
-    private record LoadedData(java.util.List<CourseGroup> groups, java.util.List<Session> sessions) {
+    /** تحميل الجدول وحده: كل تغيير في التصفية رحلة إلى القاعدة، والمجموعات لم تتغير */
+    private void loadSessions() {
+        FxAsync.supply(this::readSessions, this::showSessions,
+                error -> Dialogs.error(I18n.format("common.loadFailed", FxAsync.messageOf(error))));
+    }
+
+    private List<Session> readSessions() {
+        return sessionService.findSessions(filterDatePicker.getValue(), statusFilterCombo.getValue());
+    }
+
+    private void showSessions(List<Session> sessions) {
+        sessionsList.setAll(sessions);
+        countLabel.setText(I18n.format("session.count", sessions.size()));
+    }
+
+    /**
+     * إعادة تحميل قائمة المجموعات تُبدّل الكائنات، فيفقد الاختيار ما لم يُستعَد
+     * من القائمة الجديدة - والموظف الذي ضغط "تحديث" لم يطلب إلغاء اختياره.
+     */
+    private void keepSelectedGroup(List<CourseGroup> groups) {
+        CourseGroup previous = groupComboBox.getValue();
+        groupComboBox.getItems().setAll(groups);
+
+        if (previous != null) {
+            groups.stream()
+                    .filter(group -> Objects.equals(group.getId(), previous.getId()))
+                    .findFirst()
+                    .ifPresent(groupComboBox::setValue);
+        }
+    }
+
+    private record LoadedData(List<CourseGroup> groups, List<Session> sessions) {
+    }
+
+    @FXML
+    public void handleRefresh(ActionEvent event) {
+        loadData();
+    }
+
+    @FXML
+    public void handleShowAll(ActionEvent event) {
+        setFilters(null, null);
     }
 
     @FXML
@@ -88,7 +195,9 @@ public class SessionManagementController {
 
         FxAsync.supply(() -> sessionService.openSession(selectedGroup, sessionDatePicker.getValue()),
                 newSession -> {
-                    sessionsList.add(newSession);
+                    // الحصة الجديدة قد تقع خارج التصفية القائمة فتُفتح دون أن تُرى؛
+                    // تُنقل التصفية إلى يومها بدل تركها تختفي لحظة فتحها
+                    setFilters(newSession.getSessionDate(), null);
                     Dialogs.success(I18n.get("session.opened"));
                 },
                 error -> Dialogs.error(FxAsync.messageOf(error)));
@@ -105,8 +214,20 @@ public class SessionManagementController {
         }
 
         FxAsync.run(() -> sessionService.closeSession(selected.getId()), () -> {
-            loadData(); // إعادة تحميل البيانات لتحديث حالة الجدول
+            loadSessions(); // إعادة تحميل البيانات لتحديث حالة الجدول
             Dialogs.success(I18n.format("session.closed", selected.getGroup().getName()));
         }, error -> Dialogs.error(FxAsync.messageOf(error)));
+    }
+
+    /** ضبط التصفية ثم تحميل واحد: الحارس يمنع تحميلاً لكل حقل يتغيّر */
+    private void setFilters(LocalDate date, Boolean active) {
+        adjustingFilters = true;
+        try {
+            filterDatePicker.setValue(date);
+            statusFilterCombo.setValue(active);
+        } finally {
+            adjustingFilters = false;
+        }
+        loadSessions();
     }
 }

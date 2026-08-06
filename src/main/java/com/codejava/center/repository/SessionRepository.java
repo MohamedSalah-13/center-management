@@ -48,11 +48,36 @@ public interface SessionRepository extends JpaRepository<Session, Long> {
     List<Session> findActiveForStudent(@Param("student") Student student, @Param("date") LocalDate date);
 
     /**
+     * حصص مصفّاة بالتاريخ وبالحالة، وكلا المعيارين اختياري ({@code null} يعني "الكل").
+     *
+     * <p>التصفية في قاعدة البيانات لا في الذاكرة: جدول الحصص ينمو بحصص كل يوم ولا يتوقف،
+     * وجلبه كاملاً ليُصفّى بعد ذلك يثقل الشاشة أكثر كلما طال عمر السنتر.</p>
+     *
+     * <p>الترتيب تنازلي: أحدث الحصص أولاً لأنها المقصودة حين تُفتح الشاشة.</p>
+     */
+    @Query("""
+            SELECT s FROM Session s JOIN FETCH s.group g JOIN FETCH g.teacher
+            WHERE (:date IS NULL OR s.sessionDate = :date)
+              AND (:active IS NULL OR s.isActive = :active)
+            ORDER BY s.sessionDate DESC, s.id DESC
+            """)
+    List<Session> findFiltered(@Param("date") LocalDate date, @Param("active") Boolean active);
+
+    /**
      * هل لهذه المجموعة حصة مفتوحة بالفعل؟
-     * القيد الوحيد الباقي: المجموعة الواحدة لا يمكن أن يكون لها حصتان مفتوحتان في آن واحد.
+     * المجموعة الواحدة لا يمكن أن يكون لها حصتان مفتوحتان في آن واحد.
      * أما المجموعات المختلفة فيجوز أن تعمل بالتوازي في قاعات مختلفة.
      */
     Optional<Session> findByGroupAndIsActiveTrue(CourseGroup group);
+
+    /**
+     * هل عُقدت لهذه المجموعة حصة في هذا التاريخ من قبل - مفتوحةً كانت أم مغلقة؟
+     *
+     * <p>{@code findByGroupAndIsActiveTrue} وحده لا يكفي: بعد إغلاق حصة اليوم يصير فتح
+     * حصة ثانية لنفس المجموعة في نفس اليوم مسموحاً، فتُخصم رسوم الحصة من الطالب مرتين
+     * وتُحتسب للمعلم حصتان عن يوم واحد.</p>
+     */
+    boolean existsByGroupAndSessionDate(CourseGroup group, LocalDate sessionDate);
 
     /**
      * الحصص القابلة لصرف مستحقات معلمها: مغلقة ولم تُصرَف بعد.

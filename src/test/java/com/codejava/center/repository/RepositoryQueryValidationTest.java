@@ -44,6 +44,13 @@ class RepositoryQueryValidationTest {
         assertThat(sessionRepository.findActiveByDate(LocalDate.now())).isEmpty();
         assertThat(sessionRepository.findByIdWithGroup(1L)).isEmpty();
 
+        // التصفية بمعيارين اختياريين: كل تركيبة من (تاريخ/الكل) و(مفتوحة/مغلقة/الكل)
+        // تُبنى منها جملة SQL مختلفة، وأيّها قد يفشل وحده
+        assertThat(sessionRepository.findFiltered(null, null)).isEmpty();
+        assertThat(sessionRepository.findFiltered(LocalDate.now(), null)).isEmpty();
+        assertThat(sessionRepository.findFiltered(null, true)).isEmpty();
+        assertThat(sessionRepository.findFiltered(LocalDate.now(), false)).isEmpty();
+
         Student student = persistStudent("STU-SESS01", "طالب حصص");
         assertThat(sessionRepository.findActiveForStudent(student, LocalDate.now())).isEmpty();
     }

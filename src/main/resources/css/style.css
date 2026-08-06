@@ -289,6 +289,10 @@
 .table-row-cell:odd { -fx-background-color: #fafbfd; }
 .table-row-cell:selected { -fx-background-color: -secondary-color; }
 .table-row-cell:selected .text { -fx-fill: white; }
+/* الحصة المفتوحة: الصف الذي يُسجَّل عليه حضور الآن ويُنتظر إغلاقه.
+   قاعدة :selected مكتوبة صراحةً وإلا غلب التظليل لونَ التحديد وبدا الصف غير محدَّد */
+.table-row-cell.session-open { -fx-background-color: #e8f8f0; }
+.table-row-cell.session-open:selected { -fx-background-color: -secondary-color; }
 .table-view .placeholder .label { -fx-text-fill: -text-muted; }
 
 /* =========================================

@@ -6,7 +6,12 @@
       fx:controller="com.codejava.center.controller.SessionManagementController"
       style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
 
-    <Label text="%session.title" textFill="#2c3e50" style="-fx-font-size: 1.86em; -fx-font-weight: bold;"/>
+    <HBox spacing="20.0" alignment="CENTER_LEFT">
+        <Label text="%session.title" textFill="#2c3e50" style="-fx-font-size: 1.86em; -fx-font-weight: bold;"/>
+        <Region HBox.hgrow="ALWAYS" />
+        <Button text="%common.refresh" onAction="#handleRefresh"
+                style="-fx-background-color: #7f8c8d; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+    </HBox>
 
     <GridPane hgap="20.0" vgap="15.0" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0;">
         <Label text="%session.group" GridPane.columnIndex="0" GridPane.rowIndex="0" />
@@ -20,6 +25,20 @@
             <Button text="%session.close" onAction="#handleCloseSession" style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold;" />
         </HBox>
     </GridPane>
+
+    <HBox spacing="15.0" alignment="CENTER_LEFT">
+        <Label text="%session.filterDate" style="-fx-font-weight: bold;" />
+        <DatePicker fx:id="filterDatePicker" editable="false" />
+
+        <Label text="%session.filterStatus" style="-fx-font-weight: bold;" />
+        <ComboBox fx:id="statusFilterCombo" prefWidth="150.0" />
+
+        <Button text="%session.showAll" onAction="#handleShowAll"
+                style="-fx-background-color: #2c3e50; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+
+        <Region HBox.hgrow="ALWAYS" />
+        <Label fx:id="countLabel" text="" textFill="#2c3e50" style="-fx-font-weight: bold;" />
+    </HBox>
 
     <TableView fx:id="sessionsTable" VBox.vgrow="ALWAYS">
         <columns>
