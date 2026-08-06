@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "sessions")
@@ -32,6 +33,22 @@ public class Session {
 
     @Column(nullable = false)
     private LocalDate sessionDate;
+
+    /**
+     * لحظة فتح الحصة فعلاً، ولحظة إغلاقها.
+     *
+     * <p>{@code LocalDateTime} لا {@code LocalTime}: الحصة تُترك مفتوحة إلى صباح اليوم
+     * التالي أحياناً - وهي الحالة التي يقوم لها تنبيه {@code SESSION_LEFT_OPEN} - فساعةٌ
+     * بلا يومها تجعل حصة انتهت في التاسعة صباحاً تبدو أقصر من الصفر.</p>
+     *
+     * <p>وهما غير {@code sessionDate}: التاريخ هو اليوم الذي تُنسب إليه الحصة ويُختار في
+     * الشاشة (قد يُفتح كشف يوم مضى)، وهذان ما جرى بالفعل على الساعة. وكلاهما يقبل
+     * {@code NULL} لأن الحصص المسجَّلة قبل هذه الإضافة لا تحمل وقتاً، وصفر أو تاريخ
+     * مُختلَق يقول عنها ما لا يُعلم.</p>
+     */
+    private LocalDateTime startedAt;
+
+    private LocalDateTime endedAt;
 
     // مؤشر لمعرفة ما إذا كانت الحصة "مفتوحة" الآن لاستقبال الطلاب على البوابة
     @Column(nullable = false)

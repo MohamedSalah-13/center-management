@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -49,13 +50,16 @@ public class SessionService {
         Session session = Session.builder()
                 .group(group)
                 .sessionDate(sessionDate)
+                // لحظة الفتح تُقرأ من الساعة لا من التاريخ المختار: التاريخ يقول لأي يوم
+                // تُحسب الحصة، وهذا يقول متى بدأت فعلاً - وهما يفترقان كلما فُتح كشف يوم مضى
+                .startedAt(LocalDateTime.now())
                 .isActive(true)
                 .isPaidOut(false)
                 .build();
 
         Session saved = sessionRepository.save(session);
         auditService.record(AuditAction.SESSION_OPENED, saved.getId(), group.getName(),
-                "date=" + saved.getSessionDate());
+                "date=" + saved.getSessionDate() + "; startedAt=" + saved.getStartedAt());
 
         return saved;
     }
@@ -74,10 +78,12 @@ public class SessionService {
         }
 
         session.setActive(false);
+        session.setEndedAt(LocalDateTime.now());
         sessionRepository.save(session);
 
         auditService.record(AuditAction.SESSION_CLOSED, session.getId(),
-                session.getGroup().getName(), "date=" + session.getSessionDate());
+                session.getGroup().getName(),
+                "date=" + session.getSessionDate() + "; endedAt=" + session.getEndedAt());
     }
 
     /** كل الحصص المفتوحة حالياً */

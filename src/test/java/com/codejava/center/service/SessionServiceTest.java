@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Import;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -92,6 +93,44 @@ class SessionServiceTest {
         assertThat(today.getSessionDate()).isEqualTo(LocalDate.now());
         assertThatThrownBy(() -> sessionService.openSession(group, null))
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    /**
+     * الوقت يُقاس عند الفتح وعند الإغلاق، والحصة المفتوحة بلا نهاية بعد -
+     * نهايةٌ تُكتب عند الفتح تجعل كل حصة تبدو منتهية لحظة بدئها.
+     */
+    @Test
+    void stampsTheOpeningMomentAndLeavesTheEndUntilItIsClosed() {
+        LocalDateTime beforeOpening = LocalDateTime.now();
+        Session session = sessionService.openSession(group, LocalDate.now());
+
+        assertThat(session.getStartedAt()).isNotNull()
+                .isAfterOrEqualTo(beforeOpening)
+                .isBeforeOrEqualTo(LocalDateTime.now());
+        assertThat(session.getEndedAt()).isNull();
+
+        LocalDateTime beforeClosing = LocalDateTime.now();
+        sessionService.closeSession(session.getId());
+
+        Session closed = sessionService.findSessions(LocalDate.now(), false).get(0);
+        assertThat(closed.getEndedAt()).isNotNull()
+                .isAfterOrEqualTo(beforeClosing)
+                .isBeforeOrEqualTo(LocalDateTime.now());
+        // لحظة الفتح لا تُمسّ عند الإغلاق: هي قياس مضى، لا حقل يُحدَّث
+        assertThat(closed.getStartedAt()).isEqualTo(session.getStartedAt());
+    }
+
+    /**
+     * التاريخ المختار يقول لأي يوم تُحسب الحصة، ولحظة الفتح تقول متى بدأت فعلاً.
+     * فتح كشف يوم مضى لا يعيد الساعة إلى ذلك اليوم.
+     */
+    @Test
+    void readsTheOpeningMomentFromTheClockNotFromTheChosenDate() {
+        LocalDate backdated = LocalDate.now().minusDays(3);
+        Session session = sessionService.openSession(group, backdated);
+
+        assertThat(session.getSessionDate()).isEqualTo(backdated);
+        assertThat(session.getStartedAt().toLocalDate()).isEqualTo(LocalDate.now());
     }
 
     @Test

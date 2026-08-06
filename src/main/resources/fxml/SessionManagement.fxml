@@ -45,6 +45,8 @@
             <TableColumn fx:id="colId" text="%session.col.id" prefWidth="50.0" />
             <TableColumn fx:id="colGroup" text="%session.col.group" prefWidth="200.0" />
             <TableColumn fx:id="colDate" text="%session.col.date" prefWidth="150.0" />
+            <TableColumn fx:id="colStart" text="%session.col.start" prefWidth="130.0" />
+            <TableColumn fx:id="colEnd" text="%session.col.end" prefWidth="130.0" />
             <TableColumn fx:id="colStatus" text="%session.col.status" prefWidth="100.0" />
         </columns>
     </TableView>
