@@ -1,6 +1,11 @@
 package com.codejava.center.reports;
 
+import com.codejava.center.service.dto.ArrearsReportRow;
+import com.codejava.center.service.dto.AttendanceReportRow;
+import com.codejava.center.service.dto.AuditReportRow;
 import com.codejava.center.service.dto.EnrollmentReportRow;
+import com.codejava.center.service.dto.ShiftMovementRow;
+import com.codejava.center.service.dto.TeacherSessionRow;
 import com.codejava.center.service.dto.GroupListRow;
 import com.codejava.center.service.dto.IdCardRow;
 import net.sf.jasperreports.engine.JasperCompileManager;
@@ -193,6 +198,103 @@ class ReportTemplateCompileTest {
                 JasperFillManager.fillReport(report, parameters, new JRBeanCollectionDataSource(List.of()))))
                 .contains("NO_ROWS")
                 .contains("SCOPE");
+    }
+
+    /**
+     * كل ورقة من الأوراق الستّ الباقية تُملأ، وقيمها تصل إليها.
+     *
+     * <p>مكتوبة جدولاً لا ستّ دوال متشابهة: ما يُفحص واحد - أن المعاملات وصلت، وأن الصفوف
+     * ظهرت، وأن التقرير الفرعي وُصِل - والفرق بينها أسماء وأعمدة. ودالة لكل ورقة كانت
+     * ستعني ستّ نسخ من نفس ثلاثة الأسطر، تُنسى إحداها عند إضافة ورقة سابعة.</p>
+     */
+    @Test
+    void everySheetFillsWithItsParametersAndRows() throws Exception {
+        record Sheet(String template, List<String> params, List<?> rows, String probe) {
+        }
+
+        List<Sheet> sheets = List.of(
+                new Sheet("PaymentReceipt.jrxml",
+                        List.of("RECEIPT_TITLE", "DATE_LINE", "STUDENT_LINE", "GROUP_LINE",
+                                "DESCRIPTION_LINE", "AMOUNT_LINE", "BALANCE_LINE"),
+                        List.of(new Object()), "AMOUNT_LINE"),
+
+                new Sheet("ShiftSummary.jrxml",
+                        List.of("REPORT_TITLE", "INCOME_LINE", "EXPENSES_LINE", "PAYOUTS_LINE",
+                                "NET_LINE", "DETAILS_TITLE", "PRINTED_AT"),
+                        List.of(new ShiftMovementRow("09:15 ص", "150.00", "رسوم اشتراك")), "رسوم اشتراك"),
+
+                new Sheet("TeacherStatement.jrxml",
+                        List.of("REPORT_TITLE", "TEACHER_INFO", "TOTAL_LINE", "COL_DATE", "COL_GROUP",
+                                "COL_ATTENDANCE", "COL_REVENUE", "COL_PAYOUT", "PRINTED_AT",
+                                "PAGE_LABEL", "NO_ROWS"),
+                        List.of(new TeacherSessionRow("2026-01-05", "٣ث - أ. سامي", "12 / 30",
+                                "900.00", "450.00")), "٣ث - أ. سامي"),
+
+                new Sheet("ArrearsReport.jrxml",
+                        List.of("REPORT_TITLE", "SCOPE", "TOTAL_LINE", "COL_SERIAL", "COL_NAME",
+                                "COL_BARCODE", "COL_PARENT", "COL_DUE", "PRINTED_AT",
+                                "PAGE_LABEL", "NO_ROWS"),
+                        List.of(new ArrearsReportRow("1", "أحمد محمود", "100234",
+                                "01222222222", "300.00 EGP")), "أحمد محمود"),
+
+                new Sheet("AttendanceReport.jrxml",
+                        List.of("REPORT_TITLE", "PERIOD", "COL_SERIAL", "COL_NAME", "COL_BARCODE",
+                                "COL_PARENT", "COL_ATTENDED", "COL_ABSENT", "COL_RATE",
+                                "PRINTED_AT", "PAGE_LABEL", "NO_ROWS"),
+                        List.of(new AttendanceReportRow("1", "سارة علي", "100235", "01333333333",
+                                "10", "2", "83%")), "83%"),
+
+                new Sheet("AuditReport.jrxml",
+                        List.of("REPORT_TITLE", "PERIOD", "COL_TIME", "COL_ACTOR", "COL_ACTION",
+                                "COL_TARGET", "COL_AMOUNT", "COL_STATUS", "PRINTED_AT",
+                                "PAGE_LABEL", "NO_ROWS"),
+                        List.of(new AuditReportRow("2026-08-06 14:30:00", "admin", "تسجيل دفعة",
+                                "أحمد محمود", "300.00", "نجح", "required=ADMIN")), "required=ADMIN"));
+
+        for (Sheet sheet : sheets) {
+            Map<String, Object> parameters = new HashMap<>();
+            for (String key : sheet.params()) {
+                parameters.put(key, key);
+            }
+            parameters.put("CENTER_NAME", "CENTER_NAME");
+            parameters.put("CENTER_PHONE", "CENTER_PHONE");
+            parameters.put("SHOW_CENTER", true);
+            parameters.put("LOGO_PATH", null);
+            parameters.put("HEADER_REPORT", compiled(
+                    sheet.template().equals("PaymentReceipt.jrxml")
+                            || sheet.template().equals("ShiftSummary.jrxml")
+                            ? "ReceiptHeader.jrxml" : "CenterHeader.jrxml"));
+
+            String xml = JasperExportManager.exportReportToXml(JasperFillManager.fillReport(
+                    compiled(sheet.template()), parameters,
+                    new JRBeanCollectionDataSource(sheet.rows())));
+
+            assertThat(xml).as(sheet.template()).contains("CENTER_NAME").contains(sheet.probe());
+            // كل معامل بلغ الورقة فعلاً، لا العيّنة وحدها: معامل يُعلَن في التصميم
+            // ولا يُمرَّر من الخدمة يخرج خانةً فارغة بلا خطأ. وNO_ROWS مستثنى لأنه
+            // نصّ فرقة noData ولا يُطبع ما دام هناك صفوف
+            for (String key : sheet.params()) {
+                if (!key.equals("NO_ROWS")) {
+                    assertThat(xml).as(sheet.template() + " -> " + key).contains(key);
+                }
+            }
+        }
+    }
+
+    /**
+     * الإيصالات بعرض الرول، لا بعرض A4.
+     *
+     * <p>عرضٌ منسيّ على 595 يخرج من طابعة حرارية مقصوصاً من طرفيه، ولا شيء في الترجمة ولا
+     * في الملء يقوله - الورقة تبدو سليمة حتى تخرج من الجهاز عند العميل.</p>
+     */
+    @Test
+    void receiptTemplatesAreRollWidthAndSinglePage() throws Exception {
+        for (String template : List.of("PaymentReceipt.jrxml", "ShiftSummary.jrxml")) {
+            String xml = Files.readString(REPORTS_DIR.resolve(template));
+            assertThat(xml).as(template)
+                    .contains("pageWidth=\"227\"")
+                    .contains("isIgnorePagination=\"true\"");
+        }
     }
 
     /** يملأ الكشف بقيم يساوي كلٌّ منها اسم معامله، ليُعرف في الورقة ما جاء من أين */

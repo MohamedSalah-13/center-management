@@ -11,6 +11,7 @@ import com.codejava.center.service.TransactionService;
 import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
+import com.codejava.center.util.Sheets;
 import com.codejava.center.util.MoneyUtils;
 import com.codejava.center.util.Forms;
 import javafx.application.Platform;
@@ -176,12 +177,10 @@ public class CashierController {
     /** الإيصال يُبنى في ReportService ليحمل ترويسة السنتر (الاسم والشعار والهاتف) */
     private void printReceipt(Student student, CourseGroup group, BigDecimal amount,
                               BigDecimal newBalance, String description) {
-        try {
-            reportService.printPaymentReceipt(student.getName(), group.getName(), amount,
-                    newBalance, description, paymentSection.getScene().getWindow());
-        } catch (Exception e) {
-            Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(e));
-        }
+        FxAsync.supply(() -> reportService.deliverPaymentReceipt(student.getName(),
+                        group.getName(), amount, newBalance, description),
+                Sheets::show,
+                error -> Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(error)));
     }
 
     /** رصيد سالب يعني متأخرات على الطالب، فيُعرض بالأحمر */

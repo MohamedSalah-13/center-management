@@ -9,6 +9,7 @@ import com.codejava.center.service.dto.GroupAttendanceReport;
 import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
+import com.codejava.center.util.Sheets;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -139,12 +140,12 @@ public class AttendanceReportController {
             return;
         }
 
-        try {
-            reportService.printAttendanceReport(currentReport,
-                    fromPicker.getValue(), toPicker.getValue(),
-                    ((Node) event.getSource()).getScene().getWindow());
-        } catch (Exception e) {
-            Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(e));
-        }
+        GroupAttendanceReport report = currentReport;
+        LocalDate from = fromPicker.getValue();
+        LocalDate to = toPicker.getValue();
+
+        FxAsync.supply(() -> reportService.deliverAttendanceReport(report, from, to),
+                Sheets::show,
+                error -> Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(error)));
     }
 }

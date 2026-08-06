@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  إيصال استلام نقدية، على رول 80mm.
+
+  isIgnorePagination: الرول لا صفحات له ولا فواصل، فالإيصال ورقة واحدة مهما طالت وتُقصّ
+  عند آخر سطر. ولذلك لا pageHeader ولا pageFooter هنا - كلاهما لا يُطبع أصلاً حين تُلغى
+  الصفحات - والترويسة في title والمحتوى في detail.
+
+  والعرض 227 نقطة (80mm) بهوامش 8: هذا ما تحمله الطابعة الحرارية، وتصميمٌ بعرض A4 يخرج
+  منها مقصوصاً من طرفيه. ترويسة السنتر تأتي من ReceiptHeader.jrxml لا من CenterHeader:
+  راجع ReportService.withReceiptHeader.
+-->
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
+              name="PaymentReceipt" pageWidth="227" pageHeight="842" columnWidth="211"
+              leftMargin="8" rightMargin="8" topMargin="8" bottomMargin="8"
+              isIgnorePagination="true"
+              uuid="c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f">
+
+    <parameter name="HEADER_REPORT" class="net.sf.jasperreports.engine.JasperReport" isForPrompting="false"/>
+    <parameter name="SHOW_CENTER" class="java.lang.Boolean"/>
+    <parameter name="CENTER_NAME" class="java.lang.String"/>
+    <parameter name="CENTER_PHONE" class="java.lang.String"/>
+    <parameter name="LOGO_PATH" class="java.lang.String"/>
+
+    <parameter name="RECEIPT_TITLE" class="java.lang.String"/>
+    <parameter name="DATE_LINE" class="java.lang.String"/>
+    <parameter name="STUDENT_LINE" class="java.lang.String"/>
+    <parameter name="GROUP_LINE" class="java.lang.String"/>
+    <parameter name="DESCRIPTION_LINE" class="java.lang.String"/>
+    <parameter name="AMOUNT_LINE" class="java.lang.String"/>
+    <parameter name="BALANCE_LINE" class="java.lang.String"/>
+
+    <!-- الفرقة بارتفاع الترويسة بلا شعار، والتقرير الفرعي يمدّها حين يوجد شعار:
+         جاسبر يمدّ التقارير الفرعية فوق ارتفاعها المعلَن ولا يقصّها دونه، فالارتفاع
+         المعلَن هو الحالة الصغرى لا الكبرى - وإلا بقي فراغ الشعار في كل إيصال بلا شعار -->
+    <title>
+        <band height="48" splitType="Stretch">
+            <subreport>
+                <reportElement x="0" y="0" width="211" height="48" uuid="c1000000-0000-4000-8000-000000000001">
+                    <printWhenExpression><![CDATA[$P{SHOW_CENTER}]]></printWhenExpression>
+                </reportElement>
+                <subreportParameter name="CENTER_NAME">
+                    <subreportParameterExpression><![CDATA[$P{CENTER_NAME}]]></subreportParameterExpression>
+                </subreportParameter>
+                <subreportParameter name="CENTER_PHONE">
+                    <subreportParameterExpression><![CDATA[$P{CENTER_PHONE}]]></subreportParameterExpression>
+                </subreportParameter>
+                <subreportParameter name="LOGO_PATH">
+                    <subreportParameterExpression><![CDATA[$P{LOGO_PATH}]]></subreportParameterExpression>
+                </subreportParameter>
+                <dataSourceExpression><![CDATA[new net.sf.jasperreports.engine.JREmptyDataSource(1)]]></dataSourceExpression>
+                <subreportExpression><![CDATA[$P{HEADER_REPORT}]]></subreportExpression>
+            </subreport>
+        </band>
+    </title>
+
+    <detail>
+        <band height="196" splitType="Stretch">
+            <textField>
+                <reportElement x="0" y="0" width="211" height="22" uuid="c2000000-0000-4000-8000-000000000001"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle">
+                    <font fontName="ArabicFont" size="12" isBold="true"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{RECEIPT_TITLE}]]></textFieldExpression>
+            </textField>
+
+            <textField isStretchWithOverflow="true">
+                <reportElement x="0" y="26" width="211" height="16" uuid="c2000000-0000-4000-8000-000000000002"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="ArabicFont" size="9"/></textElement>
+                <textFieldExpression><![CDATA[$P{DATE_LINE}]]></textFieldExpression>
+            </textField>
+            <textField isStretchWithOverflow="true">
+                <reportElement x="0" y="44" width="211" height="16" uuid="c2000000-0000-4000-8000-000000000003"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="ArabicFont" size="10" isBold="true"/></textElement>
+                <textFieldExpression><![CDATA[$P{STUDENT_LINE}]]></textFieldExpression>
+            </textField>
+            <textField isStretchWithOverflow="true">
+                <reportElement x="0" y="62" width="211" height="16" uuid="c2000000-0000-4000-8000-000000000004"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="ArabicFont" size="9"/></textElement>
+                <textFieldExpression><![CDATA[$P{GROUP_LINE}]]></textFieldExpression>
+            </textField>
+            <textField isStretchWithOverflow="true">
+                <reportElement x="0" y="80" width="211" height="16" uuid="c2000000-0000-4000-8000-000000000005"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="ArabicFont" size="9"/></textElement>
+                <textFieldExpression><![CDATA[$P{DESCRIPTION_LINE}]]></textFieldExpression>
+            </textField>
+
+            <line>
+                <reportElement x="0" y="104" width="211" height="1" uuid="c2000000-0000-4000-8000-000000000006"/>
+                <graphicElement><pen lineWidth="0.5" lineStyle="Dashed"/></graphicElement>
+            </line>
+
+            <!-- المبلغ أكبر ما في الورقة: هو الرقم الذي يُراجَع عند التسليم -->
+            <textField isStretchWithOverflow="true">
+                <reportElement x="0" y="112" width="211" height="28" uuid="c2000000-0000-4000-8000-000000000007"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="ArabicFont" size="14" isBold="true"/></textElement>
+                <textFieldExpression><![CDATA[$P{AMOUNT_LINE}]]></textFieldExpression>
+            </textField>
+            <textField isStretchWithOverflow="true">
+                <reportElement x="0" y="142" width="211" height="20" uuid="c2000000-0000-4000-8000-000000000008"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="ArabicFont" size="10"/></textElement>
+                <textFieldExpression><![CDATA[$P{BALANCE_LINE}]]></textFieldExpression>
+            </textField>
+
+            <line>
+                <reportElement x="0" y="172" width="211" height="1" uuid="c2000000-0000-4000-8000-000000000009"/>
+                <graphicElement><pen lineWidth="0.5" lineStyle="Dashed"/></graphicElement>
+            </line>
+        </band>
+    </detail>
+</jasperReport>

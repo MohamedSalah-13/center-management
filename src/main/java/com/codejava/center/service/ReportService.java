@@ -5,7 +5,10 @@ import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Student;
 import com.codejava.center.domain.Teacher;
 import com.codejava.center.domain.Transaction;
+import com.codejava.center.service.dto.ArrearsReportRow;
+import com.codejava.center.service.dto.AttendanceReportRow;
 import com.codejava.center.service.dto.AttendanceSummary;
+import com.codejava.center.service.dto.AuditReportRow;
 import com.codejava.center.service.dto.EnrollmentReportRow;
 import com.codejava.center.service.dto.GroupAttendanceReport;
 import com.codejava.center.service.dto.GroupListRow;
@@ -13,6 +16,8 @@ import com.codejava.center.service.dto.GroupRosterRow;
 import com.codejava.center.service.dto.IdCardRow;
 import com.codejava.center.service.dto.MembershipRow;
 import com.codejava.center.service.dto.SheetDelivery;
+import com.codejava.center.service.dto.ShiftMovementRow;
+import com.codejava.center.service.dto.TeacherSessionRow;
 import com.codejava.center.service.dto.SessionPayout;
 import com.codejava.center.service.dto.ShiftSummary;
 import com.codejava.center.service.dto.StudentBalance;
@@ -20,20 +25,8 @@ import com.codejava.center.util.CommissionTypes;
 import com.codejava.center.util.DocumentKind;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
-import com.codejava.center.util.PrintDocument;
 import com.codejava.center.util.PrintPreferences;
-import com.codejava.center.util.Printing;
 import com.codejava.center.util.WeekDays;
-import javafx.geometry.Pos;
-import javafx.scene.Node;
-import javafx.scene.control.Separator;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
-import javafx.scene.control.Label;
-import javafx.scene.layout.VBox;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
-import javafx.stage.Window;
 import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
 import net.sf.jasperreports.engine.export.JRPrintServiceExporter;
@@ -57,7 +50,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Supplier;
 
 @Service
 public class ReportService {
@@ -79,182 +71,131 @@ public class ReportService {
         this.settingsService = settingsService;
     }
 
+    /** صيغة الوقت في ترويسات المطبوعات وذيولها */
+    private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
     /**
-     * مصنع الترويسة الموحّدة: شعار السنتر واسمه وهاتفه فوق كل صفحة.
+     * جرد الوردية: الملخّص ثم تفصيل الحركات، على رول الكاشير.
      *
-     * <p>يُرجع {@link Supplier} لا عقدة جاهزة لأن الترويسة تتكرر في أعلى كل صفحة، والعقدة
-     * الواحدة لا تُضاف إلى أكثر من أب في JavaFX.</p>
-     *
-     * <p>بيانات السنتر والشعار تُقرأ مرة واحدة هنا لا داخل المُنتِج: استدعاؤه يقع مرة لكل
-     * صفحة، وتقرير من عشر صفحات كان سيعني عشرة استعلامات لقاعدة البيانات وعشر قراءات
-     * لملف الشعار من القرص.</p>
+     * <p>{@link DocumentKind#RECEIPT} لا {@code REPORT}: هذا هو المطبوع الذي يُقصّ عند
+     * تقفيل الدرج ويُدبَّس على النقد المسلَّم، فمكانه الرول الذي أمام الكاشير - لا طابعة
+     * A4 في غرفة أخرى. وكان يخرج A4 كاملة لأجل ملخّص من أربعة أسطر.</p>
      */
-    private Supplier<Node> headerFactory(String documentTitle) {
-        CenterSettings settings = settingsService.getSettings();
+    public SheetDelivery deliverShiftSummary(LocalDate day, ShiftSummary summary,
+                                             List<Transaction> movements) {
+        Map<String, Object> parameters = withReceiptHeader(new java.util.HashMap<>());
+        parameters.put("REPORT_TITLE", I18n.format("report.shift.title", day));
+        parameters.put("INCOME_LINE", summaryLine("shift.income", summary.totalIncome()));
+        parameters.put("EXPENSES_LINE", summaryLine("shift.expenses", summary.totalExpense()));
+        parameters.put("PAYOUTS_LINE", summaryLine("shift.payouts", summary.totalTeacherPayouts()));
+        parameters.put("NET_LINE", summaryLine("shift.net", summary.net()));
+        parameters.put("DETAILS_TITLE", I18n.format("report.shift.details", movements.size()));
+        parameters.put("PRINTED_AT", I18n.format("report.sheet.printedAt",
+                LocalDateTime.now().format(TIMESTAMP)));
 
-        String centerName = settings != null && settings.getCenterName() != null
-                && !settings.getCenterName().isBlank()
-                ? settings.getCenterName()
-                : I18n.get("report.header.defaultCenterName");
-        String phone = settings != null ? settings.getCenterPhone() : null;
-        Image logo = loadLogo(settings);
+        DateTimeFormatter clock = DateTimeFormatter.ofPattern("hh:mm a");
+        List<ShiftMovementRow> rows = movements.stream()
+                .map(movement -> new ShiftMovementRow(
+                        movement.getTransactionDate().format(clock),
+                        MoneyUtils.format(movement.getAmount()),
+                        movement.getDescription()))
+                .toList();
 
-        return () -> {
-            VBox header = new VBox(6);
-            header.setAlignment(Pos.CENTER);
-
-            if (logo != null) {
-                ImageView view = new ImageView(logo);
-                view.setFitHeight(70);
-                view.setPreserveRatio(true);
-                header.getChildren().add(view);
-            }
-
-            Label nameLabel = new Label(centerName);
-            nameLabel.setFont(Font.font("System", FontWeight.BOLD, 22));
-            header.getChildren().add(nameLabel);
-
-            if (phone != null && !phone.isBlank()) {
-                Label phoneLabel = new Label(I18n.format("report.header.phone", phone));
-                phoneLabel.setFont(Font.font("System", 12));
-                header.getChildren().add(phoneLabel);
-            }
-
-            Label title = new Label(documentTitle);
-            title.setFont(Font.font("System", FontWeight.BOLD, 18));
-            header.getChildren().addAll(new Separator(), title);
-
-            return header;
-        };
+        return deliver(fill("ShiftSummary.jrxml", parameters, rows), "shift_summary_",
+                DocumentKind.RECEIPT);
     }
 
-    /** الشعار قد يكون غير مضبوط أو نُقل ملفه؛ المطبوعة تخرج بلا شعار ولا تفشل */
-    private Image loadLogo(CenterSettings settings) {
-        if (settings == null || settings.getLogoPath() == null || settings.getLogoPath().isBlank()) {
-            return null;
-        }
-        File logoFile = new File(settings.getLogoPath());
-        return logoFile.exists() ? new Image(logoFile.toURI().toString()) : null;
-    }
-
-    /** سطر تاريخ الطباعة في ذيل كل مستند */
-    private Label stamp(String key) {
-        Label label = new Label(I18n.format(key,
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))));
-        label.setFont(Font.font("System", 11));
-        return label;
-    }
-
-    /**
-     * طباعة جرد الوردية: الملخّص ثم تفصيل الحركات.
-     */
-    public void printShiftSummary(LocalDate day, ShiftSummary summary,
-                                  List<Transaction> movements, Window ownerWindow) {
-        PrintDocument document = PrintDocument.report()
-                .header(headerFactory(I18n.format("report.shift.title", day)));
-
-        document.add(
-                summaryLine(I18n.get("shift.income"), summary.totalIncome()),
-                summaryLine(I18n.get("shift.expenses"), summary.totalExpense()),
-                summaryLine(I18n.get("shift.payouts"), summary.totalTeacherPayouts()),
-                new Separator(),
-                summaryLine(I18n.get("shift.net"), summary.net()),
-                new Separator());
-
-        Label detailsTitle = new Label(I18n.format("report.shift.details", movements.size()));
-        detailsTitle.setFont(Font.font("System", FontWeight.BOLD, 14));
-        document.add(detailsTitle);
-
-        for (Transaction t : movements) {
-            document.add(new Label(I18n.format("report.shift.row",
-                    t.getTransactionDate().format(DateTimeFormatter.ofPattern("hh:mm a")),
-                    MoneyUtils.format(t.getAmount()),
-                    t.getDescription())));
-        }
-
-        document.add(stamp("report.printedAt"));
-        Printing.print(document, ownerWindow);
-    }
-
-    /**
-     * تقرير المتأخرات: قائمة المدينين ومبالغهم مع بيانات التواصل.
-     */
-    public void printArrearsReport(List<StudentBalance> arrears, java.math.BigDecimal totalDue, Window ownerWindow) {
-        PrintDocument document = PrintDocument.report()
-                .header(headerFactory(I18n.get("report.arrears.title")));
-
+    /** تقرير المتأخرات: قائمة المدينين ومبالغهم مع بيانات التواصل */
+    public SheetDelivery deliverArrearsReport(List<StudentBalance> arrears,
+                                              java.math.BigDecimal totalDue) {
         String none = I18n.get("common.none");
-        for (StudentBalance row : arrears) {
-            document.add(new Label(I18n.format("report.arrears.row",
-                    row.studentName(),
-                    row.barcode() != null ? row.barcode() : none,
-                    row.parentPhone() != null ? row.parentPhone() : none,
-                    MoneyUtils.format(row.amountDue()))));
-        }
 
-        Label total = new Label(I18n.format("report.arrears.total",
+        Map<String, Object> parameters = withSheetFooter(withCenterHeader(new java.util.HashMap<>()));
+        parameters.put("REPORT_TITLE", I18n.get("report.arrears.title"));
+        parameters.put("SCOPE", I18n.format("report.arrears.scope", arrears.size()));
+        parameters.put("TOTAL_LINE", I18n.format("report.arrears.total",
                 arrears.size(), MoneyUtils.formatWithCurrency(totalDue)));
-        total.setFont(Font.font("System", FontWeight.BOLD, 16));
+        parameters.put("COL_SERIAL", I18n.get("report.group.col.serial"));
+        parameters.put("COL_NAME", I18n.get("arrears.col.name"));
+        parameters.put("COL_BARCODE", I18n.get("arrears.col.barcode"));
+        parameters.put("COL_PARENT", I18n.get("arrears.col.parentPhone"));
+        parameters.put("COL_DUE", I18n.get("arrears.col.due"));
+        parameters.put("NO_ROWS", I18n.get("report.arrears.noRows"));
 
-        document.add(new Separator(), total, stamp("report.issuedAt"));
-        Printing.print(document, ownerWindow);
+        int[] serial = {0};
+        List<ArrearsReportRow> rows = arrears.stream()
+                .map(row -> new ArrearsReportRow(
+                        String.valueOf(++serial[0]),
+                        row.studentName(),
+                        row.barcode() == null ? none : row.barcode(),
+                        row.parentPhone() == null ? none : row.parentPhone(),
+                        MoneyUtils.formatWithCurrency(row.amountDue())))
+                .toList();
+
+        return deliver(fill("ArrearsReport.jrxml", parameters, rows), "arrears_",
+                DocumentKind.REPORT);
     }
 
     /**
-     * إيصال استلام نقدية.
-     * كان يُبنى داخل شاشة الخزينة بترويسة نصية ثابتة لا تحمل اسم السنتر ولا شعاره
-     * رغم أن الإعدادات تجمعهما.
+     * إيصال استلام نقدية، على رول الإيصالات.
+     *
+     * <p>كان يُبنى داخل شاشة الخزينة بترويسة نصية ثابتة لا تحمل اسم السنتر ولا شعاره رغم
+     * أن الإعدادات تجمعهما، ثم صار مطبوعة JavaFX، وهو الآن ورقة جاسبر كبقية المطبوعات.</p>
      */
-    public void printPaymentReceipt(String studentName, String groupName, java.math.BigDecimal amount,
-                                    java.math.BigDecimal newBalance, String description, Window ownerWindow) {
-        // إيصال لا تقرير: صفحة واحدة على الرول بلا ترقيم، وبورق الإيصالات لا ورق التقارير
-        PrintDocument receipt = PrintDocument.receipt()
-                .header(headerFactory(I18n.get("report.receipt.title")));
+    public SheetDelivery deliverPaymentReceipt(String studentName, String groupName,
+                                               java.math.BigDecimal amount,
+                                               java.math.BigDecimal newBalance, String description) {
+        Map<String, Object> parameters = withReceiptHeader(new java.util.HashMap<>());
+        parameters.put("RECEIPT_TITLE", I18n.get("report.receipt.title"));
+        parameters.put("DATE_LINE", I18n.format("report.receipt.date",
+                LocalDateTime.now().format(TIMESTAMP)));
+        parameters.put("STUDENT_LINE", I18n.format("report.receipt.student", studentName));
+        parameters.put("GROUP_LINE", I18n.format("report.receipt.group", groupName));
+        parameters.put("DESCRIPTION_LINE", I18n.format("report.receipt.description", description));
+        parameters.put("AMOUNT_LINE", I18n.format("report.receipt.amount",
+                MoneyUtils.formatWithCurrency(amount)));
+        parameters.put("BALANCE_LINE", I18n.format("report.receipt.balance",
+                MoneyUtils.formatWithCurrency(newBalance)));
 
-        receipt.add(
-                new Label(I18n.format("report.receipt.date", LocalDateTime.now()
-                        .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")))),
-                new Label(I18n.format("report.receipt.student", studentName)),
-                new Label(I18n.format("report.receipt.group", groupName)),
-                new Label(I18n.format("report.receipt.description", description)));
-
-        Label paid = new Label(I18n.format("report.receipt.amount", MoneyUtils.formatWithCurrency(amount)));
-        paid.setFont(Font.font("System", FontWeight.BOLD, 18));
-
-        Label balance = new Label(I18n.format("report.receipt.balance", MoneyUtils.formatWithCurrency(newBalance)));
-        balance.setFont(Font.font("System", 14));
-
-        receipt.add(new Separator(), paid, balance);
-        Printing.print(receipt, ownerWindow);
+        // سجلّ واحد لا صفر: الإيصال بلا صفوف تفصيل، وفرقة detail هي ما يحمل نصّه
+        return deliver(fill("PaymentReceipt.jrxml", parameters, List.of(new Object())),
+                "receipt_", DocumentKind.RECEIPT);
     }
 
-    /**
-     * تقرير حضور وغياب مجموعة خلال فترة.
-     */
-    public void printAttendanceReport(GroupAttendanceReport report, LocalDate from, LocalDate to,
-                                      Window ownerWindow) {
-        PrintDocument document = PrintDocument.report()
-                .header(headerFactory(I18n.format("report.attendance.title", report.groupName())));
-
-        Label period = new Label(I18n.format("report.attendance.period",
-                from, to, report.totalSessions()));
-        period.setFont(Font.font("System", FontWeight.BOLD, 14));
-        document.add(period, new Separator());
-
+    /** تقرير حضور وغياب مجموعة خلال فترة */
+    public SheetDelivery deliverAttendanceReport(GroupAttendanceReport report,
+                                                 LocalDate from, LocalDate to) {
         String none = I18n.get("common.none");
-        for (AttendanceSummary row : report.rows()) {
-            long absences = Math.max(0, report.totalSessions() - row.attended());
-            String rate = report.totalSessions() == 0
-                    ? none
-                    : String.format("%.0f%%", (row.attended() * 100.0) / report.totalSessions());
 
-            document.add(new Label(I18n.format("report.attendance.row",
-                    row.studentName(), row.attended(), absences, rate,
-                    row.parentPhone() != null ? row.parentPhone() : none)));
-        }
+        Map<String, Object> parameters = withSheetFooter(withCenterHeader(new java.util.HashMap<>()));
+        parameters.put("REPORT_TITLE", I18n.format("report.attendance.title", report.groupName()));
+        parameters.put("PERIOD", I18n.format("report.attendance.period",
+                from, to, report.totalSessions()));
+        parameters.put("COL_SERIAL", I18n.get("report.group.col.serial"));
+        parameters.put("COL_NAME", I18n.get("attReport.col.name"));
+        parameters.put("COL_BARCODE", I18n.get("attReport.col.barcode"));
+        parameters.put("COL_PARENT", I18n.get("attReport.col.parentPhone"));
+        parameters.put("COL_ATTENDED", I18n.get("attReport.col.attended"));
+        parameters.put("COL_ABSENT", I18n.get("attReport.col.absent"));
+        parameters.put("COL_RATE", I18n.get("attReport.col.rate"));
+        parameters.put("NO_ROWS", I18n.get("report.attendance.noRows"));
 
-        document.add(new Separator(), stamp("report.issuedAt"));
-        Printing.print(document, ownerWindow);
+        int[] serial = {0};
+        List<AttendanceReportRow> rows = report.rows().stream()
+                .map(row -> new AttendanceReportRow(
+                        String.valueOf(++serial[0]),
+                        row.studentName(),
+                        row.barcode() == null ? none : row.barcode(),
+                        row.parentPhone() == null ? none : row.parentPhone(),
+                        String.valueOf(row.attended()),
+                        String.valueOf(Math.max(0, report.totalSessions() - row.attended())),
+                        report.totalSessions() == 0
+                                ? none
+                                : Math.round((row.attended() * 100.0) / report.totalSessions()) + "%"))
+                .toList();
+
+        return deliver(fill("AttendanceReport.jrxml", parameters, rows), "attendance_",
+                DocumentKind.REPORT);
     }
 
     /**
@@ -292,7 +233,7 @@ public class ReportService {
                         MoneyUtils.format(group.getSessionPrice())))
                 .toList();
 
-        return deliver(fill("GroupsList.jrxml", parameters, rows), "groups_list_");
+        return deliver(fill("GroupsList.jrxml", parameters, rows), "groups_list_", DocumentKind.REPORT);
     }
 
     /**
@@ -304,48 +245,43 @@ public class ReportService {
      * <p>كل حدث كتلة واحدة من سطرين: التقسيم في {@link Printing} يقع بين الكتل لا داخلها،
      * فلا ينتهي وجه الصفحة بنصف حدث - وسطر مراقبة مبتور أسوأ من غيابه.</p>
      */
-    public void printAuditReport(List<com.codejava.center.domain.AuditLog> events,
-                                 LocalDate from, LocalDate to, Window ownerWindow) {
-        PrintDocument document = PrintDocument.report()
-                .header(headerFactory(I18n.get("report.audit.title")));
-
-        Label period = new Label(I18n.format("report.audit.period", from, to, events.size()));
-        period.setFont(Font.font("System", FontWeight.BOLD, 14));
-        document.add(period, new Separator());
-
-        DateTimeFormatter timestamp = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    public SheetDelivery deliverAuditReport(List<com.codejava.center.domain.AuditLog> events,
+                                            LocalDate from, LocalDate to) {
         String none = I18n.get("common.none");
 
-        for (com.codejava.center.domain.AuditLog event : events) {
-            VBox block = new VBox(2);
+        Map<String, Object> parameters = withSheetFooter(withCenterHeader(new java.util.HashMap<>()));
+        parameters.put("REPORT_TITLE", I18n.get("report.audit.title"));
+        parameters.put("PERIOD", I18n.format("report.audit.period", from, to, events.size()));
+        parameters.put("COL_TIME", I18n.get("audit.col.time"));
+        parameters.put("COL_ACTOR", I18n.get("audit.col.actor"));
+        parameters.put("COL_ACTION", I18n.get("audit.col.action"));
+        parameters.put("COL_TARGET", I18n.get("audit.col.target"));
+        parameters.put("COL_AMOUNT", I18n.get("audit.col.amount"));
+        parameters.put("COL_STATUS", I18n.get("audit.col.status"));
+        parameters.put("NO_ROWS", I18n.get("report.audit.noRows"));
 
-            Label headline = new Label(I18n.format("report.audit.row",
-                    event.getOccurredAt().format(timestamp),
-                    event.getActorUsername() == null ? I18n.get("audit.systemActor") : event.getActorUsername(),
-                    event.getAction().getDisplayName(),
-                    event.getEntityLabel() == null ? none : event.getEntityLabel(),
-                    event.getAmount() == null ? none : MoneyUtils.format(event.getAmount()),
-                    I18n.get(event.isSuccessful() ? "audit.status.ok" : "audit.status.failed")));
-            headline.setFont(Font.font("System", 12));
-            block.getChildren().add(headline);
+        DateTimeFormatter seconds = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        List<AuditReportRow> rows = events.stream()
+                .map(event -> new AuditReportRow(
+                        event.getOccurredAt().format(seconds),
+                        // اسم المستخدم فارغ يعني النظام لا مجهولاً: النسخة المجدولة تجري
+                        // على خيط بلا جلسة، ونسبتها إلى آخر من دخل كذبة
+                        event.getActorUsername() == null
+                                ? I18n.get("audit.systemActor") : event.getActorUsername(),
+                        event.getAction().getDisplayName(),
+                        event.getEntityLabel() == null ? none : event.getEntityLabel(),
+                        event.getAmount() == null ? none : MoneyUtils.format(event.getAmount()),
+                        I18n.get(event.isSuccessful() ? "audit.status.ok" : "audit.status.failed"),
+                        event.getDetails() == null || event.getDetails().isBlank()
+                                ? null : I18n.format("report.audit.details", event.getDetails())))
+                .toList();
 
-            if (event.getDetails() != null && !event.getDetails().isBlank()) {
-                Label details = new Label(I18n.format("report.audit.details", event.getDetails()));
-                details.setFont(Font.font("System", 10));
-                block.getChildren().add(details);
-            }
-
-            document.add(block);
-        }
-
-        document.add(new Separator(), stamp("report.issuedAt"));
-        Printing.print(document, ownerWindow);
+        return deliver(fill("AuditReport.jrxml", parameters, rows), "audit_", DocumentKind.REPORT);
     }
 
-    private Label summaryLine(String label, java.math.BigDecimal value) {
-        Label line = new Label(I18n.format("report.summaryLine", label, MoneyUtils.formatWithCurrency(value)));
-        line.setFont(Font.font("System", 15));
-        return line;
+    /** سطر "بند: مبلغ" في الملخّصات، بنصّ عنوانه مترجَماً وعملة السنتر مذيَّلة به */
+    private String summaryLine(String labelKey, java.math.BigDecimal value) {
+        return I18n.format("report.summaryLine", I18n.get(labelKey), MoneyUtils.formatWithCurrency(value));
     }
 
     /**
@@ -411,7 +347,7 @@ public class ReportService {
                         member.attendanceRate() == null ? none : member.attendanceRate() + "%"))
                 .toList();
 
-        return deliver(fill("GroupStudents.jrxml", parameters, rows), "group_roster_");
+        return deliver(fill("GroupStudents.jrxml", parameters, rows), "group_roster_", DocumentKind.REPORT);
     }
 
     /**
@@ -437,9 +373,9 @@ public class ReportService {
      * <p>الملف مؤقت ويُحذف عند إغلاق البرنامج: الكشوف تحمل أسماء طلاب وأرقام أولياء
      * أمورهم، فلا تُترك متراكمة في مجلد المستخدم بعد طباعتها.</p>
      */
-    private SheetDelivery deliver(JasperPrint print, String tempPrefix) {
+    private SheetDelivery deliver(JasperPrint print, String tempPrefix, DocumentKind kind) {
         if (PrintPreferences.printsSheetsDirectly()) {
-            return SheetDelivery.printed(sendToPrinter(print));
+            return SheetDelivery.printed(sendToPrinter(print, kind));
         }
         try {
             File pdf = File.createTempFile(tempPrefix, ".pdf");
@@ -532,7 +468,7 @@ public class ReportService {
     public SheetDelivery deliverStudentEnrollments(String studentName, String studentDetails,
                                                    List<MembershipRow> memberships) {
         return deliver(fillStudentEnrollments(studentName, studentDetails, memberships),
-                "student_enrollments_");
+                "student_enrollments_", DocumentKind.REPORT);
     }
 
     /**
@@ -549,8 +485,8 @@ public class ReportService {
      *
      * @return اسم الطابعة التي استُلم الكشف عليها، ليُقال للمستخدم أين يذهب ليأخذه
      */
-    private String sendToPrinter(JasperPrint print) {
-        PrintService service = resolvePrintService();
+    private String sendToPrinter(JasperPrint print, DocumentKind kind) {
+        PrintService service = resolvePrintService(kind);
 
         SimplePrintServiceExporterConfiguration configuration = new SimplePrintServiceExporterConfiguration();
         configuration.setPrintService(service);
@@ -570,11 +506,16 @@ public class ReportService {
     }
 
     /**
-     * خدمة الطباعة المقابلة للطابعة المختارة للتقارير، أو الافتراضية.
-     * غياب أي طابعة يُقال صراحةً: الطباعة المباشرة بلا طابعة تفشل بصمت في أعماق جاسبر.
+     * خدمة الطباعة المقابلة للطابعة المختارة لهذا النوع من المستندات، أو الافتراضية.
+     *
+     * <p>النوع لا يُهمَل: الجهاز الواحد في السنتر قد يكون موصولاً بطابعة حرارية للإيصالات
+     * وطابعة A4 للتقارير معاً، وإرسال إيصال إلى طابعة التقارير يعني ورقة A4 كاملة تخرج
+     * لأجل سبعة أسطر - أو العكس: كشف مجموعة يخرج من رول 80mm مقصوصاً من طرفيه.</p>
+     *
+     * <p>وغياب أي طابعة يُقال صراحةً: الطباعة المباشرة بلا طابعة تفشل بصمت في أعماق جاسبر.</p>
      */
-    private PrintService resolvePrintService() {
-        String chosen = PrintPreferences.printerName(DocumentKind.REPORT);
+    private PrintService resolvePrintService(DocumentKind kind) {
+        String chosen = PrintPreferences.printerName(kind);
         if (chosen != null) {
             for (PrintService service : PrintServiceLookup.lookupPrintServices(null, null)) {
                 if (service.getName().equals(chosen)) {
@@ -622,6 +563,18 @@ public class ReportService {
                 ? null : I18n.format("report.header.phone", settings.getCenterPhone()));
         parameters.put("LOGO_PATH", existingLogoPath(settings));
 
+        return parameters;
+    }
+
+    /**
+     * نفس الترويسة، بتصميم الرول: شعارٌ فوق ثم الاسم فالهاتف، كلها في الوسط.
+     *
+     * <p>ملف ثانٍ لا معامل عرض: التقرير الفرعي في جاسبر ثابت العرض، ورول 80mm لا يتّسع
+     * لشعار بجوار اسم. الترتيب رأسيّ هناك وأفقيّ هنا، والمعاملات هي هي.</p>
+     */
+    public Map<String, Object> withReceiptHeader(Map<String, Object> parameters) {
+        withCenterHeader(parameters);
+        parameters.put("HEADER_REPORT", compile("ReceiptHeader.jrxml"));
         return parameters;
     }
 
@@ -699,43 +652,39 @@ public class ReportService {
      * كشف حساب معلم يحتوي تفصيل الحصص فعلياً.
      * كان يطبع سطراً واحداً نصه "تفاصيل الحصص المالية ستدرج هنا لاحقاً".
      */
-    public void printTeacherStatement(Teacher teacher, List<SessionPayout> sessions, Window ownerWindow) {
-        PrintDocument document = PrintDocument.report()
-                .header(headerFactory(I18n.get("report.teacher.title")));
+    public SheetDelivery deliverTeacherStatement(Teacher teacher, List<SessionPayout> sessions) {
+        java.math.BigDecimal total = sessions.stream()
+                .map(SessionPayout::payoutAmount)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
 
-        Label teacherInfo = new Label(
-                I18n.format("report.teacher.info",
-                        teacher.getName(), teacher.getSubject(),
-                        CommissionTypes.displayName(teacher.getCommissionType()),
-                        MoneyUtils.format(teacher.getCommissionValue()))
-        );
-        teacherInfo.setFont(Font.font("System", 15));
-        document.add(teacherInfo, new Separator());
+        Map<String, Object> parameters = withSheetFooter(withCenterHeader(new java.util.HashMap<>()));
+        parameters.put("REPORT_TITLE", I18n.get("report.teacher.title"));
+        parameters.put("TEACHER_INFO", I18n.format("report.teacher.info",
+                teacher.getName(), teacher.getSubject(),
+                CommissionTypes.displayName(teacher.getCommissionType()),
+                MoneyUtils.format(teacher.getCommissionValue())));
+        parameters.put("TOTAL_LINE", I18n.format("report.teacher.total",
+                MoneyUtils.formatWithCurrency(total)));
+        parameters.put("COL_DATE", I18n.get("payout.col.date"));
+        parameters.put("COL_GROUP", I18n.get("payout.col.group"));
+        parameters.put("COL_ATTENDANCE", I18n.get("payout.col.attendees"));
+        parameters.put("COL_REVENUE", I18n.get("payout.col.revenue"));
+        parameters.put("COL_PAYOUT", I18n.get("payout.col.payout"));
+        parameters.put("NO_ROWS", I18n.get("report.teacher.noSessions"));
 
-        if (sessions.isEmpty()) {
-            document.add(new Label(I18n.get("report.teacher.noSessions")));
-        } else {
-            Label title = new Label(I18n.get("report.teacher.sessionsTitle"));
-            title.setFont(Font.font("System", FontWeight.BOLD, 14));
-            document.add(title);
+        List<TeacherSessionRow> rows = sessions.stream()
+                .map(session -> new TeacherSessionRow(
+                        String.valueOf(session.sessionDate()),
+                        session.groupName(),
+                        // عدد المشتركين بجانب الحاضرين: لا يدخل في المستحق، لكنه ما يجعل
+                        // رقم الحضور قابلاً للقراءة - "12 / 30" لا "12"
+                        I18n.format("group.membersOf", session.attendees(), session.enrolled()),
+                        MoneyUtils.format(session.totalRevenue()),
+                        MoneyUtils.format(session.payoutAmount())))
+                .toList();
 
-            java.math.BigDecimal total = java.math.BigDecimal.ZERO;
-            for (SessionPayout s : sessions) {
-                // عدد المشتركين بجانب الحاضرين: لا يدخل في المستحق، لكنه ما يجعل
-                // رقم الحضور قابلاً للقراءة - "12 من 30" لا "12"
-                document.add(new Label(I18n.format("report.teacher.row",
-                        s.sessionDate(), s.groupName(), s.attendees(), s.enrolled(),
-                        MoneyUtils.format(s.totalRevenue()), MoneyUtils.format(s.payoutAmount()))));
-                total = total.add(s.payoutAmount());
-            }
-
-            Label totalLabel = new Label(I18n.format("report.teacher.total", MoneyUtils.formatWithCurrency(total)));
-            totalLabel.setFont(Font.font("System", FontWeight.BOLD, 17));
-            document.add(new Separator(), totalLabel);
-        }
-
-        document.add(stamp("report.issuedAt"));
-        Printing.print(document, ownerWindow);
+        return deliver(fill("TeacherStatement.jrxml", parameters, rows), "teacher_statement_",
+                DocumentKind.REPORT);
     }
 
     /**

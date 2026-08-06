@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ترويسة السنتر على الرول: شعارٌ فوق، ثم الاسم فالهاتف، كلها في الوسط.
+
+  مقلوبة عن CenterHeader.jrxml عن قصد لا سهواً: الرول عرضه 80mm، فالشعار بجوار الاسم
+  يترك لكليهما نصف إصبع. والترتيب رأسيّ هنا، أفقيّ هناك.
+
+  والشعار في فرقة مستقلة بشرطها: الفرقة تنطوي بارتفاعها كله حين لا شعار، فلا يخرج من
+  الطابعة أربعون نقطة ورق أبيض في رأس كل إيصال - والرول يُشترى بالمتر.
+-->
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
+              name="ReceiptHeader" pageWidth="211" pageHeight="842" columnWidth="211"
+              leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0"
+              uuid="f1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c">
+
+    <parameter name="CENTER_NAME" class="java.lang.String"/>
+    <parameter name="CENTER_PHONE" class="java.lang.String"/>
+    <parameter name="LOGO_PATH" class="java.lang.String"/>
+
+    <title>
+        <band height="46" splitType="Prevent">
+            <printWhenExpression><![CDATA[$P{LOGO_PATH} != null]]></printWhenExpression>
+            <image scaleImage="RetainShape" hAlign="Center" vAlign="Middle" onErrorType="Blank">
+                <reportElement x="0" y="2" width="211" height="42" uuid="f1000000-0000-4000-8000-000000000001"/>
+                <imageExpression><![CDATA[$P{LOGO_PATH}]]></imageExpression>
+            </image>
+        </band>
+    </title>
+
+    <detail>
+        <band height="48" splitType="Prevent">
+            <textField isStretchWithOverflow="true">
+                <reportElement x="0" y="0" width="211" height="20" forecolor="#000000"
+                               uuid="f1000000-0000-4000-8000-000000000002"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle">
+                    <font fontName="ArabicFont" size="12" isBold="true"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{CENTER_NAME}]]></textFieldExpression>
+            </textField>
+
+            <textField isBlankWhenNull="true">
+                <reportElement x="0" y="21" width="211" height="14" forecolor="#000000"
+                               uuid="f1000000-0000-4000-8000-000000000003"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle">
+                    <font fontName="ArabicFont" size="8"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{CENTER_PHONE}]]></textFieldExpression>
+            </textField>
+
+            <!-- خطّ متقطّع لا خطّ ممتلئ: الطابعة الحرارية تُبهت الخطوط الرفيعة الطويلة -->
+            <line>
+                <reportElement x="0" y="42" width="211" height="1" forecolor="#000000"
+                               uuid="f1000000-0000-4000-8000-000000000004"/>
+                <graphicElement><pen lineWidth="0.5" lineStyle="Dashed"/></graphicElement>
+            </line>
+        </band>
+    </detail>
+</jasperReport>

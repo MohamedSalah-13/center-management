@@ -7,6 +7,7 @@ import com.codejava.center.util.CommissionTypes;
 import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
+import com.codejava.center.util.Sheets;
 import com.codejava.center.util.MoneyUtils;
 import com.codejava.center.util.Forms;
 import javafx.collections.FXCollections;
@@ -121,21 +122,14 @@ public class TeacherController {
     public void handlePrintAction(javafx.event.ActionEvent event) {
         if (selectedTeacher == null) return;
 
-        // جلب النافذة الحالية لربط حوار الطباعة بها
-        javafx.stage.Window window = ((Node) event.getSource()).getScene().getWindow();
-
         Teacher target = selectedTeacher;
 
-        // جلب الحصص في الخلفية، ثم الطباعة على خيط الواجهة (شرط PrinterJob في JavaFX)
-        FxAsync.supply(() -> teacherService.getPayableSessionsOf(target.getId()),
-                sessions -> {
-                    try {
-                        reportService.printTeacherStatement(target, sessions, window);
-                    } catch (Exception e) {
-                        Dialogs.error(I18n.format("teacher.printFailed", FxAsync.messageOf(e)));
-                    }
-                },
-                error -> Dialogs.error(I18n.format("teacher.sessionsLoadFailed", FxAsync.messageOf(error))));
+        // القراءة والبناء في استدعاء واحد بالخلفية: الطباعة على خيط الواجهة كانت شرط
+        // PrinterJob في مسار JavaFX، وجاسبر لا يشترطه
+        FxAsync.supply(() -> reportService.deliverTeacherStatement(target,
+                        teacherService.getPayableSessionsOf(target.getId())),
+                Sheets::show,
+                error -> Dialogs.error(I18n.format("teacher.printFailed", FxAsync.messageOf(error))));
     }
 
     @FXML

@@ -7,6 +7,7 @@ import com.codejava.center.service.dto.ShiftSummary;
 import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
+import com.codejava.center.util.Sheets;
 import com.codejava.center.util.MoneyUtils;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -22,6 +23,7 @@ import org.springframework.stereotype.Controller;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -92,14 +94,12 @@ public class ShiftClosingController {
 
         LocalDate day = dayPicker.getValue() != null ? dayPicker.getValue() : LocalDate.now();
 
-        try {
-            // الطباعة تبقى على خيط الواجهة: PrinterJob في JavaFX يتطلب ذلك
-            reportService.printShiftSummary(
-                    day, currentSummary, movements,
-                    ((Node) event.getSource()).getScene().getWindow());
-        } catch (Exception e) {
-            Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(e));
-        }
+        ShiftSummary summary = currentSummary;
+        List<Transaction> rows = new ArrayList<>(movements);
+
+        FxAsync.supply(() -> reportService.deliverShiftSummary(day, summary, rows),
+                Sheets::show,
+                error -> Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(error)));
     }
 
     private record ShiftData(ShiftSummary summary, List<Transaction> movements) {

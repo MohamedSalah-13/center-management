@@ -6,6 +6,7 @@ import com.codejava.center.service.dto.StudentBalance;
 import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
+import com.codejava.center.util.Sheets;
 import com.codejava.center.util.MoneyUtils;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -22,6 +23,7 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -103,12 +105,13 @@ public class ArrearsController {
             return;
         }
 
-        try {
-            // الطباعة على خيط الواجهة: شرط PrinterJob في JavaFX
-            reportService.printArrearsReport(arrears, totalDue(arrears),
-                    ((Node) event.getSource()).getScene().getWindow());
-        } catch (Exception e) {
-            Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(e));
-        }
+        // نسخة من الصفوف والإجمالي: البناء يجري في الخلفية، وقراءة قائمة الجدول
+        // الحيّة من هناك تتعارض مع تعديلها من خيط الواجهة
+        List<StudentBalance> rows = new ArrayList<>(arrears);
+        java.math.BigDecimal total = totalDue(rows);
+
+        FxAsync.supply(() -> reportService.deliverArrearsReport(rows, total),
+                Sheets::show,
+                error -> Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(error)));
     }
 }

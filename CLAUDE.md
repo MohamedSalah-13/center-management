@@ -294,9 +294,31 @@ printing in another makes the computed page breaks wrong.
 
 #### The other printing path: JasperReports
 
-`PrintDocument` is for what the app lays out itself. **Anything that has to look like a
-form — a bordered table, an ID card, a barcode — is a `.jrxml` under
-`src/main/resources/reports/`,** filled by `ReportService` and exported to PDF.
+**Every printout the app produces is now a `.jrxml` under `src/main/resources/reports/`,**
+filled by `ReportService` and delivered as PDF or straight to a printer. `PrintDocument` /
+`Printing` survive only for the settings screen's test page — `Printing.printTestPage` and
+`describeTarget`, which answer "does this printer work" and belong to the printer, not to any
+document. Nothing else builds a printout from JavaFX nodes; do not add anything that does.
+
+**`DocumentKind` decides the paper, and it is not decoration.** `REPORT` sheets are A4
+(`pageWidth="595"`, paginated, numbered). `RECEIPT` sheets are the 80 mm roll
+(`pageWidth="227"`, `isIgnorePagination="true"` so one continuous page is cut at the last
+line) and they use `ReceiptHeader.jrxml` — logo above the name, not beside it, because a roll
+has no room for a row. `ReportService.deliver` takes the kind and resolves the printer for
+*that* kind, so a receipt goes to the thermal printer while a roster goes to the A4 one on
+the same machine. Two documents are receipts: the payment receipt and the **shift closing
+summary** — the till "Z" sheet that gets cut and stapled to the cash handed over, which used
+to come out as a full A4 page for a four-line summary.
+
+Three receipt-specific traps, all of which look fine until paper comes out:
+
+- With `isIgnorePagination`, **`pageHeader` and `pageFooter` are never rendered.** Anything
+  that must print once goes in `title`, and anything repeating goes in `columnHeader`.
+- A `<subreport>` element **stretches past its declared height but never shrinks below it.**
+  Declare it at the no-logo height (48) so a centre without a logo does not get 46 points of
+  blank roll on every receipt.
+- Absolute positions do not move when a subreport above them stretches. So the letterhead
+  sits alone in `title`, and everything under it lives in the next band.
 
 **Every new Jasper report is built the same way. The recipe is three steps:**
 
@@ -316,8 +338,9 @@ form — a bordered table, an ID card, a barcode — is a `.jrxml` under
 `CenterHeader.jrxml` is the only file that draws the letterhead — logo right, name and phone
 left. Copying that block into each report instead would make "resize the logo" an edit in ten
 files, and the one that gets missed only shows up on paper at the customer.
-All four templates follow the recipe — `StudentEnrollments.jrxml`, `StudentIdCards.jrxml`,
-`GroupStudents.jrxml` and `GroupsList.jrxml`; copy the band from any of them.
+All ten templates follow the recipe; copy the band from any of them. `CenterHeader.jrxml` and
+`ReceiptHeader.jrxml` are the two letterheads — a report calls `withCenterHeader`, a receipt
+calls `withReceiptHeader` (which is the same call with the narrow template swapped in).
 
 **Delivery goes through `ReportService.deliver` → `SheetDelivery` → `util/Sheets.show`.** The
 service fills the sheet and then either sends it to the printer or writes a temp PDF, according

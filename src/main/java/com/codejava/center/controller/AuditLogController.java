@@ -8,6 +8,7 @@ import com.codejava.center.service.dto.AuditPage;
 import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
+import com.codejava.center.util.Sheets;
 import com.codejava.center.util.MoneyUtils;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -248,12 +249,11 @@ public class AuditLogController {
             return;
         }
 
-        try {
-            // الطباعة على خيط الواجهة: شرط PrinterJob في JavaFX
-            reportService.printAuditReport(rows, fromPicker.getValue(), toPicker.getValue(),
-                    ((Node) event.getSource()).getScene().getWindow());
-        } catch (Exception e) {
-            Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(e));
-        }
+        LocalDate from = fromPicker.getValue();
+        LocalDate to = toPicker.getValue();
+
+        FxAsync.supply(() -> reportService.deliverAuditReport(rows, from, to),
+                Sheets::show,
+                error -> Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(error)));
     }
 }
