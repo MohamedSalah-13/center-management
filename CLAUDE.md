@@ -803,6 +803,48 @@ via `findActiveForStudent`, reporting ambiguity by name rather than guessing.
 `CourseGroup` now carries a weekly timetable, but a `Session` is still opened by hand and has no
 time of its own — the timetable says when the group *should* meet, not when it did.
 
+### Check-in and check-out
+
+`Attendance` carries `timeIn` **and `timeOut`** (V11). One barcode reader serves both doors:
+the first scan on a session checks the student in and charges the fee, the second checks them
+out. A mode switch on the screen was the alternative and is worse — it gets left on "check
+out" and the next student who arrives is marked as leaving.
+
+Three things hold that design up:
+
+- **`AttendanceService.CHECKOUT_GRACE`** (2 minutes) is what separates the feature from a
+  fault: a reader left facing a card scans it twice a second, and without the window the
+  student leaves in the same moment they arrived — a zero-minute stay in the log. Inside the
+  window the second scan is read as what it is, a repeat. It is a constant, not a setting: it
+  describes the reader, not a policy of the centre.
+- **Closing a session invents nothing.** `timeOut` stays `NULL` for whoever did not scan on
+  the way out. Stamping them with the session's end time makes someone who left at seven look
+  like they stayed until ten, and that number is read a month later as measurement.
+- **`AttendanceState` is three values, not two**, because an empty `timeOut` does not mean one
+  thing: with the session open it means *inside now*, with it closed it means *not recorded*.
+  Collapsing them makes last week's log claim half the centre is still in the building.
+  `AttendanceLogRow.sessionActive` exists to carry that distinction out of SQL.
+
+Check-out is deliberately **not audited**, for the reason attendance and `SESSION_CHARGE` are
+not: it happens hundreds of times a day and `attendances` is already its timestamped log.
+
+**The gate screen reads its table from the database, not from memory.** `AttendanceController`
+is `PROTOTYPE` and is rebuilt on every navigation, so the old in-memory list meant that leaving
+the screen and coming back showed an empty log with nobody knowing who was inside. It now loads
+today via `getTodayLog()`. Refused scans are the one thing still held in memory — they were
+never written anywhere — and they live in their own small table beside the result card rather
+than mixed into the day's log.
+
+The duration column ticks on a one-minute `Timeline` that **stops when the table leaves its
+scene**: a timer inside a `PROTOTYPE` controller otherwise outlives its own window and keeps
+querying until the app closes. Same trap as `AlertFeed` owning its timer instead of
+`DashboardController`.
+
+`AttendanceLog.fxml` is the log for any past day (period + group in SQL, text search and
+"not checked out" in memory), printed through `AttendanceLogSheet.jrxml`. It is a different
+question from `AttendanceReport.fxml`, which counts sessions attended and missed per student;
+this one is a record of times.
+
 ### Entities
 
 Use `@Getter @Setter` plus `@EqualsAndHashCode(onlyExplicitlyIncluded = true)` with the id

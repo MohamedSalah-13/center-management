@@ -20,7 +20,7 @@
     <!-- لوحة المسح وعرض النتيجة: JavaFX يعكس right/left تلقائياً مع اتجاه المشهد،
          فتظهر عند اليمين في العربية وعند اليسار في الإنجليزية -->
     <right>
-        <VBox alignment="TOP_CENTER" spacing="20.0" style="-fx-padding: 30; -fx-background-color: white;" prefWidth="400.0">
+        <VBox alignment="TOP_CENTER" spacing="15.0" style="-fx-padding: 20; -fx-background-color: white;" prefWidth="400.0">
             <!-- تحديد الحصة التي يخدمها هذا الجهاز؛ "تلقائي" يترك النظام يستنتجها من مجموعات الطالب -->
             <VBox spacing="5.0" maxWidth="Infinity">
                 <Label text="%attendance.currentSession" textFill="#7f8c8d" />
@@ -30,12 +30,13 @@
             <Separator />
 
             <Label text="%attendance.swipeNow" textFill="#7f8c8d" style="-fx-font-size: 1.29em; -fx-font-weight: bold;"/>
+            <!-- التمريرة الأولى دخول والثانية انصراف: مكتوبة على الشاشة لأنها ليست بديهية -->
+            <Label text="%attendance.swipeHint" textFill="#95a5a6" wrapText="true" textAlignment="CENTER"
+                   style="-fx-font-size: 0.93em;"/>
 
             <!-- حقل الباركود (سيتم إخفاؤه برمجياً أو جعله شفافاً في النسخة النهائية) -->
             <TextField fx:id="barcodeScannerField" onAction="#handleBarcodeScan" promptText="%attendance.scannerPrompt"
                        style="-fx-font-size: 1.29em; -fx-alignment: center;"/>
-
-            <Separator />
 
             <!-- منطقة عرض النتيجة -->
             <VBox fx:id="resultCard" alignment="CENTER" spacing="10.0" style="-fx-padding: 20; -fx-background-radius: 10;">
@@ -43,18 +44,44 @@
                 <Label fx:id="groupNameLabel" text="%attendance.groupName" style="-fx-font-size: 1.29em;"/>
                 <Label fx:id="statusLabel" text="%attendance.status" wrapText="true" textAlignment="CENTER" style="-fx-font-size: 1.57em; -fx-font-weight: bold;"/>
             </VBox>
+
+            <Separator />
+
+            <!-- المحاولات المرفوضة: لا تدخل الجدول لأنها لم تُسجَّل في قاعدة البيانات،
+                 وبطاقة النتيجة وحدها تمحوها بعد ثوانٍ فلا يبقى للموظف من رُدّ ولماذا -->
+            <Label text="%attendance.rejectedLog" textFill="#7f8c8d" maxWidth="Infinity"
+                   style="-fx-font-size: 1.00em; -fx-font-weight: bold;"/>
+            <TableView fx:id="rejectedTable" VBox.vgrow="ALWAYS" minHeight="90.0">
+                <columns>
+                    <TableColumn fx:id="colRejectedTime" text="%attendance.col.time" prefWidth="80.0" />
+                    <TableColumn fx:id="colRejectedName" text="%attendance.col.name" prefWidth="110.0" />
+                    <TableColumn fx:id="colRejectedReason" text="%attendance.col.status" prefWidth="170.0" />
+                </columns>
+            </TableView>
         </VBox>
     </right>
 
-    <!-- جدول السجل اللحظي -->
+    <!-- كشف اليوم: يُقرأ من قاعدة البيانات عند فتح الشاشة، فلا يضيع بالتنقّل بين الشاشات -->
     <center>
         <VBox style="-fx-padding: 20;" spacing="10.0">
-            <Label text="%attendance.liveLog" style="-fx-font-size: 1.14em; -fx-font-weight: bold;"/>
+            <HBox spacing="15.0" alignment="CENTER_LEFT">
+                <Label text="%attendance.todayLog" style="-fx-font-size: 1.14em; -fx-font-weight: bold;"/>
+                <Label fx:id="insideCountLabel" textFill="#27ae60" style="-fx-font-size: 1.14em; -fx-font-weight: bold;"/>
+                <Region HBox.hgrow="ALWAYS" />
+                <CheckBox fx:id="insideOnlyCheck" text="%attendance.insideOnly" />
+                <Button text="%common.refresh" onAction="#handleRefresh"
+                        style="-fx-background-color: #7f8c8d; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 6 16;"/>
+            </HBox>
+
             <TableView fx:id="attendanceLogTable" VBox.vgrow="ALWAYS">
                 <columns>
-                    <TableColumn fx:id="colTime" text="%attendance.col.time" prefWidth="100.0" />
-                    <TableColumn fx:id="colName" text="%attendance.col.name" prefWidth="250.0" />
-                    <TableColumn fx:id="colStatus" text="%attendance.col.status" prefWidth="150.0" />
+                    <TableColumn fx:id="colName" text="%attendance.col.name" prefWidth="180.0" />
+                    <TableColumn fx:id="colGroup" text="%attendance.col.group" prefWidth="150.0" />
+                    <TableColumn fx:id="colTimeIn" text="%attendance.col.timeIn" prefWidth="100.0" />
+                    <TableColumn fx:id="colTimeOut" text="%attendance.col.timeOut" prefWidth="100.0" />
+                    <TableColumn fx:id="colDuration" text="%attendance.col.duration" prefWidth="100.0" />
+                    <TableColumn fx:id="colState" text="%attendance.col.state" prefWidth="110.0" />
+                    <TableColumn fx:id="colAction" text="%attendance.col.action" prefWidth="120.0" />
                 </columns>
             </TableView>
         </VBox>

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox spacing="20.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.codejava.center.controller.AttendanceLogController"
+      style="-fx-background-color: #f4f6f9; -fx-padding: 30;">
+
+    <Label text="%attLog.title" textFill="#2c3e50" style="-fx-font-size: 1.86em; -fx-font-weight: bold;"/>
+
+    <GridPane hgap="15.0" vgap="15.0"
+              style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8;">
+        <Label text="%attLog.from" GridPane.columnIndex="0" GridPane.rowIndex="0" style="-fx-font-weight: bold;"/>
+        <DatePicker fx:id="fromPicker" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+
+        <Label text="%attLog.to" GridPane.columnIndex="2" GridPane.rowIndex="0" style="-fx-font-weight: bold;"/>
+        <DatePicker fx:id="toPicker" editable="false" GridPane.columnIndex="3" GridPane.rowIndex="0" />
+
+        <Label text="%attLog.group" GridPane.columnIndex="4" GridPane.rowIndex="0" style="-fx-font-weight: bold;"/>
+        <ComboBox fx:id="groupComboBox" prefWidth="220.0" GridPane.columnIndex="5" GridPane.rowIndex="0" />
+
+        <Label text="%attLog.search" GridPane.columnIndex="0" GridPane.rowIndex="1" style="-fx-font-weight: bold;"/>
+        <TextField fx:id="searchField" promptText="%attLog.searchPrompt"
+                   GridPane.columnIndex="1" GridPane.rowIndex="1" GridPane.columnSpan="2"/>
+
+        <CheckBox fx:id="notCheckedOutCheck" text="%attLog.notCheckedOutOnly"
+                  GridPane.columnIndex="3" GridPane.rowIndex="1" GridPane.columnSpan="2"/>
+
+        <HBox spacing="10.0" GridPane.columnIndex="5" GridPane.rowIndex="1" alignment="CENTER_RIGHT">
+            <Button text="%attLog.generate" onAction="#handleGenerate"
+                    style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+            <Button fx:id="printButton" text="%common.print" onAction="#handlePrint" disable="true"
+                    style="-fx-background-color: #7f8c8d; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;" />
+        </HBox>
+    </GridPane>
+
+    <Label fx:id="summaryLabel" textFill="#2c3e50" style="-fx-font-size: 1.14em; -fx-font-weight: bold;"/>
+
+    <TableView fx:id="logTable" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="colDate" text="%attLog.col.date" prefWidth="110.0" />
+            <TableColumn fx:id="colName" text="%attLog.col.name" prefWidth="180.0" />
+            <TableColumn fx:id="colBarcode" text="%attLog.col.barcode" prefWidth="110.0" />
+            <TableColumn fx:id="colGroup" text="%attLog.col.group" prefWidth="150.0" />
+            <TableColumn fx:id="colTimeIn" text="%attLog.col.timeIn" prefWidth="100.0" />
+            <TableColumn fx:id="colTimeOut" text="%attLog.col.timeOut" prefWidth="100.0" />
+            <TableColumn fx:id="colDuration" text="%attLog.col.duration" prefWidth="100.0" />
+            <TableColumn fx:id="colState" text="%attLog.col.state" prefWidth="120.0" />
+            <TableColumn fx:id="colParentPhone" text="%attLog.col.parentPhone" prefWidth="130.0" />
+        </columns>
+    </TableView>
+</VBox>

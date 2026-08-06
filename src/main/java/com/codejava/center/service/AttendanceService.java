@@ -8,10 +8,13 @@ import com.codejava.center.repository.AttendanceRepository;
 import com.codejava.center.repository.SessionRepository;
 import com.codejava.center.repository.StudentGroupRepository;
 import com.codejava.center.repository.StudentRepository;
+import com.codejava.center.service.dto.AttendanceLogRow;
+import com.codejava.center.service.dto.AttendanceOutcome;
 import com.codejava.center.service.dto.AttendanceResult;
 import com.codejava.center.service.dto.AttendanceSummary;
 import com.codejava.center.service.dto.DailyAttendance;
 import com.codejava.center.service.dto.GroupAttendanceReport;
+import com.codejava.center.util.Durations;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -36,7 +40,18 @@ public class AttendanceService {
     private final TransactionService transactionService;
 
     /**
+     * المهلة التي تُعتبر التمريرة داخلها تكراراً بالخطأ لا انصرافاً.
+     *
+     * <p>ثابتٌ لا إعداد: ليست سياسةً للسنتر يختارها صاحبه، بل خاصيةٌ في قارئ الباركود
+     * نفسه - يقرأ الكارنيه مرتين في الثانية إن تُرك أمامه لحظة زائدة.</p>
+     */
+    static final Duration CHECKOUT_GRACE = Duration.ofMinutes(2);
+
+    /**
      * الدالة الرئيسية التي تستدعيها واجهة JavaFX عند تمرير الباركود.
+     *
+     * <p>التمريرة الأولى دخول، والثانية على نفس الحصة انصراف. قارئٌ واحد يخدم البابين
+     * لأنه ما في السنتر فعلاً: لا مفتاح وضعٍ يُنسى على "انصراف" فيخرج به من دخل للتوّ.</p>
      *
      * @param barcode          باركود كارنيه الطالب
      * @param boundSessionId   الحصة التي يخدمها هذا الجهاز، أو null لترك النظام يستنتجها
@@ -91,11 +106,12 @@ public class AttendanceService {
                     I18n.format("attendance.result.notEnrolled", currentGroup.getName()));
         }
 
-        // 4. التحقق من عدم تسجيل الدخول مسبقاً لنفس الحصة (منع تمرير الكارنيه مرتين)
-        // يسبق الفحص المالي عمداً: الطالب الذي دخل بالفعل يجب ألا يُخصم منه مرتين
-        // ولا أن يُقال له إن عليه متأخرات
-        if (attendanceRepository.existsByStudentAndSession(student, currentSession)) {
-            return buildErrorResult(student.getName(), I18n.get("attendance.result.alreadyAttended"));
+        // 4. الطالب الذي له صفٌّ في هذه الحصة: تمريرته الثانية انصراف لا دخول.
+        // يسبق الفحص المالي عمداً: من دخل بالفعل يجب ألا يُخصم منه مرتين، ولا أن يُقال
+        // له إن عليه متأخرات وهو خارج من الحصة التي دفع ثمنها
+        Optional<Attendance> existing = attendanceRepository.findByStudentAndSession(student, currentSession);
+        if (existing.isPresent()) {
+            return handleSecondScan(existing.get(), student, currentSession, currentGroup);
         }
 
         // 5. التحقق من الحالة المالية: هل رصيد الطالب يكفي رسوم هذه الحصة؟
@@ -108,7 +124,7 @@ public class AttendanceService {
         }
 
         // 6. تسجيل الحضور وخصم رسوم الحصة معاً داخل نفس الـ Transaction
-        attendanceRepository.save(Attendance.builder()
+        Attendance saved = attendanceRepository.save(Attendance.builder()
                 .student(student)
                 .session(currentSession)
                 .timeIn(LocalDateTime.now())
@@ -119,12 +135,101 @@ public class AttendanceService {
         // 7. إرجاع نتيجة النجاح للواجهة مع الرصيد بعد الخصم
         BigDecimal remaining = balance.subtract(sessionPrice);
         return AttendanceResult.builder()
-                .isSuccess(true)
+                .outcome(AttendanceOutcome.CHECKED_IN)
                 .studentName(student.getName())
                 .groupName(currentGroup.getName())
                 .remainingBalance(remaining)
                 .message(I18n.format("attendance.result.success", MoneyUtils.formatWithCurrency(remaining)))
+                .row(toLogRow(saved, student, currentSession, currentGroup))
                 .build();
+    }
+
+    /**
+     * التمريرة الثانية على نفس الحصة: انصراف، أو ردٌّ لطيف.
+     *
+     * <p>المهلة ({@link #CHECKOUT_GRACE}) هي الفرق بين الميزة والعطل: قارئ الباركود يقرأ
+     * الكارنيه مرتين في الثانية أحياناً، وبلا مهلة يخرج الطالب في اللحظة التي دخل فيها -
+     * فيُقرأ في الكشف أنه مكث صفر دقيقة. وداخل المهلة تُقرأ التمريرة على أنها ما هي عليه
+     * في الواقع: يدٌ مرّرت الكارنيه مرتين.</p>
+     */
+    private AttendanceResult handleSecondScan(Attendance attendance, Student student,
+                                              Session session, CourseGroup group) {
+        if (attendance.getTimeOut() != null) {
+            return buildErrorResult(student.getName(), I18n.get("attendance.result.alreadyCheckedOut"));
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (Duration.between(attendance.getTimeIn(), now).compareTo(CHECKOUT_GRACE) < 0) {
+            return buildErrorResult(student.getName(), I18n.get("attendance.result.duplicateScan"));
+        }
+
+        attendance.setTimeOut(now);
+        attendanceRepository.save(attendance);
+
+        return checkOutResult(attendance, student, session, group);
+    }
+
+    /**
+     * تسجيل الانصراف من زرّ الصفّ في الشاشة، لمن نسي تمرير كارنيهه عند خروجه.
+     *
+     * <p>بلا مهلة: هذه ضغطةُ إنسانٍ ينظر إلى الاسم، لا تمريرةُ قارئٍ قد تتكرّر من نفسها.</p>
+     */
+    @Transactional
+    public AttendanceResult checkOut(Long attendanceId) {
+        Attendance attendance = attendanceRepository.findById(attendanceId)
+                .orElseThrow(() -> new IllegalArgumentException(I18n.get("error.attendance.notFound")));
+
+        Student student = attendance.getStudent();
+        if (attendance.getTimeOut() != null) {
+            throw new IllegalStateException(I18n.format("error.attendance.alreadyCheckedOut", student.getName()));
+        }
+
+        attendance.setTimeOut(LocalDateTime.now());
+        attendanceRepository.save(attendance);
+
+        Session session = attendance.getSession();
+        return checkOutResult(attendance, student, session, session.getGroup());
+    }
+
+    private AttendanceResult checkOutResult(Attendance attendance, Student student,
+                                            Session session, CourseGroup group) {
+        // لا رصيد في الجواب ولا حركة مالية: الخصم وقع عند الدخول، والمكوث ليس سلعة تُباع
+        return AttendanceResult.builder()
+                .outcome(AttendanceOutcome.CHECKED_OUT)
+                .studentName(student.getName())
+                .groupName(group.getName())
+                .message(I18n.format("attendance.result.checkedOut",
+                        Durations.format(Duration.between(attendance.getTimeIn(), attendance.getTimeOut()))))
+                .row(toLogRow(attendance, student, session, group))
+                .build();
+    }
+
+    private AttendanceLogRow toLogRow(Attendance attendance, Student student,
+                                      Session session, CourseGroup group) {
+        return new AttendanceLogRow(attendance.getId(), student.getName(), student.getBarcode(),
+                student.getParentPhone(), group.getName(), session.getSessionDate(),
+                attendance.getTimeIn(), attendance.getTimeOut(), session.isActive());
+    }
+
+    /**
+     * كشف الحضور والانصراف خلال فترة، لمجموعة بعينها أو لكل المجموعات.
+     *
+     * <p>تخدم الشاشتين معاً: شاشة البوابة تسأل عن اليوم وحده فتفتح على حاله - وهي التي
+     * كانت تُفرغ جدولها في كل تنقّل لأن الجدول كان في الذاكرة لا في قاعدة البيانات -
+     * وشاشة الكشف تسأل عن أي فترة مضت.</p>
+     *
+     * @param groupId مجموعة بعينها، أو {@code null} لكل المجموعات
+     */
+    @Transactional(readOnly = true)
+    public List<AttendanceLogRow> getAttendanceLog(LocalDate from, LocalDate to, Long groupId) {
+        return attendanceRepository.findAttendanceLog(from, to, groupId);
+    }
+
+    /** كشف اليوم كما تعرضه شاشة البوابة عند فتحها */
+    @Transactional(readOnly = true)
+    public List<AttendanceLogRow> getTodayLog() {
+        LocalDate today = LocalDate.now();
+        return attendanceRepository.findAttendanceLog(today, today, null);
     }
 
     /**
@@ -151,7 +256,7 @@ public class AttendanceService {
     // دالة مساعدة لإنشاء رد الرفض
     private AttendanceResult buildErrorResult(String studentName, String errorMessage) {
         return AttendanceResult.builder()
-                .isSuccess(false)
+                .outcome(AttendanceOutcome.REJECTED)
                 .studentName(studentName)
                 .groupName(I18n.get("common.none"))
                 .remainingBalance(null)

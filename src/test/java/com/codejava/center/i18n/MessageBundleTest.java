@@ -12,6 +12,7 @@ import com.codejava.center.domain.enums.AlertType;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.domain.enums.SchoolLevel;
 import com.codejava.center.domain.enums.TransactionType;
+import com.codejava.center.service.dto.AttendanceState;
 import com.codejava.center.service.notification.WhatsAppLinkStyle;
 import com.codejava.center.util.DocumentKind;
 import com.codejava.center.util.I18n;
@@ -172,6 +173,11 @@ class MessageBundleTest {
         }
         for (TransactionType type : TransactionType.values()) {
             requireKey(declared, "transactionType." + type.name(), unresolved);
+        }
+        // حال الطالب في كشف الحضور: "بالداخل" و"لم يُسجَّل انصرافه" هما ما يُبحث عنه
+        // في الكشف، وقيمة بلا اسم تطبعهما !attendanceState.X! على الورقة نفسها
+        for (AttendanceState state : AttendanceState.values()) {
+            requireKey(declared, "attendanceState." + state.name(), unresolved);
         }
         // الصف الدراسي قيد قبول لا مجرد بيان: قيمة بلا اسم معروض تظهر في قائمة
         // الاختيار كـ !schoolLevel.X! فيختارها الموظف ولا يعرف ما اختار

@@ -1,6 +1,7 @@
 package com.codejava.center.reports;
 
 import com.codejava.center.service.dto.ArrearsReportRow;
+import com.codejava.center.service.dto.AttendanceLogSheetRow;
 import com.codejava.center.service.dto.AttendanceReportRow;
 import com.codejava.center.service.dto.AuditReportRow;
 import com.codejava.center.service.dto.DayScheduleRow;
@@ -281,6 +282,13 @@ class ReportTemplateCompileTest {
                                 "PRINTED_AT", "PAGE_LABEL", "NO_ROWS"),
                         List.of(new AttendanceReportRow("1", "سارة علي", "100235", "01333333333",
                                 "10", "2", "83%")), "83%"),
+
+                new Sheet("AttendanceLogSheet.jrxml",
+                        List.of("REPORT_TITLE", "SCOPE", "COL_SERIAL", "COL_NAME", "COL_GROUP",
+                                "COL_DATE", "COL_TIME_IN", "COL_TIME_OUT", "COL_DURATION",
+                                "COL_STATE", "PRINTED_AT", "PAGE_LABEL", "NO_ROWS"),
+                        List.of(new AttendanceLogSheetRow("1", "سارة علي", "٣ث - أ. سامي",
+                                "2026-08-06", "04:05 م", "06:10 م", "2 س 5 د", "انصرف")), "2 س 5 د"),
 
                 new Sheet("DaySchedule.jrxml",
                         List.of("REPORT_TITLE", "SCOPE", "COL_GROUP", "COL_TEACHER", "COL_LEVEL",

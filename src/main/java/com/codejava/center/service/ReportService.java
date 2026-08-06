@@ -6,6 +6,8 @@ import com.codejava.center.domain.Student;
 import com.codejava.center.domain.Teacher;
 import com.codejava.center.domain.Transaction;
 import com.codejava.center.service.dto.ArrearsReportRow;
+import com.codejava.center.service.dto.AttendanceLogRow;
+import com.codejava.center.service.dto.AttendanceLogSheetRow;
 import com.codejava.center.service.dto.AttendanceReportRow;
 import com.codejava.center.service.dto.AttendanceSummary;
 import com.codejava.center.service.dto.AuditReportRow;
@@ -25,6 +27,7 @@ import com.codejava.center.service.dto.ShiftSummary;
 import com.codejava.center.service.dto.StudentBalance;
 import com.codejava.center.util.CommissionTypes;
 import com.codejava.center.util.DocumentKind;
+import com.codejava.center.util.Durations;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
 import com.codejava.center.util.PrintPreferences;
@@ -197,6 +200,50 @@ public class ReportService {
                 .toList();
 
         return deliver(fill("AttendanceReport.jrxml", parameters, rows), "attendance_",
+                DocumentKind.REPORT);
+    }
+
+    /**
+     * كشف الحضور والانصراف كما تعرضه الشاشة بعد التصفية: سطرٌ لكل مرة دخل فيها طالب.
+     *
+     * <p>وصف التصفية يُطبع ويتكرّر في رأس كل صفحة، كما في كشف المجموعات: ورقةٌ تُلتقط من
+     * الطابعة بعد يومين بلا سطرٍ يقول "من كذا إلى كذا، مجموعة كذا" تُقرأ على أنها حضور
+     * السنتر كله.</p>
+     *
+     * <p>الأوقات والمدد تصل نصّاً جاهزاً من {@code Durations} و{@code I18n}: هي بعينها ما
+     * كان على الشاشة، فلا يقرأ الموظف رقماً على الورقة يخالف ما رآه قبل لحظة.</p>
+     */
+    public SheetDelivery deliverAttendanceLog(List<AttendanceLogRow> log, String filterDescription) {
+        String noTime = I18n.get("common.empty");
+
+        Map<String, Object> parameters = withSheetFooter(withCenterHeader(new java.util.HashMap<>()));
+        parameters.put("REPORT_TITLE", I18n.get("report.attendanceLog.title"));
+        parameters.put("SCOPE", I18n.format("report.attendanceLog.scope", filterDescription, log.size()));
+        parameters.put("COL_SERIAL", I18n.get("report.group.col.serial"));
+        parameters.put("COL_NAME", I18n.get("attLog.col.name"));
+        parameters.put("COL_GROUP", I18n.get("attLog.col.group"));
+        parameters.put("COL_DATE", I18n.get("attLog.col.date"));
+        parameters.put("COL_TIME_IN", I18n.get("attLog.col.timeIn"));
+        parameters.put("COL_TIME_OUT", I18n.get("attLog.col.timeOut"));
+        parameters.put("COL_DURATION", I18n.get("attLog.col.duration"));
+        parameters.put("COL_STATE", I18n.get("attLog.col.state"));
+        parameters.put("NO_ROWS", I18n.get("report.attendanceLog.noRows"));
+
+        DateTimeFormatter clock = DateTimeFormatter.ofPattern("hh:mm a");
+        int[] serial = {0};
+        List<AttendanceLogSheetRow> rows = log.stream()
+                .map(row -> new AttendanceLogSheetRow(
+                        String.valueOf(++serial[0]),
+                        row.studentName(),
+                        row.groupName(),
+                        String.valueOf(row.sessionDate()),
+                        row.timeIn() == null ? noTime : row.timeIn().format(clock),
+                        row.timeOut() == null ? noTime : row.timeOut().format(clock),
+                        Durations.format(row.duration()),
+                        row.state().getDisplayName()))
+                .toList();
+
+        return deliver(fill("AttendanceLogSheet.jrxml", parameters, rows), "attendance_log_",
                 DocumentKind.REPORT);
     }
 

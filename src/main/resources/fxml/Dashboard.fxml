@@ -88,6 +88,8 @@
                         <Label text="%nav.section.reports" styleClass="sidebar-section"/>
                         <Button fx:id="attendanceReportButton" text="%nav.attendanceReport"
                                 onAction="#showAttendanceReport" maxWidth="Infinity" styleClass="sidebar-btn"/>
+                        <Button fx:id="attendanceLogButton" text="%nav.attendanceLog"
+                                onAction="#showAttendanceLog" maxWidth="Infinity" styleClass="sidebar-btn"/>
                         <Button fx:id="arrearsButton" text="%nav.arrears" onAction="#showArrears"
                                 maxWidth="Infinity" styleClass="sidebar-btn"/>
                         <Button fx:id="notificationsButton" text="%nav.notifications"

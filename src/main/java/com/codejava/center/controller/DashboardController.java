@@ -145,6 +145,8 @@ public class DashboardController {
     @FXML
     private Button attendanceReportButton;
     @FXML
+    private Button attendanceLogButton;
+    @FXML
     private VBox navDailyBox;
     @FXML
     private VBox navFinanceBox;
@@ -357,6 +359,11 @@ public class DashboardController {
     @FXML
     public void showAttendanceReport(ActionEvent event) {
         loadView("/fxml/AttendanceReport.fxml", attendanceReportButton);
+    }
+
+    @FXML
+    public void showAttendanceLog(ActionEvent event) {
+        loadView("/fxml/AttendanceLog.fxml", attendanceLogButton);
     }
 
     @FXML
