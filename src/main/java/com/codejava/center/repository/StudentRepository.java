@@ -26,6 +26,28 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
     boolean existsByName(String name);
 
     /**
+     * الطلاب المسجَّلون حالياً - وهذا ما تقرأه شاشة التسجيل، لا {@code findAll()}.
+     *
+     * <p>جدول الطلاب تراكمي بطبعه: الحذف تمنعه المفاتيح الأجنبية لكل من له حضور أو
+     * حركة مالية، أي لكل من درس فعلاً، فيبقى كل من مرّ بالسنتر منذ افتتاحه في الجدول.
+     * قراءتهم جميعاً عند كل فتح للشاشة تكبر بلا حدّ سنةً بعد سنة، بينما ما يعني الموظف
+     * أمام الجهاز هو طلاب العام الجاري.</p>
+     *
+     * <p>استعلام صريح لا اشتقاق من اسم الدالة: الحقل {@code isActive} وقارئه
+     * {@code isActive()}، وهو بالضبط الموضع الذي يفشل فيه اشتقاق أسماء الخصائص بهدوء.</p>
+     */
+    @Query("SELECT s FROM Student s WHERE s.isActive = true ORDER BY s.name")
+    List<Student> findActive();
+
+    /** الجميع، والمؤرشفون آخراً: من يطلب رؤيتهم يريد الحاليين أمام عينه أولاً */
+    @Query("SELECT s FROM Student s ORDER BY s.isActive DESC, s.name")
+    List<Student> findAllOrdered();
+
+    /** عدد المسجَّلين حالياً: عدٌّ في القاعدة لا قائمةٌ تُقرأ كاملةً ليُقاس طولها */
+    @Query("SELECT COUNT(s) FROM Student s WHERE s.isActive = true")
+    long countActive();
+
+    /**
      * الطلاب النشطون الذين عليهم متأخرات (رصيد سالب)، مرتّبين من الأكثر مديونية.
      *
      * <p>يُحسب الرصيد بنفس معادلة {@code calculateStudentBalance}: المدفوع ناقص رسوم

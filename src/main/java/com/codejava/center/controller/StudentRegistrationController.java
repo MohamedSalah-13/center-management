@@ -49,16 +49,26 @@ public class StudentRegistrationController {
     private static final double ENROLLMENTS_WIDTH = 900;
     private static final double ENROLLMENTS_HEIGHT = 600;
 
+    /**
+     * عدد الكارنيهات الذي يُسأل عنده قبل التصدير.
+     *
+     * <p>التصدير يبني صفحات الكارنيهات كلها في الذاكرة دفعةً واحدة، فطلبه بلا تصفية
+     * على جدول فيه آلاف الطلاب ينتهي بانتظار طويل أو بنفاد الذاكرة. سؤال لا منع:
+     * تصدير كارنيهات مرحلة كاملة في أول العام طلبٌ مشروع.</p>
+     */
+    private static final int ID_CARDS_CONFIRM_THRESHOLD = 200;
+
     @FXML private TextField nameField, phoneField, parentPhoneField, barcodeField;
     @FXML private ComboBox<SchoolLevel> schoolLevelCombo;
 
     @FXML private TableView<Student> studentTable;
     @FXML private TableColumn<Student, String> colBarcode, colName, colPhone, colLevel;
     @FXML private TableColumn<Student, Void> colEnrollments;
-    @FXML private Button updateButton, deleteButton;
+    @FXML private Button updateButton, deleteButton, archiveButton;
 
     @FXML private TextField searchField;
     @FXML private ComboBox<SchoolLevel> levelFilterCombo;
+    @FXML private CheckBox showArchivedCheck;
     @FXML private Label resultCountLabel;
 
     private final ObservableList<Student> studentsList = FXCollections.observableArrayList();
@@ -76,6 +86,7 @@ public class StudentRegistrationController {
         colPhone.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getPhone()));
         colLevel.setCellValueFactory(d -> new SimpleStringProperty(levelName(d.getValue().getSchoolLevel())));
         setupEnrollmentsColumn();
+        setupArchivedRowStyle();
 
         setupFilters();
         setupTableSelectionListener();
@@ -106,6 +117,23 @@ public class StudentRegistrationController {
             protected void updateItem(Void item, boolean empty) {
                 super.updateItem(item, empty);
                 setGraphic(empty ? null : enrollmentsButton);
+            }
+        });
+    }
+
+    /**
+     * تمييز المؤرشفين حين تُطلب رؤيتهم.
+     *
+     * <p>الجدول عندئذٍ يخلط قائمتين لا يجوز الخلط بينهما: طالب مؤرشف لا يدخل من
+     * البوابة، فسطر يشبه سطر زميله يقود إلى تسجيل حضور لن يقع.</p>
+     */
+    private void setupArchivedRowStyle() {
+        studentTable.setRowFactory(table -> new TableRow<>() {
+            @Override
+            protected void updateItem(Student item, boolean empty) {
+                super.updateItem(item, empty);
+                setStyle(empty || item == null || item.isActive()
+                        ? "" : "-fx-background-color: #ecf0f1; -fx-text-fill: #7f8c8d;");
             }
         });
     }
@@ -149,6 +177,10 @@ public class StudentRegistrationController {
         filteredStudents = new FilteredList<>(studentsList, student -> true);
         searchField.textProperty().addListener((obs, was, is) -> applyFilters());
         levelFilterCombo.valueProperty().addListener((obs, was, is) -> applyFilters());
+
+        // المؤرشفون ليسوا في الذاكرة أصلاً، فإظهارهم قراءة جديدة لا تصفية لما جُلب:
+        // وهذا هو الغرض - الشاشة تحمل طلاب العام الجاري، لا كل من مرّ بالسنتر
+        showArchivedCheck.selectedProperty().addListener((obs, was, is) -> loadStudents());
 
         SortedList<Student> sortedData = new SortedList<>(filteredStudents);
         sortedData.comparatorProperty().bind(studentTable.comparatorProperty());
@@ -211,13 +243,25 @@ public class StudentRegistrationController {
 
                 updateButton.setDisable(false);
                 deleteButton.setDisable(false);
+
+                // زر واحد باتجاهين: الأرشفة والاستعادة فعل واحد وعكسه، وزرّان
+                // أحدهما معطَّل دائماً يشغلان الشريط بلا فائدة
+                archiveButton.setText(I18n.get(selectedStudent.isActive()
+                        ? "student.archive" : "student.restore"));
+                archiveButton.setDisable(false);
             }
         });
     }
 
     private void loadStudents() {
-        FxAsync.supply(studentService::getAllStudents,
-                students -> studentsList.setAll(students),
+        boolean includeArchived = showArchivedCheck.isSelected();
+
+        FxAsync.supply(() -> studentService.getStudents(includeArchived),
+                students -> {
+                    studentsList.setAll(students);
+                    // القائمة تغيّرت من تحتها: الطالب المحدَّد قد لا يكون فيها بعد الآن
+                    handleClearAction(null);
+                },
                 error -> Dialogs.error(I18n.format("student.loadFailed", FxAsync.messageOf(error))));
     }
 
@@ -277,7 +321,12 @@ public class StudentRegistrationController {
         student.setParentPhone(parentPhoneField.getText());
         student.setSchoolLevel(schoolLevelCombo.getValue());
         student.setBarcode(barcodeField.getText().isEmpty() ? null : barcodeField.getText());
-        student.setActive(true);
+
+        // الطالب الجديد مسجَّل، والقائم يبقى على حاله: تعديل هاتف مؤرشف كان
+        // سيعيده إلى المسجَّلين وإلى بوابة الحضور بلا أن يطلب أحد ذلك ولا يُكتب في السجل
+        if (isNew) {
+            student.setActive(true);
+        }
 
         // الحفظ في الخلفية: كان يجري على خيط الواجهة فيجمّد الشاشة حتى ترد قاعدة البيانات
         FxAsync.supply(() -> studentService.saveStudent(student), saved -> {
@@ -311,6 +360,58 @@ public class StudentRegistrationController {
         }
     }
 
+    /**
+     * أرشفة الطالب المحدَّد أو إعادته.
+     *
+     * <p>هي المخرج المتاح لطالب تخرّج أو انقطع: حذفه يمنعه ما له من حضور وحركات مالية،
+     * فيبقى في الجدول إلى الأبد. والأرشفة تُخرجه من الشاشة ومن بوابة الحضور وتُبقي
+     * تاريخه كما هو - ولذلك هي فعل مؤكَّد مكتوب في سجل المراقبة، لا خانة تُرفع.</p>
+     */
+    @FXML
+    public void handleArchiveAction(ActionEvent event) {
+        if (selectedStudent == null) return;
+
+        Student target = selectedStudent;
+        boolean archiving = target.isActive();
+
+        // عدد الاشتراكات السارية يُقرأ قبل السؤال لا بعده: الأرشفة لا تُنهيها،
+        // ويظل الطالب محسوباً في سعة مجموعاته، وهذا ما يجب أن يعرفه من يضغط
+        FxAsync.supply(() -> archiving ? enrollmentService.getActiveGroupsOf(target).size() : 0,
+                liveEnrolments -> {
+                    if (confirmArchive(target, archiving, liveEnrolments)) {
+                        applyArchive(target, archiving);
+                    }
+                },
+                error -> Dialogs.error(FxAsync.messageOf(error)));
+    }
+
+    private boolean confirmArchive(Student student, boolean archiving, int liveEnrolments) {
+        if (!archiving) {
+            return Dialogs.confirm(I18n.get("student.restoreTitle"),
+                    I18n.format("student.restoreConfirm", student.getName()));
+        }
+
+        return Dialogs.confirm(I18n.get("student.archiveTitle"),
+                I18n.format("student.archiveConfirm", student.getName(), liveEnrolments));
+    }
+
+    private void applyArchive(Student student, boolean archiving) {
+        FxAsync.supply(() -> studentService.setArchived(student.getId(), archiving), saved -> {
+            // المؤرشف يختفي من قائمة لا تعرض المؤرشفين؛ وإلا حلّ محلّه في موضعه
+            if (!showArchivedCheck.isSelected() && !saved.isActive()) {
+                studentsList.remove(student);
+            } else {
+                int idx = studentsList.indexOf(student);
+                if (idx >= 0) {
+                    studentsList.set(idx, saved);
+                }
+            }
+
+            Dialogs.success(I18n.get(archiving ? "student.archived" : "student.restored"));
+            handleClearAction(null);
+        }, error -> Dialogs.error(FxAsync.messageOf(error)));
+    }
+
     @FXML
     public void handleClearAction(ActionEvent event) {
         nameField.clear();
@@ -323,6 +424,7 @@ public class StudentRegistrationController {
         studentTable.getSelectionModel().clearSelection();
         updateButton.setDisable(true);
         deleteButton.setDisable(true);
+        archiveButton.setDisable(true);
     }
 
     /**
@@ -336,6 +438,14 @@ public class StudentRegistrationController {
         List<Student> shown = new ArrayList<>(studentTable.getItems());
         if (shown.isEmpty()) {
             Dialogs.warning(I18n.get("student.noStudentsToExport"));
+            return;
+        }
+
+        // الكارنيهات كلها تُبنى في الذاكرة دفعةً واحدة قبل أن يُكتب حرف في الملف،
+        // فطلبها بلا تصفية على جدول تراكمي ينتهي بانتظار طويل أو بنفاد الذاكرة
+        if (shown.size() > ID_CARDS_CONFIRM_THRESHOLD
+                && !Dialogs.confirm(I18n.get("student.idCardsManyTitle"),
+                        I18n.format("student.idCardsManyConfirm", shown.size()))) {
             return;
         }
 

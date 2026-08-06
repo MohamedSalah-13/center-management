@@ -41,6 +41,17 @@ public enum AuditAction {
     STUDENT_CREATED(AuditCategory.DATA),
     STUDENT_UPDATED(AuditCategory.DATA),
     STUDENT_DELETED(AuditCategory.DATA),
+
+    /**
+     * إخراج طالب من قائمة المسجَّلين، وإعادته.
+     *
+     * <p>حدثان مستقلان لا {@code STUDENT_UPDATED} بتفصيل: الأرشفة أقرب في أثرها إلى
+     * الحذف منها إلى تعديل هاتف - الطالب يُردّ على بوابة الحضور بعدها - ومن يراجع
+     * السجل يسأل "من أخرج هذا الطالب" لا "من عدّل بياناته".</p>
+     */
+    STUDENT_ARCHIVED(AuditCategory.DATA),
+    STUDENT_RESTORED(AuditCategory.DATA),
+
     STUDENT_ENROLLED(AuditCategory.DATA),
 
     /** إنهاء اشتراك في مجموعة؛ يُسجَّل لأنه يوقف احتساب حضور الطالب فيها من يومه */

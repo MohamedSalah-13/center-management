@@ -6,7 +6,10 @@ import lombok.*;
 
 @Entity
 @Table(name = "students", indexes = {
-        @Index(name = "idx_student_barcode", columnList = "barcode", unique = true)
+        @Index(name = "idx_student_barcode", columnList = "barcode", unique = true),
+        // شاشة التسجيل تقرأ المسجَّلين حالياً مرتَّبين بالاسم؛ العمودان معاً حتى يخدم
+        // الفهرسُ الشرطَ والترتيبَ في مرور واحد. مفرداً كان عديم الفائدة: قيمتان لا غير
+        @Index(name = "idx_student_active", columnList = "is_active, name")
 })
 @Getter
 @Setter
@@ -37,6 +40,11 @@ public class Student {
     @Enumerated(EnumType.STRING)
     private SchoolLevel schoolLevel;
 
+    /**
+     * مسجَّل حالياً. الإيقاف هنا هو "الأرشفة" في الشاشة، وليس علماً للعرض وحده:
+     * {@code AttendanceService} يردّ الطالب الموقوف على البوابة، وهو المخرج الوحيد
+     * لطالب تخرّج أو انقطع - إذ يمنع حذفَه ما له من حضور وحركات مالية.
+     */
     @Column(nullable = false)
     @Builder.Default
     private boolean isActive = true;

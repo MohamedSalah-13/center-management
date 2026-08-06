@@ -34,6 +34,8 @@
         <Button text="%common.saveNew" onAction="#handleSaveAction" style="-fx-background-color: #27ae60; -fx-text-fill: white;" />
         <Button fx:id="updateButton" text="%common.edit" disable="true" onAction="#handleUpdateAction" style="-fx-background-color: #f39c12; -fx-text-fill: white;" />
         <Button fx:id="deleteButton" text="%common.delete" disable="true" onAction="#handleDeleteAction" style="-fx-background-color: #e74c3c; -fx-text-fill: white;" />
+        <!-- الأرشفة هي المخرج المتاح لطالب تخرّج: الحذف تمنعه حركاته المالية وحضوره -->
+        <Button fx:id="archiveButton" text="%student.archive" disable="true" onAction="#handleArchiveAction" style="-fx-background-color: #7f8c8d; -fx-text-fill: white;" />
         <Button text="%common.clearSelection" onAction="#handleClearAction" style="-fx-background-color: #95a5a6; -fx-text-fill: white;" />
         <Button text="%student.exportIdCards" onAction="#handleExportIdCards" style="-fx-background-color: #8e44ad; -fx-text-fill: white;" />
     </HBox>
@@ -44,6 +46,7 @@
         <TextField fx:id="searchField" promptText="%student.searchPrompt" prefWidth="300.0" styleClass="text-field" />
         <Label text="%student.filterLevel" />
         <ComboBox fx:id="levelFilterCombo" prefWidth="180.0" />
+        <CheckBox fx:id="showArchivedCheck" text="%student.showArchived" />
         <Label fx:id="resultCountLabel" textFill="#7f8c8d" />
     </FlowPane>
 

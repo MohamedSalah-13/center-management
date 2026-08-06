@@ -79,11 +79,46 @@ public class StudentService {
     }
 
     /**
-     * جلب جميع الطلاب
+     * طلاب شاشة التسجيل: المسجَّلون حالياً وحدهم، أو معهم المؤرشفون.
+     *
+     * <p>لا {@code findAll()}: راجع {@link StudentRepository#findActive()} - الجدول
+     * تراكمي ولا يُنظَّف، فقراءته كاملاً في كل فتح للشاشة تكبر بعمر السنتر.</p>
      */
     @Transactional(readOnly = true)
-    public List<Student> getAllStudents() {
-        return studentRepository.findAll();
+    public List<Student> getStudents(boolean includeArchived) {
+        return includeArchived ? studentRepository.findAllOrdered() : studentRepository.findActive();
+    }
+
+    /** عدد المسجَّلين حالياً، للوحة المعلومات */
+    @Transactional(readOnly = true)
+    public long countActiveStudents() {
+        return studentRepository.countActive();
+    }
+
+    /**
+     * أرشفة طالب أو إعادته إلى المسجَّلين.
+     *
+     * <p>هذا هو المخرج المتاح لطالب تخرّج أو انقطع: الحذف تمنعه المفاتيح الأجنبية لكل
+     * من له حضور أو حركة مالية، وهو صواب - محو صفوف الحضور والحركات معه يغيّر أرقام
+     * أيام مضت أُقفلت خزينتها. فالأرشفة تُخرجه من الشاشة ومن بوابة الحضور
+     * ({@code AttendanceService} يفحص {@code isActive}) ولا تمسّ سطراً واحداً من تاريخه.</p>
+     *
+     * <p>ولا تُنهي اشتراكاته: إنهاء الاشتراك يكتب تاريخ خروج تُحسب عليه حصص الطالب،
+     * وهو قرار يُتخذ في جدول الاشتراكات لا أثرٌ جانبي لزرٍّ في شاشة أخرى - نفس القاعدة
+     * المتّبعة في تغيير المرحلة الدراسية.</p>
+     */
+    @Transactional
+    public Student setArchived(Long studentId, boolean archived) {
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new IllegalArgumentException(I18n.get("error.student.notFound")));
+
+        student.setActive(!archived);
+        Student saved = studentRepository.save(student);
+
+        auditService.record(archived ? AuditAction.STUDENT_ARCHIVED : AuditAction.STUDENT_RESTORED,
+                saved.getId(), saved.getName(), "barcode=" + saved.getBarcode());
+
+        return saved;
     }
 
     /**

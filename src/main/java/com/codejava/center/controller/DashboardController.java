@@ -586,7 +586,9 @@ public class DashboardController {
         boolean isAdmin = userSession.hasRole(Role.ADMIN);
 
         CompletableFuture.supplyAsync(() -> {
-            long studentsCount = studentService.getAllStudents().size(); // يفضل عمل دالة count() في الـ Repository
+            // عدٌّ في القاعدة: قراءة كل الطلاب ليُقاس طول القائمة كانت تجلب الجدول
+            // كاملاً - بمن فيهم المؤرشفون - في كل مرة تُفتح فيها اللوحة
+            long studentsCount = studentService.countActiveStudents();
             BigDecimal revenue = isAdmin ? transactionService.calculateTodayNetBalance() : null;
             long activeSessions = sessionService.getActiveSessions().size();
 

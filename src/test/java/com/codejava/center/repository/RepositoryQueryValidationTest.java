@@ -101,6 +101,34 @@ class RepositoryQueryValidationTest {
                 .isEqualByComparingTo("70.00");
     }
 
+    /**
+     * استعلامات شاشة التسجيل: المسجَّلون وحدهم، والجميع، والعدّ.
+     *
+     * <p>مكتوبة {@code @Query} صريحة لا مشتقّة من أسماء الدوال، لأن الحقل
+     * {@code isActive} وقارئه {@code isActive()} - وهو موضع فشل اشتقاق الخصائص
+     * الصامت. والفشل هنا غير مرئي بنوع أخطر: شاشة تعرض كل من مرّ بالسنتر بدل
+     * طلاب العام الجاري تعمل، وتبطؤ سنةً بعد سنة بلا أن يُنسب البطء إلى سببه.</p>
+     */
+    @Test
+    void studentRegisterQueriesSeparateArchivedFromActive() {
+        Student current = persistStudent("STU-ACT01", "طالب مسجَّل");
+
+        Student archived = persistStudent("STU-ARC01", "طالب مؤرشف");
+        archived.setActive(false);
+        studentRepository.saveAndFlush(archived);
+
+        assertThat(studentRepository.findActive())
+                .extracting(Student::getId)
+                .containsExactly(current.getId());
+
+        // المؤرشف موجود، وآخراً: من يطلب رؤيته يريد الحاليين أمام عينه أولاً
+        assertThat(studentRepository.findAllOrdered())
+                .extracting(Student::getId)
+                .containsExactly(current.getId(), archived.getId());
+
+        assertThat(studentRepository.countActive()).isEqualTo(1);
+    }
+
     private Student persistStudent(String barcode, String name) {
         return studentRepository.saveAndFlush(Student.builder()
                 .barcode(barcode)
