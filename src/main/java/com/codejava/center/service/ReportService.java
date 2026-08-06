@@ -8,8 +8,10 @@ import com.codejava.center.domain.Transaction;
 import com.codejava.center.service.dto.AttendanceSummary;
 import com.codejava.center.service.dto.EnrollmentReportRow;
 import com.codejava.center.service.dto.GroupAttendanceReport;
+import com.codejava.center.service.dto.GroupRosterRow;
 import com.codejava.center.service.dto.IdCardRow;
 import com.codejava.center.service.dto.MembershipRow;
+import com.codejava.center.service.dto.SheetDelivery;
 import com.codejava.center.service.dto.SessionPayout;
 import com.codejava.center.service.dto.ShiftSummary;
 import com.codejava.center.service.dto.StudentBalance;
@@ -255,48 +257,6 @@ public class ReportService {
     }
 
     /**
-     * كشف مجموعة: بياناتها ثم مشتركوها الحاليون.
-     *
-     * <p>مع كل طالب حصص <b>مدة اشتراكه هو</b> وما حضره منها، لا حصص المجموعة كلها:
-     * الكشف يُقرأ ليُعرف من ينقطع، ومن التحق الأسبوع الماضي ليس منقطعاً.</p>
-     */
-    public void printGroupRoster(CourseGroup group, List<MembershipRow> members, Window ownerWindow) {
-        PrintDocument document = PrintDocument.report()
-                .header(headerFactory(I18n.format("report.group.title", group.getName())));
-
-        Label info = new Label(I18n.format("report.group.info",
-                group.getTeacher().getName(),
-                group.getSchoolLevel() == null
-                        ? I18n.get("common.none") : group.getSchoolLevel().getDisplayName(),
-                WeekDays.describe(group.getMeetingDays()),
-                WeekDays.describeRange(group.getStartTime(), group.getEndTime()),
-                MoneyUtils.formatWithCurrency(group.getSessionPrice()),
-                members.size(),
-                group.getMaxCapacity() == null ? I18n.get("common.none") : group.getMaxCapacity()));
-        info.setFont(Font.font("System", FontWeight.BOLD, 13));
-        document.add(info, new Separator());
-
-        String none = I18n.get("common.none");
-        if (members.isEmpty()) {
-            document.add(new Label(I18n.get("report.group.noMembers")));
-        }
-        int order = 1;
-        for (MembershipRow member : members) {
-            document.add(new Label(I18n.format("report.group.row",
-                    order++,
-                    member.studentName(),
-                    member.barcode() != null ? member.barcode() : none,
-                    member.parentPhone() != null ? member.parentPhone() : none,
-                    member.joinDate(),
-                    member.sessionsAttended(),
-                    member.sessionsHeld())));
-        }
-
-        document.add(new Separator(), stamp("report.issuedAt"));
-        Printing.print(document, ownerWindow);
-    }
-
-    /**
      * كشف المجموعات كما تعرضها الشاشة بعد التصفية.
      *
      * <p>وصف التصفية يُطبع في أعلى الورقة: كشف يقول "مجموعات المعلم فلان يوم السبت"
@@ -399,43 +359,90 @@ public class ReportService {
     }
 
     /**
-     * كشف أسماء طلاب مجموعة، بترويسة السنتر فوقه.
+     * كشف مجموعة: بياناتها ثم مشتركوها الحاليون، ومع كلٍّ حصص مدة اشتراكه وما حضره منها.
      *
-     * <p>هذا الكشف وحده بين كشوف جاسبر يُملأ باستعلام SQL داخل ملف التصميم لا بقائمة
-     * كائنات، فيحتاج {@code Connection}. الترويسة لا تتأثر بذلك: هي معاملات، ومصدر
-     * البيانات شيء آخر.</p>
+     * <p>الصفوف تصل من {@code EnrollmentService.getRoster}، وهو الفرق الذي يخصّ من يقرأ
+     * الورقة: استعلامه يقصر الكشف على العضويات السارية، ويعدّ حصص كلٍّ من يوم التحاقه لا
+     * من إنشاء المجموعة. الكشف يُقرأ ليُعرف من ينقطع، ومن التحق الأسبوع الماضي ليس
+     * منقطعاً.</p>
      *
-     * <p>وجودها هنا لا في الشاشة مقصود: نصوص الكشف كلها - عنوانه وعناوين أعمدته وذيله -
-     * تُبنى بـ {@code I18n} في مكان واحد، فلا يكون على من يستدعيه أن يتذكّر سبعة معاملات
-     * ولا أن يعرف أسماءها.</p>
-     *
-     * @return ملف PDF مؤقت يُحذف عند إغلاق البرنامج - الكشف يحمل أسماء طلاب وأرقامهم
+     * <p>ونصوص الورقة كلها تُبنى هنا بـ {@code I18n}: عنوانها وسطر بيانات المجموعة وعناوين
+     * أعمدتها وذيلها، فلا يكون على الشاشة أن تتذكّر اثني عشر معاملاً ولا أن تعرف أسماءها.</p>
      */
-    public File exportGroupStudents(Long groupId) {
-        Map<String, Object> parameters = withCenterHeader(new java.util.HashMap<>());
-        parameters.put("GROUP_ID", groupId);
-        parameters.put("REPORT_TITLE", I18n.format("report.groupStudents.title", groupId));
-        parameters.put("COL_ID", I18n.get("report.groupStudents.col.id"));
-        parameters.put("COL_NAME", I18n.get("report.groupStudents.col.name"));
-        parameters.put("COL_PHONE", I18n.get("report.groupStudents.col.phone"));
-        parameters.put("NO_ROWS", I18n.get("report.groupStudents.noRows"));
-        withSheetFooter(parameters);
+    public SheetDelivery deliverGroupRoster(CourseGroup group, List<MembershipRow> members) {
+        String none = I18n.get("common.none");
 
-        try (Connection connection = dataSource.getConnection()) {
-            JasperPrint print = JasperFillManager.fillReport(
-                    compile("GroupStudents.jrxml"), parameters, connection);
+        Map<String, Object> parameters = withSheetFooter(withCenterHeader(new java.util.HashMap<>()));
+        parameters.put("REPORT_TITLE", I18n.format("report.group.title", group.getName()));
+        parameters.put("GROUP_INFO", I18n.format("report.group.info",
+                group.getTeacher().getName(),
+                group.getSchoolLevel() == null ? none : group.getSchoolLevel().getDisplayName(),
+                WeekDays.describe(group.getMeetingDays()),
+                WeekDays.describeRange(group.getStartTime(), group.getEndTime()),
+                MoneyUtils.formatWithCurrency(group.getSessionPrice()),
+                members.size(),
+                group.getMaxCapacity() == null ? none : group.getMaxCapacity()));
+        parameters.put("COL_SERIAL", I18n.get("report.group.col.serial"));
+        parameters.put("COL_NAME", I18n.get("report.group.col.name"));
+        parameters.put("COL_BARCODE", I18n.get("report.group.col.barcode"));
+        parameters.put("COL_PARENT", I18n.get("report.group.col.parent"));
+        parameters.put("COL_JOINED", I18n.get("report.group.col.joined"));
+        parameters.put("COL_ATTENDANCE", I18n.get("report.group.col.attendance"));
+        parameters.put("COL_RATE", I18n.get("student.col.attendanceRate"));
+        parameters.put("NO_ROWS", I18n.get("report.group.noMembers"));
 
-            File pdf = File.createTempFile("group_students_", ".pdf");
+        int[] serial = {0};
+        List<GroupRosterRow> rows = members.stream()
+                .map(member -> new GroupRosterRow(
+                        String.valueOf(++serial[0]),
+                        member.studentName(),
+                        member.barcode() == null ? none : member.barcode(),
+                        member.parentPhone() == null ? none : member.parentPhone(),
+                        String.valueOf(member.joinDate()),
+                        I18n.format("report.group.attendanceOf",
+                                member.sessionsAttended(), member.sessionsHeld()),
+                        member.attendanceRate() == null ? none : member.attendanceRate() + "%"))
+                .toList();
+
+        return deliver(fill("GroupStudents.jrxml", parameters, rows), "group_roster_");
+    }
+
+    /**
+     * يبني ورقة جاسبر من قائمة كائنات.
+     * الملء وحده هنا، والتسليم في {@link #deliver}: أيّهما تغيّر لا يمسّ الآخر.
+     */
+    private JasperPrint fill(String template, Map<String, Object> parameters, List<?> rows) {
+        try {
+            return JasperFillManager.fillReport(compile(template), parameters,
+                    new JRBeanCollectionDataSource(rows));
+        } catch (JRException e) {
+            throw generationFailed(e);
+        }
+    }
+
+    /**
+     * يسلّم الورقة حسب تفضيل هذا الجهاز: إلى الطابعة رأساً، أو ملف PDF مؤقت.
+     *
+     * <p>القرار هنا لا في كل شاشة تطبع كشفاً: هو تفضيل واحد
+     * ({@code PrintPreferences.printsSheetsDirectly})، وتكراره في المتحكّمات يعني شاشةً
+     * تنساه فتخالف بقية البرنامج بلا أن يلاحظ أحد.</p>
+     *
+     * <p>الملف مؤقت ويُحذف عند إغلاق البرنامج: الكشوف تحمل أسماء طلاب وأرقام أولياء
+     * أمورهم، فلا تُترك متراكمة في مجلد المستخدم بعد طباعتها.</p>
+     */
+    private SheetDelivery deliver(JasperPrint print, String tempPrefix) {
+        if (PrintPreferences.printsSheetsDirectly()) {
+            return SheetDelivery.printed(sendToPrinter(print));
+        }
+        try {
+            File pdf = File.createTempFile(tempPrefix, ".pdf");
             pdf.deleteOnExit();
             JasperExportManager.exportReportToPdfFile(print, pdf.getAbsolutePath());
-            return pdf;
+            return SheetDelivery.exported(pdf);
         } catch (JRException e) {
             throw generationFailed(e);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
-        } catch (java.sql.SQLException e) {
-            throw new IllegalStateException(I18n.format("error.report.generateFailed",
-                    e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()), e);
         }
     }
 
@@ -514,26 +521,15 @@ public class ReportService {
      * <p>وكل نصّ في الورقة يُبنى هنا بـ {@code I18n} ويُمرَّر معاملاً: ملف التصميم لا
      * تراه حزم النصوص، فنصٌّ مكتوب داخله يخرج بلغته مهما كانت لغة البرنامج.</p>
      *
-     * @return ملف PDF مؤقت يُحذف عند إغلاق البرنامج - الكشف يحمل أسماء طلاب وأرقام
-     *         أولياء أمورهم، فلا يُترك متراكماً في مجلد المستخدم بعد طباعته
      */
-    public File exportStudentEnrollments(String studentName, String studentDetails,
-                                         List<MembershipRow> memberships) {
-        JasperPrint print = fillStudentEnrollments(studentName, studentDetails, memberships);
-        try {
-            File pdf = File.createTempFile("student_enrollments_", ".pdf");
-            pdf.deleteOnExit();
-            JasperExportManager.exportReportToPdfFile(print, pdf.getAbsolutePath());
-            return pdf;
-        } catch (JRException e) {
-            throw generationFailed(e);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+    public SheetDelivery deliverStudentEnrollments(String studentName, String studentDetails,
+                                                   List<MembershipRow> memberships) {
+        return deliver(fillStudentEnrollments(studentName, studentDetails, memberships),
+                "student_enrollments_");
     }
 
     /**
-     * نفس الكشف، مُرسَلاً إلى الطابعة بلا ورقة وسيطة ولا نافذة.
+     * الورقة مُرسَلةً إلى الطابعة بلا ملف وسيط ولا نافذة.
      *
      * <p>الطابعة هي المختارة لـ {@link DocumentKind#REPORT} في الإعدادات، تُلتمس بالاسم بين
      * خدمات الطباعة: جاسبر يطبع عبر {@code javax.print} بينما تختار الشاشة {@code javafx.print
@@ -546,10 +542,8 @@ public class ReportService {
      *
      * @return اسم الطابعة التي استُلم الكشف عليها، ليُقال للمستخدم أين يذهب ليأخذه
      */
-    public String printStudentEnrollments(String studentName, String studentDetails,
-                                          List<MembershipRow> memberships) {
+    private String sendToPrinter(JasperPrint print) {
         PrintService service = resolvePrintService();
-        JasperPrint print = fillStudentEnrollments(studentName, studentDetails, memberships);
 
         SimplePrintServiceExporterConfiguration configuration = new SimplePrintServiceExporterConfiguration();
         configuration.setPrintService(service);

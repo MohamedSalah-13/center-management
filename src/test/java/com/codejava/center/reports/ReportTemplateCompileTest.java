@@ -8,7 +8,7 @@ import net.sf.jasperreports.engine.JasperFillManager;
 import net.sf.jasperreports.engine.JasperPrint;
 import net.sf.jasperreports.engine.JasperReport;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
-import net.sf.jasperreports.engine.data.JRMapCollectionDataSource;
+import com.codejava.center.service.dto.GroupRosterRow;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
@@ -123,41 +123,37 @@ class ReportTemplateCompileTest {
                 .contains("الصف الثالث الثانوي");
     }
 
-    /**
-     * كشف طلاب المجموعة: ترويسته، وصفوفه، وورقته حين لا مشترك.
-     *
-     * <p>هذا الكشف يعلن {@code queryString}، لكن الملء بمصدر بيانات يتجاوز الاستعلام - وهو
-     * ما يتيح فحصه هنا بلا قاعدة بيانات. المفحوص بنية الورقة لا صحّة الـ SQL.</p>
-     */
+    /** كشف المجموعة: ترويسته، وسطر بيانات المجموعة، وصفوفه، وورقته حين لا مشترك */
     @Test
-    void groupStudentsSheetFillsWithItsHeaderAndSaysWhenEmpty() throws Exception {
+    void groupRosterSheetFillsWithItsHeaderAndSaysWhenEmpty() throws Exception {
         Map<String, Object> parameters = new HashMap<>();
-        for (String key : new String[]{"CENTER_NAME", "CENTER_PHONE", "REPORT_TITLE", "COL_ID",
-                "COL_NAME", "COL_PHONE", "PRINTED_AT", "PAGE_LABEL", "NO_ROWS"}) {
+        for (String key : new String[]{"CENTER_NAME", "CENTER_PHONE", "REPORT_TITLE", "GROUP_INFO",
+                "COL_SERIAL", "COL_NAME", "COL_BARCODE", "COL_PARENT", "COL_JOINED",
+                "COL_ATTENDANCE", "COL_RATE", "PRINTED_AT", "PAGE_LABEL", "NO_ROWS"}) {
             parameters.put(key, key);
         }
         parameters.put("SHOW_CENTER", true);
         parameters.put("LOGO_PATH", null);
         parameters.put("HEADER_REPORT", compiled("CenterHeader.jrxml"));
-        parameters.put("GROUP_ID", 7L);
 
-        Map<String, Object> row = new HashMap<>();
-        row.put("id", 412L);
-        row.put("name", "أحمد محمود");
-        row.put("phone", "01000000000");
+        List<GroupRosterRow> rows = List.of(
+                new GroupRosterRow("1", "أحمد محمود", "100234", "01000000000", "2025-09-10", "22 / 24", "92%"),
+                new GroupRosterRow("2", "Sara Ali", "100235", "---", "2025-10-01", "0 / 4", "0%"));
 
         JasperReport report = compiled("GroupStudents.jrxml");
 
         assertThat(JasperExportManager.exportReportToXml(
-                JasperFillManager.fillReport(report, parameters, new JRMapCollectionDataSource(List.of(row)))))
+                JasperFillManager.fillReport(report, parameters, new JRBeanCollectionDataSource(rows))))
                 .contains("CENTER_NAME")
-                .contains("COL_NAME")
+                .contains("GROUP_INFO")
+                .contains("COL_BARCODE")
                 .contains("أحمد محمود")
-                .contains("412");
+                .contains("22 / 24")
+                .contains("92%");
 
         // بلا مشتركين: ورقة تقول ذلك، لا ورقة فارغة تُقرأ كعطل في الطباعة
         assertThat(JasperExportManager.exportReportToXml(
-                JasperFillManager.fillReport(report, parameters, new JRMapCollectionDataSource(List.of()))))
+                JasperFillManager.fillReport(report, parameters, new JRBeanCollectionDataSource(List.of()))))
                 .contains("NO_ROWS");
     }
 

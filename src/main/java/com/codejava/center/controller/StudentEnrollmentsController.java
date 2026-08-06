@@ -10,7 +10,7 @@ import com.codejava.center.service.dto.MembershipRow;
 import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
-import com.codejava.center.util.PrintPreferences;
+import com.codejava.center.util.Sheets;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -28,9 +28,6 @@ import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 
-import java.awt.Desktop;
-import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -271,42 +268,15 @@ public class StudentEnrollmentsController {
                 student.getParentPhone() == null ? I18n.get("common.none") : student.getParentPhone());
 
         printButton.setDisable(true);
-
-        // القرار هنا لا في الخدمة: "مباشرةً أم PDF" تفضيل جهازٍ يخصّ التسليم وحده،
-        // والورقة نفسها تُبنى بالطريقة ذاتها في الحالتين
-        if (PrintPreferences.printsSheetsDirectly()) {
-            FxAsync.supply(() -> reportService.printStudentEnrollments(student.getName(), details, rows),
-                    printer -> {
-                        printButton.setDisable(false);
-                        Dialogs.success(I18n.format("student.enrollmentsSentTo", printer));
-                    },
-                    this::printFailed);
-        } else {
-            FxAsync.supply(() -> reportService.exportStudentEnrollments(student.getName(), details, rows),
-                    pdf -> {
-                        printButton.setDisable(false);
-                        open(pdf);
-                    },
-                    this::printFailed);
-        }
-    }
-
-    private void printFailed(Throwable error) {
-        printButton.setDisable(false);
-        Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(error));
-    }
-
-    /** فتح الملف بعارض PDF المثبَّت على الجهاز؛ تعذُّر الفتح يُقال ولا يُبتلع */
-    private void open(File pdf) {
-        try {
-            if (Desktop.isDesktopSupported()) {
-                Desktop.getDesktop().open(pdf);
-            } else {
-                Dialogs.info(I18n.format("student.enrollmentsPrinted", pdf.getAbsolutePath()));
-            }
-        } catch (IOException e) {
-            Dialogs.error(I18n.format("student.enrollmentsPrinted", pdf.getAbsolutePath()));
-        }
+        FxAsync.supply(() -> reportService.deliverStudentEnrollments(student.getName(), details, rows),
+                delivery -> {
+                    printButton.setDisable(false);
+                    Sheets.show(delivery);
+                },
+                error -> {
+                    printButton.setDisable(false);
+                    Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(error));
+                });
     }
 
     @FXML

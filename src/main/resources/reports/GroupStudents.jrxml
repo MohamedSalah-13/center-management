@@ -1,20 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  كشف أسماء طلاب مجموعة.
+  كشف مجموعة: مشتركوها الحاليون، ومع كلٍّ حصص مدة اشتراكه وما حضره منها.
 
-  ترويسة السنتر في pageHeader عبر التقرير الفرعي الموحّد، كما في كشف الاشتراكات
-  والكارنيهات: راجع ReportService.withCenterHeader. والشرط مكتوب على الفرقة لا على
-  عناصرها، فتنطوي بارتفاعها كله حين تُطفأ الترويسة.
+  البيانات تصل قائمةَ GroupRosterRow مبنيّةً من EnrollmentService.getRoster، لا باستعلام
+  SQL داخل هذا الملف كما كان. الفرق ليس أسلوباً: الاستعلام القديم كان يصل students بـ
+  student_groups بلا شرط على is_active، فيسرد من ترك المجموعة كأنه فيها وبلا عمود يقول
+  ذلك؛ وكان يعدّ الحصص من إنشاء المجموعة لا من يوم التحاق الطالب، فيقرأ من التحق أمس
+  كأنه غاب عن الترم كله. الاستعلام في المستودع يحسب المدّتين على حدة.
 
-  وعنوان الكشف في columnHeader لا في title: جاسبر يطبع فرقة العنوان فوق ترويسة الصفحة
-  في الورقة الأولى، فكانت الترويسة ستقع تحت العنوان. وما في columnHeader يتكرّر، فورقة
-  ثانية تقول أيّ مجموعة هي.
+  ترويسة السنتر في pageHeader عبر التقرير الفرعي الموحّد، والعنوان وبيانات المجموعة في
+  columnHeader ليتكرّرا في رأس كل صفحة: كشف نداء من ثلاث ورقات، ورقته الثانية يجب أن
+  تقول أيّ مجموعة هي. راجع ReportService.withCenterHeader.
 
-  ولا نصّ عربياً في الملف: العنوان وعناوين الأعمدة معاملات تصل من I18n. كانت مكتوبة
-  هنا، فكان الكشف يخرج عربياً لمن ضبط برنامجه على الإنجليزية.
-
-  هذا التقرير - وحده بين الثلاثة - يُملأ باستعلام SQL لا بقائمة كائنات، ولذلك يحتاج
-  Connection عند الملء (ReportService.generatePdfReport / showReportPreview).
+  والأعمدة من اليمين إلى اليسار: رقم السطر في أقصى اليمين ثم الاسم، لأن الكشف يُقرأ
+  ويُؤشَّر عليه أثناء نداء الأسماء.
 -->
 <jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
               xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -31,29 +30,28 @@
     <parameter name="CENTER_PHONE" class="java.lang.String"/>
     <parameter name="LOGO_PATH" class="java.lang.String"/>
 
-    <!-- المعامل الذي يتم تمريره من كود الجافا (رقم المجموعة) -->
-    <parameter name="GROUP_ID" class="java.lang.Long"/>
-
     <parameter name="REPORT_TITLE" class="java.lang.String"/>
-    <parameter name="COL_ID" class="java.lang.String"/>
+    <parameter name="GROUP_INFO" class="java.lang.String"/>
+
+    <parameter name="COL_SERIAL" class="java.lang.String"/>
     <parameter name="COL_NAME" class="java.lang.String"/>
-    <parameter name="COL_PHONE" class="java.lang.String"/>
+    <parameter name="COL_BARCODE" class="java.lang.String"/>
+    <parameter name="COL_PARENT" class="java.lang.String"/>
+    <parameter name="COL_JOINED" class="java.lang.String"/>
+    <parameter name="COL_ATTENDANCE" class="java.lang.String"/>
+    <parameter name="COL_RATE" class="java.lang.String"/>
+
     <parameter name="PRINTED_AT" class="java.lang.String"/>
     <parameter name="PAGE_LABEL" class="java.lang.String"/>
     <parameter name="NO_ROWS" class="java.lang.String"/>
 
-    <queryString>
-        <![CDATA[
-            SELECT s.id, s.name, s.phone
-            FROM students s
-            INNER JOIN student_groups sg ON s.id = sg.student_id
-            WHERE sg.group_id = $P{GROUP_ID}
-        ]]>
-    </queryString>
-
-    <field name="id" class="java.lang.Long"/>
-    <field name="name" class="java.lang.String"/>
-    <field name="phone" class="java.lang.String"/>
+    <field name="serial" class="java.lang.String"/>
+    <field name="studentName" class="java.lang.String"/>
+    <field name="barcode" class="java.lang.String"/>
+    <field name="parentPhone" class="java.lang.String"/>
+    <field name="joinDate" class="java.lang.String"/>
+    <field name="attendance" class="java.lang.String"/>
+    <field name="attendanceRate" class="java.lang.String"/>
 
     <pageHeader>
         <band height="78" splitType="Prevent">
@@ -76,7 +74,7 @@
     </pageHeader>
 
     <columnHeader>
-        <band height="66" splitType="Stretch">
+        <band height="106" splitType="Stretch">
             <textField>
                 <reportElement x="0" y="0" width="555" height="26" forecolor="#22303F" uuid="a2000000-0000-4000-8000-000000000001"/>
                 <textElement textAlignment="Center" verticalAlignment="Middle">
@@ -85,32 +83,56 @@
                 <textFieldExpression><![CDATA[$P{REPORT_TITLE}]]></textFieldExpression>
             </textField>
 
-            <!-- الأعمدة من اليمين إلى اليسار: الرقم في أقصى اليمين -->
-            <textField>
-                <reportElement x="455" y="36" width="100" height="30" backcolor="#22303F" forecolor="#FFFFFF" mode="Opaque" uuid="2a3b4c5d-6e7f-8a9b-0c1d-2e3f4a5b6c7d"/>
-                <box><topPen lineWidth="0.5" lineColor="#22303F"/><leftPen lineWidth="0.5" lineColor="#22303F"/><bottomPen lineWidth="0.5" lineColor="#22303F"/><rightPen lineWidth="0.5" lineColor="#22303F"/></box>
+            <!-- بيانات المجموعة: المعلم والصف والأيام والموعد والسعر وعدد المشتركين -->
+            <textField isStretchWithOverflow="true">
+                <reportElement x="0" y="28" width="555" height="44" forecolor="#22303F" uuid="a2000000-0000-4000-8000-000000000002"/>
                 <textElement textAlignment="Center" verticalAlignment="Middle">
-                    <font fontName="ArabicFont" size="12" isBold="true"/>
+                    <font fontName="ArabicFont" size="11"/>
                 </textElement>
-                <textFieldExpression><![CDATA[$P{COL_ID}]]></textFieldExpression>
+                <textFieldExpression><![CDATA[$P{GROUP_INFO}]]></textFieldExpression>
             </textField>
 
             <textField>
-                <reportElement x="200" y="36" width="255" height="30" backcolor="#22303F" forecolor="#FFFFFF" mode="Opaque" uuid="3b4c5d6e-7f8a-9b0c-1d2e-3f4a5b6c7e"/>
+                <reportElement x="520" y="76" width="35" height="30" backcolor="#22303F" forecolor="#FFFFFF" mode="Opaque" uuid="a2100000-0000-4000-8000-000000000001"/>
                 <box><topPen lineWidth="0.5" lineColor="#22303F"/><leftPen lineWidth="0.5" lineColor="#22303F"/><bottomPen lineWidth="0.5" lineColor="#22303F"/><rightPen lineWidth="0.5" lineColor="#22303F"/></box>
-                <textElement textAlignment="Center" verticalAlignment="Middle">
-                    <font fontName="ArabicFont" size="12" isBold="true"/>
-                </textElement>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="ArabicFont" size="10" isBold="true"/></textElement>
+                <textFieldExpression><![CDATA[$P{COL_SERIAL}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="370" y="76" width="150" height="30" backcolor="#22303F" forecolor="#FFFFFF" mode="Opaque" uuid="a2100000-0000-4000-8000-000000000002"/>
+                <box><topPen lineWidth="0.5" lineColor="#22303F"/><leftPen lineWidth="0.5" lineColor="#22303F"/><bottomPen lineWidth="0.5" lineColor="#22303F"/><rightPen lineWidth="0.5" lineColor="#22303F"/></box>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="ArabicFont" size="10" isBold="true"/></textElement>
                 <textFieldExpression><![CDATA[$P{COL_NAME}]]></textFieldExpression>
             </textField>
-
             <textField>
-                <reportElement x="0" y="36" width="200" height="30" backcolor="#22303F" forecolor="#FFFFFF" mode="Opaque" uuid="4c5d6e7f-8a9b-0c1d-2e3f-4a5b6c7e8f"/>
+                <reportElement x="290" y="76" width="80" height="30" backcolor="#22303F" forecolor="#FFFFFF" mode="Opaque" uuid="a2100000-0000-4000-8000-000000000003"/>
                 <box><topPen lineWidth="0.5" lineColor="#22303F"/><leftPen lineWidth="0.5" lineColor="#22303F"/><bottomPen lineWidth="0.5" lineColor="#22303F"/><rightPen lineWidth="0.5" lineColor="#22303F"/></box>
-                <textElement textAlignment="Center" verticalAlignment="Middle">
-                    <font fontName="ArabicFont" size="12" isBold="true"/>
-                </textElement>
-                <textFieldExpression><![CDATA[$P{COL_PHONE}]]></textFieldExpression>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="ArabicFont" size="10" isBold="true"/></textElement>
+                <textFieldExpression><![CDATA[$P{COL_BARCODE}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="200" y="76" width="90" height="30" backcolor="#22303F" forecolor="#FFFFFF" mode="Opaque" uuid="a2100000-0000-4000-8000-000000000004"/>
+                <box><topPen lineWidth="0.5" lineColor="#22303F"/><leftPen lineWidth="0.5" lineColor="#22303F"/><bottomPen lineWidth="0.5" lineColor="#22303F"/><rightPen lineWidth="0.5" lineColor="#22303F"/></box>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="ArabicFont" size="10" isBold="true"/></textElement>
+                <textFieldExpression><![CDATA[$P{COL_PARENT}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="120" y="76" width="80" height="30" backcolor="#22303F" forecolor="#FFFFFF" mode="Opaque" uuid="a2100000-0000-4000-8000-000000000005"/>
+                <box><topPen lineWidth="0.5" lineColor="#22303F"/><leftPen lineWidth="0.5" lineColor="#22303F"/><bottomPen lineWidth="0.5" lineColor="#22303F"/><rightPen lineWidth="0.5" lineColor="#22303F"/></box>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="ArabicFont" size="10" isBold="true"/></textElement>
+                <textFieldExpression><![CDATA[$P{COL_JOINED}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="50" y="76" width="70" height="30" backcolor="#22303F" forecolor="#FFFFFF" mode="Opaque" uuid="a2100000-0000-4000-8000-000000000006"/>
+                <box><topPen lineWidth="0.5" lineColor="#22303F"/><leftPen lineWidth="0.5" lineColor="#22303F"/><bottomPen lineWidth="0.5" lineColor="#22303F"/><rightPen lineWidth="0.5" lineColor="#22303F"/></box>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="ArabicFont" size="10" isBold="true"/></textElement>
+                <textFieldExpression><![CDATA[$P{COL_ATTENDANCE}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="0" y="76" width="50" height="30" backcolor="#22303F" forecolor="#FFFFFF" mode="Opaque" uuid="a2100000-0000-4000-8000-000000000007"/>
+                <box><topPen lineWidth="0.5" lineColor="#22303F"/><leftPen lineWidth="0.5" lineColor="#22303F"/><bottomPen lineWidth="0.5" lineColor="#22303F"/><rightPen lineWidth="0.5" lineColor="#22303F"/></box>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="ArabicFont" size="10" isBold="true"/></textElement>
+                <textFieldExpression><![CDATA[$P{COL_RATE}]]></textFieldExpression>
             </textField>
         </band>
     </columnHeader>
@@ -126,30 +148,46 @@
             </rectangle>
 
             <textField>
-                <reportElement x="455" y="0" width="100" height="28" uuid="5d6e7f8a-9b0c-1d2e-3f4a-5b6c7e8f9a"/>
+                <reportElement x="520" y="0" width="35" height="28" uuid="a3100000-0000-4000-8000-000000000001"/>
                 <box><topPen lineWidth="0.25" lineColor="#E3E8EF"/><leftPen lineWidth="0.25" lineColor="#E3E8EF"/><bottomPen lineWidth="0.25" lineColor="#E3E8EF"/><rightPen lineWidth="0.25" lineColor="#E3E8EF"/></box>
-                <textElement textAlignment="Center" verticalAlignment="Middle">
-                    <font fontName="ArabicFont" size="11"/>
-                </textElement>
-                <textFieldExpression><![CDATA[$F{id}]]></textFieldExpression>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="ArabicFont" size="10"/></textElement>
+                <textFieldExpression><![CDATA[$F{serial}]]></textFieldExpression>
             </textField>
-
             <textField isStretchWithOverflow="true">
-                <reportElement x="200" y="0" width="255" height="28" uuid="6e7f8a9b-0c1d-2e3f-4a5b-6c7e8f9a0b"/>
+                <reportElement x="370" y="0" width="150" height="28" uuid="a3100000-0000-4000-8000-000000000002"/>
                 <box><topPen lineWidth="0.25" lineColor="#E3E8EF"/><leftPen lineWidth="0.25" lineColor="#E3E8EF"/><bottomPen lineWidth="0.25" lineColor="#E3E8EF"/><rightPen lineWidth="0.25" lineColor="#E3E8EF"/></box>
-                <textElement textAlignment="Center" verticalAlignment="Middle">
-                    <font fontName="ArabicFont" size="11"/>
-                </textElement>
-                <textFieldExpression><![CDATA[$F{name}]]></textFieldExpression>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="ArabicFont" size="10"/></textElement>
+                <textFieldExpression><![CDATA[$F{studentName}]]></textFieldExpression>
             </textField>
-
-            <textField isBlankWhenNull="true">
-                <reportElement x="0" y="0" width="200" height="28" uuid="7f8a9b0c-1d2e-3f4a-5b6c-7e8f9a0b1c"/>
+            <textField>
+                <reportElement x="290" y="0" width="80" height="28" uuid="a3100000-0000-4000-8000-000000000003"/>
                 <box><topPen lineWidth="0.25" lineColor="#E3E8EF"/><leftPen lineWidth="0.25" lineColor="#E3E8EF"/><bottomPen lineWidth="0.25" lineColor="#E3E8EF"/><rightPen lineWidth="0.25" lineColor="#E3E8EF"/></box>
-                <textElement textAlignment="Center" verticalAlignment="Middle">
-                    <font fontName="ArabicFont" size="11"/>
-                </textElement>
-                <textFieldExpression><![CDATA[$F{phone}]]></textFieldExpression>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="ArabicFont" size="10"/></textElement>
+                <textFieldExpression><![CDATA[$F{barcode}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="200" y="0" width="90" height="28" uuid="a3100000-0000-4000-8000-000000000004"/>
+                <box><topPen lineWidth="0.25" lineColor="#E3E8EF"/><leftPen lineWidth="0.25" lineColor="#E3E8EF"/><bottomPen lineWidth="0.25" lineColor="#E3E8EF"/><rightPen lineWidth="0.25" lineColor="#E3E8EF"/></box>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="ArabicFont" size="10"/></textElement>
+                <textFieldExpression><![CDATA[$F{parentPhone}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="120" y="0" width="80" height="28" uuid="a3100000-0000-4000-8000-000000000005"/>
+                <box><topPen lineWidth="0.25" lineColor="#E3E8EF"/><leftPen lineWidth="0.25" lineColor="#E3E8EF"/><bottomPen lineWidth="0.25" lineColor="#E3E8EF"/><rightPen lineWidth="0.25" lineColor="#E3E8EF"/></box>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="ArabicFont" size="10"/></textElement>
+                <textFieldExpression><![CDATA[$F{joinDate}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="50" y="0" width="70" height="28" uuid="a3100000-0000-4000-8000-000000000006"/>
+                <box><topPen lineWidth="0.25" lineColor="#E3E8EF"/><leftPen lineWidth="0.25" lineColor="#E3E8EF"/><bottomPen lineWidth="0.25" lineColor="#E3E8EF"/><rightPen lineWidth="0.25" lineColor="#E3E8EF"/></box>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="ArabicFont" size="10"/></textElement>
+                <textFieldExpression><![CDATA[$F{attendance}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="0" y="0" width="50" height="28" uuid="a3100000-0000-4000-8000-000000000007"/>
+                <box><topPen lineWidth="0.25" lineColor="#E3E8EF"/><leftPen lineWidth="0.25" lineColor="#E3E8EF"/><bottomPen lineWidth="0.25" lineColor="#E3E8EF"/><rightPen lineWidth="0.25" lineColor="#E3E8EF"/></box>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="ArabicFont" size="10" isBold="true"/></textElement>
+                <textFieldExpression><![CDATA[$F{attendanceRate}]]></textFieldExpression>
             </textField>
         </band>
     </detail>
@@ -160,17 +198,13 @@
                 <reportElement x="0" y="0" width="555" height="1" forecolor="#E3E8EF" uuid="a4000000-0000-4000-8000-000000000001"/>
             </line>
             <textField>
-                <reportElement x="0" y="6" width="300" height="18" forecolor="#7B8A9A" uuid="8a9b0c1d-2e3f-4a5b-6c7e-8f9a0b1c2d"/>
-                <textElement textAlignment="Left" verticalAlignment="Middle">
-                    <font fontName="ArabicFont" size="9"/>
-                </textElement>
+                <reportElement x="0" y="6" width="300" height="18" forecolor="#7B8A9A" uuid="a4000000-0000-4000-8000-000000000002"/>
+                <textElement textAlignment="Left" verticalAlignment="Middle"><font fontName="ArabicFont" size="9"/></textElement>
                 <textFieldExpression><![CDATA[$P{PRINTED_AT}]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="355" y="6" width="200" height="18" forecolor="#7B8A9A" uuid="a4000000-0000-4000-8000-000000000002"/>
-                <textElement textAlignment="Right" verticalAlignment="Middle">
-                    <font fontName="ArabicFont" size="9"/>
-                </textElement>
+                <reportElement x="355" y="6" width="200" height="18" forecolor="#7B8A9A" uuid="a4000000-0000-4000-8000-000000000003"/>
+                <textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="ArabicFont" size="9"/></textElement>
                 <textFieldExpression><![CDATA[$P{PAGE_LABEL} + " " + $V{PAGE_NUMBER}]]></textFieldExpression>
             </textField>
         </band>
@@ -178,7 +212,7 @@
 
     <!-- مجموعة بلا مشتركين ورقةٌ تقول ذلك، لا ورقة فارغة تُقرأ كعطل في الطباعة -->
     <noData>
-        <band height="180" splitType="Stretch">
+        <band height="210" splitType="Stretch">
             <subreport>
                 <reportElement x="0" y="0" width="555" height="70" uuid="a5000000-0000-4000-8000-000000000000">
                     <printWhenExpression><![CDATA[$P{SHOW_CENTER}]]></printWhenExpression>
@@ -202,12 +236,17 @@
                 <textFieldExpression><![CDATA[$P{REPORT_TITLE}]]></textFieldExpression>
             </textField>
             <textField isStretchWithOverflow="true">
-                <reportElement x="0" y="126" width="555" height="20" forecolor="#7B8A9A" uuid="a5000000-0000-4000-8000-000000000003"/>
+                <reportElement x="0" y="114" width="555" height="44" forecolor="#7B8A9A" uuid="a5000000-0000-4000-8000-000000000003"/>
+                <textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="ArabicFont" size="11"/></textElement>
+                <textFieldExpression><![CDATA[$P{GROUP_INFO}]]></textFieldExpression>
+            </textField>
+            <textField isStretchWithOverflow="true">
+                <reportElement x="0" y="164" width="555" height="20" forecolor="#7B8A9A" uuid="a5000000-0000-4000-8000-000000000004"/>
                 <textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="ArabicFont" size="12"/></textElement>
                 <textFieldExpression><![CDATA[$P{NO_ROWS}]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="0" y="158" width="555" height="18" forecolor="#7B8A9A" uuid="a5000000-0000-4000-8000-000000000004"/>
+                <reportElement x="0" y="190" width="555" height="18" forecolor="#7B8A9A" uuid="a5000000-0000-4000-8000-000000000005"/>
                 <textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="ArabicFont" size="9"/></textElement>
                 <textFieldExpression><![CDATA[$P{PRINTED_AT}]]></textFieldExpression>
             </textField>

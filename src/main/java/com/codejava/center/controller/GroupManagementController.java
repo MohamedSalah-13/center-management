@@ -14,6 +14,7 @@ import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
 import com.codejava.center.util.Forms;
+import com.codejava.center.util.Sheets;
 import com.codejava.center.util.WeekDays;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -558,18 +559,16 @@ public class GroupManagementController {
     }
 
     /**
-     * كشف مجموعة واحدة: يُقرأ المشتركون في الخلفية ثم تُطبع الورقة على خيط الواجهة،
-     * لأن {@code PrinterJob} لا يعمل خارجه.
+     * كشف مجموعة واحدة: تقرير جاسبر يُقرأ ويُبنى ويُسلَّم كلُّه في الخلفية.
+     *
+     * <p>قراءة المشتركين وملء الورقة في نفس الاستدعاء لا في اثنين: الأول وحده كان يعود إلى
+     * خيط الواجهة ليُطبع عليه، لأن {@code PrinterJob} في مسار JavaFX لا يعمل خارجه. وجاسبر
+     * لا يشترط ذلك، فلا شيء يعود إلى خيط الواجهة إلا نتيجة التسليم.</p>
      */
     private void printRoster(CourseGroup group) {
-        FxAsync.supply(() -> enrollmentService.getRoster(group.getId()),
-                (List<MembershipRow> roster) -> {
-                    try {
-                        reportService.printGroupRoster(group, roster, groupsTable.getScene().getWindow());
-                    } catch (Exception e) {
-                        Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(e));
-                    }
-                },
+        FxAsync.supply(() -> reportService.deliverGroupRoster(group,
+                        enrollmentService.getRoster(group.getId())),
+                Sheets::show,
                 error -> Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(error)));
     }
 
