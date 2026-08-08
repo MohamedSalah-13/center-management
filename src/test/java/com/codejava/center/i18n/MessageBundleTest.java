@@ -17,6 +17,7 @@ import com.codejava.center.service.notification.WhatsAppLinkStyle;
 import com.codejava.center.util.DocumentKind;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.PrintPreferences;
+import com.codejava.center.util.ShortcutAction;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -195,6 +196,11 @@ class MessageBundleTest {
         }
         for (DocumentKind kind : DocumentKind.values()) {
             requireKey(declared, "documentKind." + kind.name(), unresolved);
+        }
+        // أمر بلا اسم معروض يظهر في شاشة الاختصارات صفاً اسمه !shortcutAction.X!،
+        // فيُسنَد إليه مفتاح لا يعرف صاحبه ما الذي ربطه به
+        for (ShortcutAction action : ShortcutAction.values()) {
+            requireKey(declared, "shortcutAction." + action.name(), unresolved);
         }
         for (BackupFrequency frequency : BackupFrequency.values()) {
             requireKey(declared, "backupFrequency." + frequency.name(), unresolved);

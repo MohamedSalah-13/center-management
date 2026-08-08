@@ -116,7 +116,7 @@
 
             <Separator styleClass="sidebar-separator"/>
 
-            <VBox spacing="10.0">
+            <VBox fx:id="navPrefsBox" spacing="10.0">
                 <padding><Insets top="10.0" bottom="14.0" left="12.0" right="12.0"/></padding>
 
                 <!-- اللغة متاحة لكل الأدوار: تفضيل عرض على هذا الجهاز، لا إعداد إداري -->
@@ -133,6 +133,12 @@
                     <ComboBox fx:id="fontScaleCombo" styleClass="sidebar-combo"
                               maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
                 </HBox>
+
+                <!-- والاختصارات كذلك: لوحة المفاتيح تفضيل هذا الجهاز، وشاشة الإعدادات
+                     مقصورة على المدير بينما من يفتح شاشة الحضور مئة مرة في اليوم هو
+                     الموظف - فمكانها هنا لا في تبويب لا يصل إليه -->
+                <Button fx:id="shortcutsButton" text="%nav.shortcuts" onAction="#showShortcuts"
+                        maxWidth="Infinity" styleClass="sidebar-btn"/>
 
                 <Button text="%nav.logout" onAction="#handleLogout"
                         maxWidth="Infinity" styleClass="sidebar-btn, sidebar-btn-logout"/>

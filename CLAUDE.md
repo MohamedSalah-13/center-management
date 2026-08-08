@@ -235,6 +235,68 @@ sizes in `ViewLoader` grow with the factor but are clamped to the screen, since 
 width of 1100 becomes 1925 at 175% and a window that cannot be made smaller than the display
 has no visible close button.
 
+### Keyboard shortcuts
+
+`Ctrl`+`S` opens Settings, `Ctrl`+`B` takes a backup, and which key does what is chosen in
+`Shortcuts.fxml` — reachable from the sidebar's bottom box beside the language and font-size
+selectors, i.e. by **every role**, because the settings screen is admin-only and the person
+who opens the attendance gate a hundred times a day is not the admin.
+
+Four pieces, and the split is the same one used everywhere else here: `ShortcutAction` is
+the list of commands, `Shortcut` is a key combination, `ShortcutPreferences` is where the
+choice lives, `Shortcuts` binds it to a `Scene`.
+
+**Adding a command is one enum constant plus one message key.** `ShortcutAction` names what
+can be bound, `DashboardController.installShortcuts` says what each one *does* (it is the only
+class that owns navigation), and `MessageBundleTest` fails the build for a constant with no
+`shortcutAction.<NAME>`. A stored screen path would have been the alternative and is worse:
+renaming an `.fxml` would leave a key the operator presses to no effect, with nothing said.
+
+**`Shortcut` is a record over `KeyCode`, not a `KeyCombination`.** `KeyCombination` resolves
+`SHORTCUT_DOWN` by asking `Toolkit` which platform it is on, so comparing or displaying one
+needs a running JavaFX — and the CI runner has none. Keeping the value type plain makes
+parsing, validation and conflict detection pure functions that `ShortcutsTest` covers without
+a toolkit, exactly like `Printing.pageBreaks`. `toCombination()` is the single crossing point.
+
+**Two combinations on one key is the failure this feature exists to prevent.** A `Scene` does
+not object: it walks its accelerator table and runs the first entry that matches, so one
+command works and the other reads as broken with nothing to point at. Hence three refusals, all
+at the moment the key is pressed and all naming the reason:
+
+- `Shortcuts.conflictOf` searches **every** action, not the ones on screen. A secretary does
+  not see `BACKUP_NOW`, and without this they would take `Ctrl`+`B` for the attendance screen —
+  then the admin sits at the same machine and both are live at once.
+- `Shortcut.isReserved()` refuses the zoom keys. `UiScale.ZOOM_KEYS` is declared once and read
+  by both, since a second list is a list that drifts.
+- `Shortcut.isValid()` requires a modifier — unless the key is `F1`…`F12`, which type nothing
+  and so cannot interrupt someone entering a student's name. The defaults also avoid what a
+  `TextField` eats first (`Ctrl`+`A`/`C`/`V`/`Z`): a shortcut that works everywhere except in
+  a text field is worse than one that never works.
+
+**The combination is captured from the keyboard, never typed into a field.** Recording starts
+by calling `Shortcuts.suspend(scene)` — otherwise `Ctrl`+`S` opens Settings at the very moment
+someone tries to reassign it, and no combination already in use could ever be changed.
+`Shortcuts.refresh(scene)` puts them back, and is also what makes a saved change live without
+a restart.
+
+**Stored per machine** (`java.util.prefs`, no Flyway migration), like the language, the printer
+and the UI scale: the keyboard is a property of the terminal in front of someone. Three states,
+not two — an absent key means "untouched" and takes the shipped default, an **empty** value
+means "cleared on purpose" and stays unbound. Without the distinction, everyone who deletes
+`Ctrl`+`S` finds it back at the next start-up. `save` writes only the actions the screen showed,
+so a secretary signing in once does not wipe the admin's bindings off the machine.
+
+**The handler map hangs on the `Scene`** (`scene.getProperties()`), not in a static field:
+`DashboardController` is `PROTOTYPE` and is rebuilt on every language switch, and a static map
+would hold callbacks of an abandoned instance — a key that opens a window that is already gone.
+Same reasoning as `AlertFeed` owning its timer rather than the controller.
+
+`BACKUP_NOW` is the only action that *does* something instead of opening a screen, and the only
+one that asks first: a screen opened by mistake is closed, a backup started by mistake spins the
+disk and writes a file nobody expected. Role filtering happens at install time, so a command the
+signed-in user may not run is never bound at all — otherwise the service layer refuses it and
+the audit trail collects denial rows nobody caused.
+
 ### Printing
 
 **Describe a printout as blocks, not as one node.** Build a `util/PrintDocument` —
@@ -444,6 +506,45 @@ Output is piped from the process, not written with `-r`, so it can pass through 
 before it touches the disk: there is never a moment where a plaintext dump of the whole
 centre sits on the machine. Filenames carry a full timestamp — with the date alone, the
 second backup of a day silently replaced the first.
+
+**Retention: `null` is not zero, and the default lives in `BackupRetention`.** After each
+successful backup the oldest files are deleted until `backupRetentionCount` remain. The
+column is nullable — `V2` added it empty to every existing database and the schema seeds no
+settings row — and the settings screen showed `30` for a missing value while the service read
+missing as *keep everything*. A centre that upgraded and never pressed "save settings" had a
+folder growing without limit under a screen promising thirty. So the default is resolved in
+one place that both the screen and the service read, exactly like `BackupSchedule.from` fills
+a missing schedule. **Zero still means keep everything** — it is an explicit choice, and
+collapsing it with "not set" is what hid the bug.
+
+`BackupRetention` is pure — no Spring, no filesystem — for the reason `BackupSchedule` and
+`Printing.pageBreaks` are: it is the decision that deletes files, and it is wrong in two
+directions that are both invisible until the day a backup is wanted. It sorts **by filename,
+never by modification time**: the name carries the timestamp and survives copying the folder,
+while `mtime` makes a year-old backup restored onto a new disk look like the newest thing
+there. It only ever names files the program itself wrote, because the backup folder is often
+a documents folder with the owner's own files in it.
+
+That last rule is stricter than it looks, and it is the first thing to check when someone
+reports that nothing is being deleted. A file duplicated in Windows Explorer is named
+`backup_2026-08-04_18-42-14.sql - Copy.enc`: it ends in `.enc` but not in `.sql.enc`, so it
+is not a backup as far as retention is concerned — a human made it, and the settings screen
+promises not to touch what the program did not write. A folder showing 87 files can hold 15
+backups. `pruned=0` in the audit line is what separates that from a real fault.
+
+Pruning **never throws and never stays silent**. A backup that just succeeded is not reported
+as failed because an old file was locked — but the count of what was deleted, and of what
+could not be, goes into the `BACKUP_CREATED` audit line (`retention=30; pruned=7`) and the
+log. The old code swallowed every `IOException`, so a read-only network folder produced a
+folder that filled up with nothing anywhere saying why.
+
+That count is also why `executeBackup` returns a `BackupOutcome` rather than a `Path`.
+"Backup saved" alone left the only way to check retention being to count files in the folder
+— the one thing that is hard to count there, since copies the owner made by hand are not
+backups as far as the program is concerned. `BackupOutcome.describe()` builds the sentence
+once for both screens that take a backup (settings, and the keyboard shortcut from anywhere).
+It stays quiet at `deleted == 0`, the normal case in a folder below the limit: a line reading
+"deleted 0 old backups" after every backup is read as a fault.
 
 **Encryption is AES-256-GCM with a PBKDF2 key** (`BackupCrypto`). GCM because a backup that
 rotted on a USB stick must fail loudly instead of half-restoring. Decryption writes a

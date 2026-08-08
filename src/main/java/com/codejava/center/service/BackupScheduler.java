@@ -125,10 +125,10 @@ public class BackupScheduler {
         }
 
         try {
-            Path file = backupService.executeBackup(settings.getBackupPath(),
+            BackupOutcome outcome = backupService.executeBackup(settings.getBackupPath(),
                     settings.getBackupRetentionCount());
             settingsService.recordAutoBackupAt(LocalDateTime.now());
-            log.info("تمت النسخة الاحتياطية التلقائية: {}", file);
+            log.info("تمت النسخة الاحتياطية التلقائية: {} ({})", outcome.file(), outcome.pruned().details());
         } catch (RuntimeException e) {
             // لا يُعاد الرمي: المشغّل يعتبر المهمة منتهية على أي حال، ورميه يفقد الرسالة المترجمة
             log.error("فشلت النسخة الاحتياطية التلقائية: {}", e.getMessage(), e);

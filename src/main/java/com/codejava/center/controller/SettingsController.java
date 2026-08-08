@@ -4,6 +4,7 @@ import com.codejava.center.domain.CenterSettings;
 import com.codejava.center.domain.enums.BackupFrequency;
 import com.codejava.center.domain.enums.Currency;
 import com.codejava.center.domain.enums.NotificationChannel;
+import com.codejava.center.service.BackupRetention;
 import com.codejava.center.service.BackupSchedule;
 import com.codejava.center.service.BackupService;
 import com.codejava.center.service.NotificationService;
@@ -211,10 +212,14 @@ public class SettingsController {
     private static final int MIN_PASSPHRASE_LENGTH = 8;
 
     /**
-     * عدد النسخ المقترح للاحتفاظ بها. شهر من النسخ اليومية يكفي لاكتشاف خطأ والرجوع قبله،
-     * ولا يملأ قرصاً صغيراً. الصفر يعني الاحتفاظ بالكل، وهو ما تحفظه قاعدة بيانات لم تُضبط.
+     * عدد النسخ المقترح للاحتفاظ بها: شهر من النسخ اليومية يكفي لاكتشاف خطأ والرجوع قبله،
+     * ولا يملأ قرصاً صغيراً.
+     *
+     * <p>يُقرأ من {@link BackupRetention} لا يُكتب هنا: كان رقماً مكرَّراً في الشاشة وحدها
+     * بينما تقرأ الخدمة القيمة الغائبة على أنها "احتفظ بالكل"، فكانت الشاشة تعرض ثلاثين
+     * ولا تُحذف نسخة واحدة أبداً. نفس قاعدة {@link #showBackupSchedule} في المواعيد.</p>
      */
-    private static final int DEFAULT_RETENTION = 30;
+    private static final int DEFAULT_RETENTION = BackupRetention.DEFAULT_COUNT;
 
     @FXML
     public void initialize() {
@@ -449,7 +454,8 @@ public class SettingsController {
         configureSpinner(backupHourSpinner, 0, 23, BackupSchedule.DEFAULT_TIME.getHour(), true);
         configureSpinner(backupMinuteSpinner, 0, 59, BackupSchedule.DEFAULT_TIME.getMinute(), true);
         configureSpinner(backupDayOfMonthSpinner, 1, 31, BackupSchedule.DEFAULT_DAY_OF_MONTH, false);
-        configureSpinner(backupRetentionSpinner, 0, 999, DEFAULT_RETENTION, false);
+        configureSpinner(backupRetentionSpinner,
+                BackupRetention.KEEP_ALL, BackupRetention.MAX_COUNT, DEFAULT_RETENTION, false);
 
         // بلا مجلد ولا تفعيل لا معنى لضبط موعد: الحقول تبقى ظاهرة لتُقرأ، لكنها معطَّلة
         scheduleGrid.disableProperty().bind(autoBackupCheckBox.selectedProperty().not());
@@ -548,6 +554,12 @@ public class SettingsController {
      * يُكتب باليد، و"99" في خانة الساعة ترمي {@code DateTimeException} من
      * {@link LocalTime#of} عند بناء الموعد.</p>
      */
+    /** عدد النسخ كما هو في الحقل الآن، بحدود {@link BackupRetention} نفسها التي تطبّقها الخدمة */
+    private int retentionFromField() {
+        return spinnerValue(backupRetentionSpinner,
+                BackupRetention.KEEP_ALL, BackupRetention.MAX_COUNT, DEFAULT_RETENTION);
+    }
+
     private int spinnerValue(Spinner<Integer> spinner, int min, int max, int fallback) {
         commitTypedText(spinner, min, max);
 
@@ -1031,7 +1043,7 @@ public class SettingsController {
                 .backupTime(schedule.time())
                 .backupDayOfWeek(schedule.dayOfWeek())
                 .backupDayOfMonth(schedule.dayOfMonth())
-                .backupRetentionCount(spinnerValue(backupRetentionSpinner, 0, 999, DEFAULT_RETENTION))
+                .backupRetentionCount(retentionFromField())
                 .lastAutoBackupAt(loadedLastAutoBackupAt) // الشاشة تعرضه ولا تعدّله
                 .ledgerStartDate(ledgerStart)
                 .notificationChannel(channel)
@@ -1160,12 +1172,14 @@ public class SettingsController {
         }
 
         // النسخة اليدوية تحترم عدد النسخ المضبوط في الشاشة ولو لم يُحفظ بعد
-        Integer retention = spinnerValue(backupRetentionSpinner, 0, 999, DEFAULT_RETENTION);
+        Integer retention = retentionFromField();
 
         statusLabel.setText(I18n.get("settings.backupRunning"));
-        FxAsync.supply(() -> backupService.executeBackup(backupPath, retention), file -> {
+        FxAsync.supply(() -> backupService.executeBackup(backupPath, retention), outcome -> {
             statusLabel.setText("");
-            Dialogs.success(I18n.format("settings.backupDone", file));
+            // الرسالة تقول كم نسخة قديمة حُذفت: بدونها لا يعرف المستخدم هل عمل عدد النسخ
+            // المحفوظة أصلاً إلا بعدّ الملفات في المجلد بنفسه
+            Dialogs.success(outcome.describe());
         }, error -> {
             statusLabel.setText("");
             // الرسالة تحمل الآن سبب الفشل من mysqldump نفسه بدل "فشلت العملية" وحدها

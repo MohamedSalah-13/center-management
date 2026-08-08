@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<!-- لا nodeOrientation هنا: الاتجاه يُضبط على الـ Scene في ViewLoader تبعاً للغة -->
+<VBox fx:id="root" spacing="16.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.codejava.center.controller.ShortcutsController"
+      styleClass="content-area">
+    <padding><Insets top="28.0" bottom="24.0" left="30.0" right="30.0"/></padding>
+
+    <Label text="%shortcuts.title" styleClass="header-label"/>
+    <Label text="%shortcuts.note" styleClass="muted-text" wrapText="true"/>
+    <Label text="%shortcuts.machineNote" styleClass="muted-text" wrapText="true"/>
+
+    <TableView fx:id="shortcutTable" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="colAction" text="%shortcuts.col.action" prefWidth="320.0"/>
+            <TableColumn fx:id="colShortcut" text="%shortcuts.col.shortcut" prefWidth="220.0"/>
+            <TableColumn fx:id="colEdit" text="%shortcuts.col.edit" prefWidth="260.0" sortable="false"/>
+        </columns>
+    </TableView>
+
+    <!-- سطر التسجيل: هنا يُقال "اضغط التركيبة" وهنا يُقال سبب رفضها. وضعه تحت الجدول
+         مباشرةً مقصود - المستخدم ينظر إلى الصف الذي ضغط زرّه، لا إلى أعلى الشاشة -->
+    <Label fx:id="captureLabel" styleClass="sub-label" wrapText="true"/>
+
+    <HBox spacing="14.0" alignment="CENTER_LEFT">
+        <Button text="%shortcuts.save" onAction="#handleSave" styleClass="btn-success"/>
+        <Button text="%shortcuts.restoreDefaults" onAction="#handleRestoreDefaults" styleClass="btn-secondary"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Label fx:id="statusLabel" text=""/>
+    </HBox>
+</VBox>

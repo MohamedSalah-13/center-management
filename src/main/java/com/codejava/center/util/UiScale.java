@@ -61,6 +61,19 @@ public final class UiScale {
     /** ما يميّز قوائم اختيار الحجم في المشهد، ليُحدَّث عرضها بعد تغيير من لوحة المفاتيح */
     public static final String SELECTOR_STYLE_CLASS = "ui-scale-combo";
 
+    /**
+     * المفاتيح التي يحجزها التكبير مع Ctrl - معلنة هنا لا مكتوبة في {@link #install} وحده.
+     *
+     * <p>{@code Shortcuts} يقرأ هذه القائمة ليرفض أن يُسنَد أيٌّ منها إلى أمر آخر. ولولا
+     * ذلك لكان الاختصار المكرَّر يُقبَل في الشاشة ثم يعمل واحدٌ من الأمرين على غير ترتيب
+     * معلوم: {@code Scene} تمرّ على اختصاراتها واحداً واحداً وتنفّذ أول ما يطابق.</p>
+     */
+    public static final KeyCode[] ZOOM_KEYS = {
+            KeyCode.EQUALS, KeyCode.PLUS, KeyCode.ADD,
+            KeyCode.MINUS, KeyCode.SUBTRACT,
+            KeyCode.DIGIT0, KeyCode.NUMPAD0
+    };
+
     private static final String PREF_KEY = "ui.fontScale";
 
     /** تقريب المقارنة بين عاملين: أرقام عشرية تُقرأ من السجل ولا تُقارَن بـ == */
@@ -158,15 +171,13 @@ public final class UiScale {
 
         // EQUALS/MINUS هي مفاتيح الصف العلوي، وADD/SUBTRACT لوحة الأرقام، وPLUS لبعض
         // التخطيطات التي تُبلّغ عن + مباشرة. الثلاثة مطلوبة وإلا "لم يعمل الاختصار عندي"
-        accelerator(scene, KeyCode.EQUALS, () -> change(scene, next(factor)));
-        accelerator(scene, KeyCode.PLUS, () -> change(scene, next(factor)));
-        accelerator(scene, KeyCode.ADD, () -> change(scene, next(factor)));
-
-        accelerator(scene, KeyCode.MINUS, () -> change(scene, previous(factor)));
-        accelerator(scene, KeyCode.SUBTRACT, () -> change(scene, previous(factor)));
-
-        accelerator(scene, KeyCode.DIGIT0, () -> change(scene, DEFAULT_FACTOR));
-        accelerator(scene, KeyCode.NUMPAD0, () -> change(scene, DEFAULT_FACTOR));
+        for (KeyCode key : ZOOM_KEYS) {
+            accelerator(scene, key, switch (key) {
+                case MINUS, SUBTRACT -> () -> change(scene, previous(factor));
+                case DIGIT0, NUMPAD0 -> () -> change(scene, DEFAULT_FACTOR);
+                default -> () -> change(scene, next(factor));
+            });
+        }
     }
 
     /** يبدّل العامل ويطبّقه فوراً على المشهد المعطى */

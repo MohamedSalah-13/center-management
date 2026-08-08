@@ -6,6 +6,7 @@ import com.codejava.center.domain.enums.AlertSeverity;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.service.AttendanceService;
 import com.codejava.center.service.AuthService;
+import com.codejava.center.service.BackupService;
 import com.codejava.center.service.DayScheduleService;
 import com.codejava.center.service.SessionService;
 import com.codejava.center.service.SettingsService;
@@ -23,6 +24,8 @@ import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.LanguageSelector;
 import com.codejava.center.util.MoneyUtils;
+import com.codejava.center.util.ShortcutAction;
+import com.codejava.center.util.Shortcuts;
 import com.codejava.center.util.Sounds;
 import com.codejava.center.util.Toasts;
 import com.codejava.center.util.TrayNotifier;
@@ -33,11 +36,14 @@ import com.codejava.center.util.ViewLoader;
 import com.codejava.center.util.WeekDays;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
+import javafx.scene.Scene;
 import javafx.scene.chart.BarChart;
 import javafx.scene.chart.PieChart;
 import javafx.scene.chart.XYChart;
@@ -72,6 +78,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -96,6 +103,7 @@ public class DashboardController {
     private final AlertFeed alertFeed;
     private final TrayNotifier trayNotifier;
     private final DayScheduleService dayScheduleService;
+    private final BackupService backupService;
 
     private static final String ACTIVE_STYLE_CLASS = "sidebar-btn-active";
     private static final String BELL_ALERT_STYLE_CLASS = "bell-btn-alert";
@@ -164,6 +172,8 @@ public class DashboardController {
     @FXML
     private Button attendanceLogButton;
     @FXML
+    private Button shortcutsButton;
+    @FXML
     private VBox navDailyBox;
     @FXML
     private VBox navFinanceBox;
@@ -171,6 +181,8 @@ public class DashboardController {
     private VBox navReportsBox;
     @FXML
     private VBox navAdminBox;
+    @FXML
+    private VBox navPrefsBox;
     @FXML
     private VBox revenueCard;
     @FXML
@@ -224,7 +236,96 @@ public class DashboardController {
         loadDashboardStats();
         loadChartsData();
         startAlertFeed();
+        installShortcuts();
         showDayBriefing();
+    }
+
+    // ================================================================ اختصارات لوحة المفاتيح
+
+    /**
+     * يسلّم {@link Shortcuts} ما يفعله كل أمر، فيربط هو المحفوظ منها بالمشهد.
+     *
+     * <p>هذا المتحكّم وحده يملك التنقّل، ولذلك هو وحده من يستطيع أن يقول ما معنى "افتح
+     * شاشة الحضور". وما عدا ذلك - القراءة من الجهاز، وكشف التعارض، وإعادة الربط بعد
+     * الحفظ - ليس من شأنه.</p>
+     *
+     * <p><b>والتصفية بالدور فرضٌ لا إخفاء:</b> الاختصارات تُحفظ لكل جهاز، وجهاز الاستقبال
+     * يجلس عليه المدير صباحاً والسكرتير بعده. فلولا حذف ما لا يسمح به دوره لأطلق
+     * {@code Ctrl+B} نسخةً احتياطية بيد من لا يملكها - ترفضها طبقة الخدمات وتكتب سطر رفضٍ
+     * في سجل المراقبة لا ذنب لصاحبه فيه.</p>
+     */
+    private void installShortcuts() {
+        Map<ShortcutAction, Runnable> handlers = new EnumMap<>(ShortcutAction.class);
+
+        handlers.put(ShortcutAction.HOME, () -> showHome(null));
+        handlers.put(ShortcutAction.STUDENTS, () -> showStudentRegistration(null));
+        handlers.put(ShortcutAction.ATTENDANCE, () -> showAttendance(null));
+        handlers.put(ShortcutAction.SESSIONS, () -> showSessionManagement(null));
+        handlers.put(ShortcutAction.DAY_SCHEDULE, () -> showDaySchedule(null));
+        handlers.put(ShortcutAction.ATTENDANCE_REPORT, () -> showAttendanceReport(null));
+        handlers.put(ShortcutAction.ATTENDANCE_LOG, () -> showAttendanceLog(null));
+        handlers.put(ShortcutAction.SHORTCUTS, () -> showShortcuts(null));
+
+        handlers.put(ShortcutAction.CASHIER, () -> showCashier(null));
+        handlers.put(ShortcutAction.PAYMENT_HISTORY, () -> showPaymentHistory(null));
+        handlers.put(ShortcutAction.EXPENSES, () -> showExpenses(null));
+        handlers.put(ShortcutAction.SHIFT_CLOSING, () -> showShiftClosing(null));
+        handlers.put(ShortcutAction.TEACHER_PAYOUT, () -> showTeacherPayout(null));
+        handlers.put(ShortcutAction.ARREARS, () -> showArrears(null));
+        handlers.put(ShortcutAction.NOTIFICATIONS, () -> showNotifications(null));
+        handlers.put(ShortcutAction.ALERTS, () -> showAlerts(null));
+        handlers.put(ShortcutAction.TEACHERS, () -> showTeachers(null));
+        handlers.put(ShortcutAction.GROUPS, () -> showGroups(null));
+        handlers.put(ShortcutAction.USERS, () -> showUsers(null));
+        handlers.put(ShortcutAction.AUDIT, () -> showAuditLog(null));
+        handlers.put(ShortcutAction.SETTINGS, () -> showSettings(null));
+        handlers.put(ShortcutAction.BACKUP_NOW, this::runBackupNow);
+
+        User currentUser = userSession.getCurrentUser();
+        Role role = currentUser == null ? null : currentUser.getRole();
+        handlers.keySet().removeIf(action -> !action.isAllowedFor(role));
+
+        // المشهد لا يوجد بعدُ أثناء initialize: الشاشة تُحمَّل أولاً ثم تُوضع في مشهد
+        // (راجع ViewLoader.showDashboard)، فالربط ينتظر وصولها إليه
+        Scene scene = contentArea.getScene();
+        if (scene != null) {
+            Shortcuts.install(scene, handlers);
+            return;
+        }
+        contentArea.sceneProperty().addListener(new ChangeListener<>() {
+            @Override
+            public void changed(ObservableValue<? extends Scene> observable, Scene old, Scene added) {
+                if (added != null) {
+                    // مرة واحدة: المتحكّم PROTOTYPE، ومستمعٌ باقٍ يعيد الربط لمشهدٍ هُجر
+                    contentArea.sceneProperty().removeListener(this);
+                    Shortcuts.install(added, handlers);
+                }
+            }
+        });
+    }
+
+    /**
+     * نسخة احتياطية فورية بضغطة اختصار.
+     *
+     * <p>الأمر الوحيد الذي يفعل شيئاً بدل أن يفتح شاشة، ولذلك هو وحده يسأل قبل أن ينفّذ:
+     * شاشةٌ تُفتح بالخطأ تُغلق، ونسخةٌ تبدأ بالخطأ تشغل القرص دقائق وتكتب ملفاً لم يطلبه
+     * أحد. والمسار من الإعدادات لا من الشاشة، لأن الاختصار قد يُضغط من أي شاشة.</p>
+     */
+    private void runBackupNow() {
+        FxAsync.supply(settingsService::getSettings, settings -> {
+            String path = settings.getBackupPath();
+            if (path == null || path.isBlank()) {
+                Dialogs.warning(I18n.get("settings.selectBackupDirFirst"));
+                return;
+            }
+            if (!Dialogs.confirm(I18n.format("shortcuts.backupConfirm", path))) {
+                return;
+            }
+
+            FxAsync.supply(() -> backupService.executeBackup(path, settings.getBackupRetentionCount()),
+                    outcome -> Dialogs.success(outcome.describe()),
+                    error -> Dialogs.error(I18n.get("settings.backupFailed"), FxAsync.messageOf(error)));
+        }, error -> Dialogs.error(FxAsync.messageOf(error)));
     }
 
     // ================================================================ موجز اليوم
@@ -468,6 +569,11 @@ public class DashboardController {
     @FXML
     public void showNotifications(ActionEvent event) {
         loadView("/fxml/Notifications.fxml", notificationsButton);
+    }
+
+    @FXML
+    public void showShortcuts(ActionEvent event) {
+        loadView("/fxml/Shortcuts.fxml", shortcutsButton);
     }
 
     @FXML
@@ -750,7 +856,9 @@ public class DashboardController {
      * فيبقى يشير إلى الرئيسية مهما تنقّل المستخدم.
      */
     private void markActive(Button activeButton) {
-        for (VBox section : new VBox[]{navDailyBox, navFinanceBox, navReportsBox, navAdminBox}) {
+        // navPrefsBox معها: زرّ الاختصارات يسكن مع اللغة وحجم الخط أسفل القائمة، وبدون
+        // إدراج صندوقه هنا يبقى مميَّزاً بعد الانتقال إلى شاشة أخرى
+        for (VBox section : new VBox[]{navDailyBox, navFinanceBox, navReportsBox, navAdminBox, navPrefsBox}) {
             section.getChildren().stream()
                     .filter(Button.class::isInstance)
                     .forEach(button -> button.getStyleClass().remove(ACTIVE_STYLE_CLASS));

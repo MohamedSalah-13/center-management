@@ -7,6 +7,8 @@ import com.codejava.center.util.BackupCrypto;
 import com.codejava.center.util.BackupPreferences;
 import com.codejava.center.util.I18n;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -22,7 +24,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
@@ -49,11 +50,13 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 public class BackupService {
 
+    private static final Logger log = LoggerFactory.getLogger(BackupService.class);
+
     /** الطابع الزمني كامل في اسم الملف: باسم يحمل التاريخ وحده كانت نسخة اليوم الثانية تمحو الأولى */
     private static final DateTimeFormatter FILE_STAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
 
-    private static final String FILE_PREFIX = "backup_";
-    private static final String SQL_SUFFIX = ".sql";
+    private static final String FILE_PREFIX = BackupRetention.FILE_PREFIX;
+    private static final String SQL_SUFFIX = BackupRetention.SQL_SUFFIX;
 
     /** حدّ أقصى يمنع عملية معلّقة من احتجاز خيط الجدولة إلى الأبد */
     private static final long TIMEOUT_MINUTES = 30;
@@ -92,12 +95,17 @@ public class BackupService {
     private String mysqlBinDir;
 
     /**
-     * يأخذ نسخة احتياطية ويعيد مسار الملف الناتج.
+     * يأخذ نسخة احتياطية ويعيد الملف الناتج وحصيلة حذف القديم معه.
      *
-     * @param retentionCount عدد النسخ المحتفظ بها في المجلد؛ {@code null} أو صفر = الكل
+     * <p>الحصيلة جزء من الجواب لا تفصيل داخلي: "تمت النسخة" وحدها تركت المستخدم لا يعرف
+     * هل عمل عدد النسخ المحفوظة أم لا، فلا سبيل أمامه إلا عدّ الملفات في المجلد - وهو
+     * بالضبط ما يصعب عدّه، لأن ما نسخه بيده من الملفات لا يعدّه البرنامج.</p>
+     *
+     * @param retentionCount عدد النسخ المحتفظ بها في المجلد؛ {@code null} = الافتراضي،
+     *                       والصفر وحده يعني الاحتفاظ بالكل. راجع {@link BackupRetention}
      * @throws IllegalStateException برسالة مترجمة عند أي فشل
      */
-    public Path executeBackup(String targetDirectory, Integer retentionCount) {
+    public BackupOutcome executeBackup(String targetDirectory, Integer retentionCount) {
         if (targetDirectory == null || targetDirectory.isBlank()) {
             throw new IllegalStateException(I18n.get("error.backup.noDirectory"));
         }
@@ -124,7 +132,7 @@ public class BackupService {
         try {
             dump(target, passphrase);
         } catch (RuntimeException e) {
-            deleteQuietly(target); // ملف نصف مكتوب يبدو نسخة صالحة في قائمة المجلد
+            delete(target); // ملف نصف مكتوب يبدو نسخة صالحة في قائمة المجلد
             // النسخة الفاشلة أهمّ من الناجحة في السجل: لا شيء آخر يُظهر ليلة بلا نسخة
             auditService.recordFailure(AuditAction.BACKUP_CREATED,
                     target.getFileName().toString(), messageOf(e));
@@ -135,11 +143,12 @@ public class BackupService {
             }
         }
 
-        prune(directory, retentionCount);
+        int keep = BackupRetention.resolve(retentionCount);
+        BackupRetention.Pruned pruned = prune(directory, keep);
 
         auditService.record(AuditAction.BACKUP_CREATED, null, target.getFileName().toString(),
-                "encrypted=" + encrypt + "; retention=" + retentionCount);
-        return target;
+                "encrypted=" + encrypt + "; retention=" + keep + "; " + pruned.details());
+        return new BackupOutcome(target, pruned);
     }
 
     /**
@@ -190,7 +199,7 @@ public class BackupService {
             throw e;
         } finally {
             // الملف الوسيط نسخة صريحة كاملة من قاعدة البيانات: لا يُترك على القرص
-            deleteQuietly(temporary);
+            delete(temporary);
         }
     }
 
@@ -339,40 +348,70 @@ public class BackupService {
     }
 
     /**
-     * يحذف أقدم النسخ ويُبقي {@code keep} منها.
+     * يحذف أقدم النسخ ويُبقي {@code keep} منها. القرار في {@link BackupRetention}؛ هنا
+     * قراءة المجلد والحذف وحدهما.
      *
-     * <p>الترتيب بالاسم لا بتاريخ التعديل: الاسم يحمل الطابع الزمني ولا يتغيّر بنسخ
-     * الملفات من مجلد إلى آخر، بينما تاريخ التعديل يتغيّر.</p>
+     * <p><b>لا يرمي.</b> نسخة نجحت للتوّ لا تُعلَن فاشلة لأن ملفاً قديماً في المجلد لم يُحذف -
+     * والملف المحفوظ هو الغرض، والمساحة مسألة تُعالَج غداً. لكنه <b>لا يصمت</b> أيضاً: كان
+     * الحذف يبتلع كل خطأ فيجد صاحب السنتر مجلداً يمتلئ بلا شيء في أي مكان يقول لماذا.
+     * ملف مفتوح في برنامج آخر، أو مجلد على قرص شبكة صار للقراءة فقط، يظهر الآن في السجل
+     * وفي سطر النسخة في سجل المراقبة.</p>
+     *
+     * <p>{@code package-private} لا {@code private}: هذه هي الخطوة التي يشتكي غيابها صاحب
+     * السنتر، و{@code BackupRetention} يغطّي القرار وحده - أما أن الحذف يقع فعلاً على قرص
+     * حقيقي فلا يثبته إلا اختبار يكتب ملفات ويقرأ المجلد بعده. نفس سبب كون
+     * {@code dbName}/{@code host}/{@code port} أدناه package-private.</p>
+     *
+     * @return حصيلة الحذف، لسجل المراقبة وللشاشة معاً
      */
-    private void prune(Path directory, Integer keep) {
-        if (keep == null || keep <= 0) {
-            return;
+    BackupRetention.Pruned prune(Path directory, int keep) {
+        if (keep <= BackupRetention.KEEP_ALL) {
+            return BackupRetention.Pruned.OFF;
         }
+
+        List<String> obsolete;
         try (Stream<Path> files = Files.list(directory)) {
-            files.filter(Files::isRegularFile)
-                    .filter(BackupService::isBackupFile)
-                    .sorted(Comparator.comparing((Path path) -> path.getFileName().toString()).reversed())
-                    .skip(keep)
-                    .forEach(BackupService::deleteQuietly);
+            obsolete = BackupRetention.obsolete(
+                    files.filter(Files::isRegularFile)
+                            .map(path -> path.getFileName().toString())
+                            .toList(),
+                    keep);
         } catch (IOException e) {
-            // فشل الحذف لا يبطل نسخة نجحت للتو؛ أسوأ ما فيه امتلاء المجلد
+            log.warn("تعذّرت قراءة مجلد النسخ الاحتياطية للحذف: {} - {}", directory, messageOf(e));
+            // نصّ الخطأ في السجل لا في الحصيلة: سطر سجل المراقبة key=value محايد اللغة،
+            // ورسالة النظام مترجَمة بلغة الجهاز الذي فشل فتُجمّد السطر عليها
+            return BackupRetention.Pruned.folderUnreadable();
         }
+
+        int deleted = 0;
+        int failed = 0;
+        for (String name : obsolete) {
+            if (delete(directory.resolve(name))) {
+                deleted++;
+            } else {
+                failed++;
+            }
+        }
+        if (failed > 0) {
+            log.warn("لم تُحذف {} نسخة قديمة من {}؛ قد تكون مفتوحة في برنامج آخر أو المجلد للقراءة فقط",
+                    failed, directory);
+        }
+        return new BackupRetention.Pruned(deleted, failed, false);
     }
 
-    private static boolean isBackupFile(Path path) {
-        String name = path.getFileName().toString();
-        return name.startsWith(FILE_PREFIX)
-                && (name.endsWith(SQL_SUFFIX) || name.endsWith(SQL_SUFFIX + BackupCrypto.ENCRYPTED_SUFFIX));
-    }
-
-    private static void deleteQuietly(Path path) {
+    /** يحذف ويقول هل نجح؛ الفشل ليس استثناءً هنا لأنه يقع دائماً بعد عملية تمّت */
+    private static boolean delete(Path path) {
         if (path == null) {
-            return;
+            return false;
         }
         try {
             Files.deleteIfExists(path);
+            return true;
         } catch (IOException e) {
-            // لا شيء مفيد يمكن فعله: الملف مفتوح في برنامج آخر أو المجلد للقراءة فقط
+            // الملف مفتوح في برنامج آخر أو المجلد للقراءة فقط. من ينادينا هو من يقرّر
+            // هل يُعلن ذلك - راجع prune - لأن السياق وحده يحدّد إن كان الفشل يعني شيئاً
+            log.warn("تعذّر حذف الملف {}: {}", path, e.getMessage());
+            return false;
         }
     }
 
