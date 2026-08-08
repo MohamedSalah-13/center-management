@@ -62,8 +62,13 @@ public class StudentService {
         // 3. الحفظ في قاعدة البيانات
         Student saved = studentRepository.save(student);
 
+        // المرحلة تُدوَّن لأنها العمود الوحيد الذي يُمحى بلا أثر: ترقية الطالب سنةً
+        // تكتب فوق قيمته السابقة، فلا يبقى في القاعدة ما يقول في أي صف كان ومتى.
+        // بالاسم لا بالترجمة، كبقية تفاصيل السجل، و"-" لمن لا مرحلة له
         auditService.record(isNew ? AuditAction.STUDENT_CREATED : AuditAction.STUDENT_UPDATED,
-                saved.getId(), saved.getName(), "barcode=" + saved.getBarcode());
+                saved.getId(), saved.getName(),
+                "barcode=" + saved.getBarcode() + "; level="
+                        + (saved.getSchoolLevel() == null ? "-" : saved.getSchoolLevel().name()));
 
         return saved;
     }
