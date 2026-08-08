@@ -179,6 +179,21 @@ public class TransactionService {
         return new ShiftSummary(income, expense, payouts, net);
     }
 
+    /**
+     * مصروفات فترة من تاريخ إلى تاريخ، اليومان طرفاه داخلان فيها.
+     *
+     * <p>النهاية بداية اليوم التالي مع مقارنة "أصغر من"، كما في {@link #getShiftSummary}:
+     * مصروف سُجّل الساعة الحادية عشرة والنصف مساءً في آخر يوم من الشهر يسقط من التقرير
+     * لو كانت النهاية {@code atStartOfDay} أو {@code 23:59:59} - وهو نقص لا يظهر إلا
+     * حين يُقارَن إجمالي التقرير بدفتر الخزينة فلا يتطابقان بلا سبب ظاهر.</p>
+     */
+    @Transactional(readOnly = true)
+    @RequiresRole(Role.ADMIN)
+    public List<Transaction> getExpenses(LocalDate from, LocalDate to) {
+        return transactionRepository.findExpenses(
+                from.atStartOfDay(), to.plusDays(1).atStartOfDay());
+    }
+
     /** الحركات النقدية ليوم محدد (بدون رسوم الحصص) */
     @Transactional(readOnly = true)
     @RequiresRole(Role.ADMIN)

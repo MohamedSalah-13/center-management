@@ -827,6 +827,31 @@ writes the attendance row and the charge in one transaction, and checks "already
 A cashier top-up is deliberately not tied to a session — repeat top-ups are legitimate. The
 duplicate guard lives on the charge side (`chargeSession`).
 
+#### Expenses: two screens, two questions
+
+`Expenses.fxml` **records** an expense and shows one day. `ExpenseReport.fxml` **reads** what
+was recorded over a period — a month, or any two dates — and prints it through
+`ExpenseReport.jrxml`. Same split as `AttendanceLog.fxml` beside the attendance gate: one is
+for whoever holds the till now, the other for whoever adds up the month against its income.
+
+Three things the screen encodes:
+
+- **The month list is a shortcut into the two date pickers, not a second mode.** Only
+  `fromPicker`/`toPicker` are ever asked of the database, so the sheet cannot disagree with
+  the screen. Picking a month writes its two ends; editing either end afterwards clears the
+  month back to "custom period" — a screen naming August while showing half of it is worse
+  than one naming nothing. The `syncing` guard is what keeps the two listeners from undoing
+  each other, exactly like `LanguageSelector`'s.
+- **`TransactionRepository.findExpenses` filters by type in SQL**, unlike the day screen which
+  reuses `findCashMovements` and filters in memory: that is cheap for one day and is reading a
+  year of every movement to discard nine tenths of it over a period. Its end is the *start of
+  the next day* with `<`, so an expense entered at 23:40 on the last day is inside the report —
+  the kind of gap that only shows up as a total that will not match the till book.
+- **The total is computed once, on screen, and passed to `deliverExpenseReport`** (same as
+  `deliverArrearsReport`). Both the summary line and the sheet's footer come from the same
+  number over the same filtered list, search box included — and the search text is printed in
+  the sheet's scope line, or a filtered result reads as the whole period's spending.
+
 ### Groups: level, schedule, membership
 
 A group carries three things beyond its price: the **school level** it serves, the **days and

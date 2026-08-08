@@ -6,6 +6,7 @@ import com.codejava.center.service.dto.AttendanceReportRow;
 import com.codejava.center.service.dto.AuditReportRow;
 import com.codejava.center.service.dto.DayScheduleRow;
 import com.codejava.center.service.dto.EnrollmentReportRow;
+import com.codejava.center.service.dto.ExpenseSheetRow;
 import com.codejava.center.service.dto.ShiftMovementRow;
 import com.codejava.center.service.dto.TeacherListRow;
 import com.codejava.center.service.dto.TeacherSessionRow;
@@ -297,6 +298,13 @@ class ReportTemplateCompileTest {
                         List.of(new DayScheduleRow("٣ث - أ. سامي", "سامي عبد الله",
                                 "الصف الثالث الثانوي", "04:00 م - 06:00 م", "جارية الآن",
                                 "16:05", "—", "12 / 20", DayScheduleRow.State.OPEN)), "16:05"),
+
+                new Sheet("ExpenseReport.jrxml",
+                        List.of("REPORT_TITLE", "SCOPE", "TOTAL_LINE", "COL_SERIAL", "COL_DATE",
+                                "COL_TIME", "COL_DESCRIPTION", "COL_AMOUNT", "PRINTED_AT",
+                                "PAGE_LABEL", "NO_ROWS"),
+                        List.of(new ExpenseSheetRow("1", "2026-08-04", "06:20 م",
+                                "فاتورة كهرباء شهر يوليو", "480.00")), "فاتورة كهرباء شهر يوليو"),
 
                 new Sheet("AuditReport.jrxml",
                         List.of("REPORT_TITLE", "PERIOD", "COL_TIME", "COL_ACTOR", "COL_ACTION",

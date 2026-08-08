@@ -92,6 +92,8 @@
                                 onAction="#showAttendanceLog" maxWidth="Infinity" styleClass="sidebar-btn"/>
                         <Button fx:id="arrearsButton" text="%nav.arrears" onAction="#showArrears"
                                 maxWidth="Infinity" styleClass="sidebar-btn"/>
+                        <Button fx:id="expenseReportButton" text="%nav.expenseReport"
+                                onAction="#showExpenseReport" maxWidth="Infinity" styleClass="sidebar-btn"/>
                         <Button fx:id="notificationsButton" text="%nav.notifications"
                                 onAction="#showNotifications" maxWidth="Infinity" styleClass="sidebar-btn"/>
                         <Button fx:id="alertsButton" text="%nav.alerts" onAction="#showAlerts"

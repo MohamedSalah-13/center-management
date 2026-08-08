@@ -47,6 +47,25 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
                                         @Param("endDate") LocalDateTime endDate);
 
     /**
+     * مصروفات فترة، الأحدث أولاً.
+     *
+     * <p>غير {@link #findCashMovements}: ذاك يجمع كل ما تحرّك في الدرج ليوم واحد -
+     * وارداً ومنصرفاً ومستحقاتٍ مصروفة - وهذا نوع واحد على امتداد شهر أو أكثر. ولذلك
+     * التصفية بالنوع في الاستعلام لا في الذاكرة: قراءة حركات سنة كاملة لتُرمى تسعة
+     * أعشارها هي ما كانت شاشة المصروفات تفعله ليومها الواحد.</p>
+     *
+     * <p>لا {@code JOIN FETCH}: المصروف حركة عامة بلا طالب ولا مجموعة.</p>
+     */
+    @Query("""
+            SELECT t FROM Transaction t
+            WHERE t.type = com.codejava.center.domain.enums.TransactionType.EXPENSE
+              AND t.transactionDate >= :startDate AND t.transactionDate < :endDate
+            ORDER BY t.transactionDate DESC
+            """)
+    List<Transaction> findExpenses(@Param("startDate") LocalDateTime startDate,
+                                   @Param("endDate") LocalDateTime endDate);
+
+    /**
      * رصيد الطالب = مجموع ما دفعه (INCOME) ناقص مجموع رسوم الحصص المخصومة (SESSION_CHARGE).
      * الحركات السابقة لتاريخ بداية دفتر الحسابات تُستبعد، لأن الدفعات القديمة
      * ليست لها خصومات مقابلة وستُظهر الطالب دائناً بمبلغ وهمي.

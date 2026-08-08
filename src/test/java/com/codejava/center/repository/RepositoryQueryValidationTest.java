@@ -228,6 +228,39 @@ class RepositoryQueryValidationTest {
                 LocalDateTime.now().minusDays(30), LocalDateTime.now())).isEmpty();
     }
 
+    /**
+     * تقرير المصروفات يقرأ المصروفات وحدها، وداخل فترته وحدها.
+     *
+     * <p>الفشل هنا لا يُرى: استعلامٌ ينسى شرط النوع يُخرج ورقةً إجماليها يشمل اشتراكات
+     * الطلاب ومستحقات المعلمين تحت عنوان "مصروفات السنتر"، وهي أرقام تُقارَن بدفتر
+     * الخزينة ثم يُبحث عن الفرق في مكان آخر.</p>
+     */
+    @Test
+    void expenseQuerySelectsOnlyExpensesInsideThePeriod() {
+        Student student = persistStudent("STU-EXP01", "طالب مصروفات");
+
+        // اشتراك في نفس اليوم: نقدٌ في الدرج لكنه ليس مصروفاً
+        transactionRepository.saveAndFlush(transaction(student, TransactionType.INCOME, "200.00"));
+
+        Transaction today = transaction(null, TransactionType.EXPENSE, "150.00");
+        today.setDescription("فاتورة كهرباء");
+        transactionRepository.saveAndFlush(today);
+
+        Transaction lastMonth = transaction(null, TransactionType.EXPENSE, "90.00");
+        lastMonth.setTransactionDate(LocalDateTime.now().minusMonths(2));
+        transactionRepository.saveAndFlush(lastMonth);
+
+        // آخر لحظة في آخر يوم: النهاية بداية اليوم التالي، وبغيرها يسقط هذا الصف
+        Transaction lateTonight = transaction(null, TransactionType.EXPENSE, "40.00");
+        lateTonight.setTransactionDate(LocalDate.now().atTime(23, 59, 59));
+        transactionRepository.saveAndFlush(lateTonight);
+
+        assertThat(transactionRepository.findExpenses(
+                LocalDate.now().atStartOfDay(), LocalDate.now().plusDays(1).atStartOfDay()))
+                .extracting(Transaction::getAmount)
+                .containsExactlyInAnyOrder(new BigDecimal("150.00"), new BigDecimal("40.00"));
+    }
+
     @Test
     void attendanceQueriesAreValid() {
         assertThat(attendanceRepository.countAttendancePerDay(LocalDate.now().minusDays(6))).isEmpty();

@@ -148,6 +148,8 @@ public class DashboardController {
     @FXML
     private Button expensesButton;
     @FXML
+    private Button expenseReportButton;
+    @FXML
     private Button teacherPayoutButton;
     @FXML
     private Button arrearsButton;
@@ -420,8 +422,8 @@ public class DashboardController {
         if (!isAdmin) {
             for (Button restricted : new Button[]{
                     cashierButton, groupsButton, teachersButton, usersManagementButton, settingsButton,
-                    shiftClosingButton, expensesButton, teacherPayoutButton, arrearsButton, notificationsButton,
-                    alertsButton, auditButton}) {
+                    shiftClosingButton, expensesButton, expenseReportButton, teacherPayoutButton,
+                    arrearsButton, notificationsButton, alertsButton, auditButton}) {
                 hide(restricted);
             }
             // بطاقة صافي الدرج ومخطط الإيرادات بيانات مالية أيضاً
@@ -544,6 +546,11 @@ public class DashboardController {
     @FXML
     public void showExpenses(ActionEvent event) {
         loadView("/fxml/Expenses.fxml", expensesButton);
+    }
+
+    @FXML
+    public void showExpenseReport(ActionEvent event) {
+        loadView("/fxml/ExpenseReport.fxml", expenseReportButton);
     }
 
     @FXML

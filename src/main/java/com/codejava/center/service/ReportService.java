@@ -13,6 +13,7 @@ import com.codejava.center.service.dto.AttendanceSummary;
 import com.codejava.center.service.dto.AuditReportRow;
 import com.codejava.center.service.dto.DayScheduleRow;
 import com.codejava.center.service.dto.EnrollmentReportRow;
+import com.codejava.center.service.dto.ExpenseSheetRow;
 import com.codejava.center.service.dto.GroupAttendanceReport;
 import com.codejava.center.service.dto.GroupListRow;
 import com.codejava.center.service.dto.GroupRosterRow;
@@ -200,6 +201,46 @@ public class ReportService {
                 .toList();
 
         return deliver(fill("AttendanceReport.jrxml", parameters, rows), "attendance_",
+                DocumentKind.REPORT);
+    }
+
+    /**
+     * تقرير المصروفات خلال فترة: بندٌ لكل مصروف، وإجماليها في آخر الورقة.
+     *
+     * <p>الإجمالي يصل وسيطاً من الشاشة لا يُحسب هنا، كما في {@link #deliverArrearsReport}:
+     * الرقم المطبوع هو الرقم الذي رآه المستخدم قبل أن يضغط الطباعة، وحسابُه مرة ثانية
+     * يفتح باب أن يخالف الورقةُ الشاشةَ - وورقة مصروفات تخالف ما على الشاشة تُفقد الثقة
+     * في الاثنتين معاً.</p>
+     *
+     * <p>ووصف التصفية يُطبع ويتكرّر في رأس كل صفحة: ورقةٌ تُقرأ بعد شهرين بلا سطر يقول
+     * "من كذا إلى كذا" تُقرأ على أنها مصروفات السنتر كلها.</p>
+     */
+    public SheetDelivery deliverExpenseReport(List<Transaction> expenses,
+                                              java.math.BigDecimal total, String filterDescription) {
+        Map<String, Object> parameters = withSheetFooter(withCenterHeader(new java.util.HashMap<>()));
+        parameters.put("REPORT_TITLE", I18n.get("report.expenses.title"));
+        parameters.put("SCOPE", I18n.format("report.expenses.scope", filterDescription, expenses.size()));
+        parameters.put("TOTAL_LINE", I18n.format("report.expenses.total",
+                expenses.size(), MoneyUtils.formatWithCurrency(total)));
+        parameters.put("COL_SERIAL", I18n.get("report.group.col.serial"));
+        parameters.put("COL_DATE", I18n.get("expenseReport.col.date"));
+        parameters.put("COL_TIME", I18n.get("expenseReport.col.time"));
+        parameters.put("COL_DESCRIPTION", I18n.get("expenseReport.col.description"));
+        parameters.put("COL_AMOUNT", I18n.get("expenseReport.col.amount"));
+        parameters.put("NO_ROWS", I18n.get("report.expenses.noRows"));
+
+        DateTimeFormatter clock = DateTimeFormatter.ofPattern("hh:mm a");
+        int[] serial = {0};
+        List<ExpenseSheetRow> rows = expenses.stream()
+                .map(expense -> new ExpenseSheetRow(
+                        String.valueOf(++serial[0]),
+                        String.valueOf(expense.getTransactionDate().toLocalDate()),
+                        expense.getTransactionDate().format(clock),
+                        expense.getDescription(),
+                        MoneyUtils.format(expense.getAmount())))
+                .toList();
+
+        return deliver(fill("ExpenseReport.jrxml", parameters, rows), "expenses_",
                 DocumentKind.REPORT);
     }
 
