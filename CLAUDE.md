@@ -803,6 +803,62 @@ via `findActiveForStudent`, reporting ambiguity by name rather than guessing.
 `CourseGroup` now carries a weekly timetable, but a `Session` is still opened by hand and has no
 time of its own — the timetable says when the group *should* meet, not when it did.
 
+### The day's timetable, and the card that opens with the program
+
+`DayScheduleService` answers one question in two shapes. `getSchedule(date)` is the row per
+group behind `DaySchedule.fxml` and its printed sheet; `brief(date, asOf)` is the same day in
+four numbers plus the next group due, for the toast that greets whoever opens the program.
+
+**Both go through `dueOn` and `stateOf`, and that is the point.** "Which groups belong to this
+day" is one rule — meets today, *or* has a session opened today (a make-up class in a room right
+now) — and a briefing that counted five while the screen listed six would make the user
+distrust both. `brief` deliberately does not go through `describe`: that asks the database
+twice per group for attendee and enrolment counts, numbers the card does not show, and the card
+is built in the second the program opens.
+
+The card itself is `DashboardController.showDayBriefing`, a `Toasts` card and **no tray
+balloon** — the app is in the foreground by definition. Clicking it opens the full timetable:
+the card carries the counts, the screen carries who and when. It shows for every role, since
+the person at the desk is the first who needs to know four groups have no session yet, and it
+names no student and no amount.
+
+**It waits `BRIEFING_DELAY` (10s) first, and the delay is not politeness.** `Toasts` computes
+the card's position from the owner window's coordinates at the moment it is shown, and the
+window is still being maximised in the second after sign-in — the card would be pinned to the
+corner of the small window and then left stranded mid-screen as the window grows under it. The
+read happens *after* the wait, not before, so the card describes the centre at the moment it
+appears. The pending `PauseTransition` is cancelled in `stopAlertFeed()`: ten seconds is long
+enough to sign out, and a timetable floating over the login screen is the same bug the toasts
+and the feed are already torn down for.
+
+**Once per login, not once per screen build.** The guard is `UserSession.claimDayBriefing()`
+rather than a field on the controller, because `DashboardController` is `PROTOTYPE` and is
+rebuilt on every language switch — a field there is fresh each time and the card jumps at
+someone who only changed the language. Switching language is not a new sign-in; signing out and
+back in is, and the day may have changed in between.
+
+`AlertPreferences.dayBriefingEnabled()` (per machine, default on) is its own key beside the
+alert popup switches. It is not an alert type and no severity floor governs it: raising the
+floor to silence balance cards must not also silence a summary that says nothing about anybody.
+
+#### The notification chime
+
+`util/Sounds.notifyUser()` plays a two-note chime beside the briefing card and **once per
+announced alert batch** — not once per card, since three tones in a row read as a fault in the
+speakers and get the whole thing switched off on day one. It is gated by
+`AlertPreferences.soundEnabled()` (per machine, default on) and the checkbox plays it on save,
+because "is sound working on this terminal" is only answerable by hearing it.
+
+**The tone is synthesised, not a file.** The project ships no binary asset — this is the same
+reason the tray icon is drawn in code — and `javafx-media` is not a dependency, so `AudioClip`
+does not exist here. `javax.sound.sampled` from the JDK means nothing to bundle in jpackage and
+no path that differs between running from source and running installed. Two details that are
+audible when wrong: each note carries an attack/release envelope, because a wave that starts at
+full amplitude in one sample clicks through the speaker; and playback runs on a single daemon
+thread, since `line.write` blocks for the whole quarter-second and the JVM must not be held open
+by it. `Toolkit.beep()` is the fallback only — on Windows it is the *error* sound, which is
+exactly why the attendance screen uses it for a refused scan and why news must not.
+
 ### Check-in and check-out
 
 `Attendance` carries `timeIn` **and `timeOut`** (V11). One barcode reader serves both doors:

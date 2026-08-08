@@ -6,6 +6,7 @@ import com.codejava.center.repository.AttendanceRepository;
 import com.codejava.center.repository.CourseGroupRepository;
 import com.codejava.center.repository.SessionRepository;
 import com.codejava.center.repository.StudentGroupRepository;
+import com.codejava.center.service.dto.DayBriefing;
 import com.codejava.center.service.dto.DayScheduleRow;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.Moments;
@@ -56,20 +57,78 @@ public class DayScheduleService {
     @Transactional(readOnly = true)
     public List<DayScheduleRow> getSchedule(LocalDate date) {
         Map<Long, Session> sessionsByGroup = sessionsOf(date);
-
-        List<CourseGroup> due = courseGroupRepository.findAll().stream()
-                .filter(group -> meetsOn(group, date) || sessionsByGroup.containsKey(group.getId()))
-                .sorted(Comparator
-                        .comparing(CourseGroup::getStartTime,
-                                Comparator.nullsLast(Comparator.<LocalTime>naturalOrder()))
-                        .thenComparing(CourseGroup::getName))
-                .toList();
+        List<CourseGroup> due = dueOn(date, sessionsByGroup);
 
         List<DayScheduleRow> rows = new ArrayList<>(due.size());
         for (CourseGroup group : due) {
             rows.add(describe(group, sessionsByGroup.get(group.getId()), date));
         }
         return rows;
+    }
+
+    /**
+     * الموجز نفسه في أربعة أرقام، ومعها أقرب موعد لم يحن بعد.
+     *
+     * <p>يمرّ من {@link #dueOn} و{@link #stateOf} كما يمرّ الجدول، فلا يمكن أن يقول
+     * "خمس مجموعات اليوم" بينما تعرض الشاشة ستّة صفوف: قاعدة "أي المجموعات يخصّها هذا
+     * اليوم" مكتوبة مرة واحدة. ولا يمرّ من {@link #describe}، لأن ذاك يسأل قاعدة
+     * البيانات مرتين عن كل مجموعة (الحاضرون والمشتركون) - وهي أرقام لا تظهر في الموجز
+     * أصلاً، ولا يُدفع ثمنها في لحظة فتح البرنامج.</p>
+     *
+     * @param asOf اللحظة التي يُقاس عليها "لم يحن بعد"؛ ما مضى موعده لا يُعدّ قادماً،
+     *             وهو ما يجعل الموجز يقول الحقيقة عند فتح البرنامج ظهراً وعصراً
+     */
+    @Transactional(readOnly = true)
+    public DayBriefing brief(LocalDate date, LocalTime asOf) {
+        Map<Long, Session> sessionsByGroup = sessionsOf(date);
+        List<CourseGroup> due = dueOn(date, sessionsByGroup);
+
+        long open = 0;
+        long notOpened = 0;
+        long closed = 0;
+        CourseGroup next = null;
+
+        for (CourseGroup group : due) {
+            switch (stateOf(sessionsByGroup.get(group.getId()))) {
+                case OPEN -> open++;
+                case CLOSED -> closed++;
+                case NOT_OPENED -> {
+                    notOpened++;
+                    // القائمة مرتّبة بالموعد، فأول قادم فيها هو أقربها - ومن لا موعد
+                    // له يقع في ذيلها ولا يجتاز شرط الموعد أصلاً
+                    if (next == null && isUpcoming(group, date, asOf)) {
+                        next = group;
+                    }
+                }
+            }
+        }
+
+        return new DayBriefing(due.size(), open, notOpened, closed,
+                next == null ? null : next.getName(),
+                next == null ? null : next.getStartTime());
+    }
+
+    /**
+     * مجموعات اليوم مرتّبةً بموعد الانعقاد: أقرب المواعيد أولاً، وما لا موعد له في الذيل.
+     *
+     * <p>وتشمل مجموعةً لا يجتمع موعدها اليوم ولها حصة مفتوحة - حصة تعويضية - وإلا كان
+     * "جدول اليوم" يخفي حصةً جارية الآن في قاعة من قاعات السنتر.</p>
+     */
+    private List<CourseGroup> dueOn(LocalDate date, Map<Long, Session> sessionsByGroup) {
+        return courseGroupRepository.findAll().stream()
+                .filter(group -> meetsOn(group, date) || sessionsByGroup.containsKey(group.getId()))
+                .sorted(Comparator
+                        .comparing(CourseGroup::getStartTime,
+                                Comparator.nullsLast(Comparator.<LocalTime>naturalOrder()))
+                        .thenComparing(CourseGroup::getName))
+                .toList();
+    }
+
+    /** مجموعة موعدها اليوم ولم يحن بعد. الموعد الفارغ ليس قادماً: لا شيء يُقال عنه */
+    private boolean isUpcoming(CourseGroup group, LocalDate date, LocalTime asOf) {
+        return meetsOn(group, date)
+                && group.getStartTime() != null
+                && !group.getStartTime().isBefore(asOf);
     }
 
     /**
@@ -92,9 +151,16 @@ public class DayScheduleService {
         return group.getMeetingDays() != null && group.getMeetingDays().contains(date.getDayOfWeek());
     }
 
+    /** ما جرى للمجموعة اليوم، من حصتها إن وُجدت. الجدول والموجز يقرآنه من هنا وحده */
+    private DayScheduleRow.State stateOf(Session session) {
+        if (session == null) {
+            return DayScheduleRow.State.NOT_OPENED;
+        }
+        return session.isActive() ? DayScheduleRow.State.OPEN : DayScheduleRow.State.CLOSED;
+    }
+
     private DayScheduleRow describe(CourseGroup group, Session session, LocalDate date) {
-        DayScheduleRow.State state = session == null ? DayScheduleRow.State.NOT_OPENED
-                : session.isActive() ? DayScheduleRow.State.OPEN : DayScheduleRow.State.CLOSED;
+        DayScheduleRow.State state = stateOf(session);
 
         // عدد المشتركين يُقرأ بتاريخ اليوم المعروض لا بعدد الأعضاء الآن: طالب خرج
         // الأسبوع الماضي لم يكن غائباً عن حصة الثلاثاء التي سبقت خروجه

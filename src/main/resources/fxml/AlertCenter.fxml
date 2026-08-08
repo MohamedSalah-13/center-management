@@ -134,11 +134,19 @@
                     <ComboBox fx:id="deviceSeverityCombo" prefWidth="180.0"
                               GridPane.columnIndex="1" GridPane.rowIndex="2"/>
 
+                    <!-- الحدّ أعلاه لا يحكمه: موجز اليوم ليس تنبيهاً من الأنواع، بل خبر
+                         بداية اليوم يُعرض مرة واحدة عند الدخول -->
+                    <CheckBox fx:id="deviceBriefingCheck" text="%alerts.device.briefing"
+                              GridPane.columnIndex="2" GridPane.rowIndex="2" GridPane.columnSpan="2"/>
+
+                    <CheckBox fx:id="deviceSoundCheck" text="%alerts.device.sound"
+                              GridPane.columnIndex="0" GridPane.rowIndex="3" GridPane.columnSpan="4"/>
+
                     <Label text="%alerts.device.note" textFill="#7f8c8d" wrapText="true"
-                           GridPane.columnIndex="0" GridPane.rowIndex="3" GridPane.columnSpan="4"/>
+                           GridPane.columnIndex="0" GridPane.rowIndex="4" GridPane.columnSpan="4"/>
 
                     <HBox spacing="10.0" alignment="CENTER_RIGHT"
-                          GridPane.columnIndex="0" GridPane.rowIndex="4" GridPane.columnSpan="4">
+                          GridPane.columnIndex="0" GridPane.rowIndex="5" GridPane.columnSpan="4">
                         <Button text="%alerts.device.save" onAction="#handleSaveDevicePrefs"
                                 style="-fx-background-color: #2c3e50; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 20;"/>
                     </HBox>

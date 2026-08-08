@@ -10,6 +10,7 @@ import com.codejava.center.service.alert.AlertScanResult;
 import com.codejava.center.service.alert.AlertService;
 import com.codejava.center.service.dto.AlertPage;
 import com.codejava.center.util.AlertPreferences;
+import com.codejava.center.util.Sounds;
 import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
@@ -82,7 +83,7 @@ public class AlertCenterController {
     @FXML private Spinner<Integer> scanHourSpinner, scanMinuteSpinner;
     @FXML private Label lastScanLabel;
 
-    @FXML private CheckBox devicePopupCheck, deviceTrayCheck;
+    @FXML private CheckBox devicePopupCheck, deviceTrayCheck, deviceBriefingCheck, deviceSoundCheck;
     @FXML private ComboBox<AlertSeverity> deviceSeverityCombo;
 
     @FXML private TableView<AlertRule> rulesTable;
@@ -493,6 +494,8 @@ public class AlertCenterController {
 
         devicePopupCheck.setSelected(AlertPreferences.popupEnabled());
         deviceTrayCheck.setSelected(AlertPreferences.trayEnabled());
+        deviceBriefingCheck.setSelected(AlertPreferences.dayBriefingEnabled());
+        deviceSoundCheck.setSelected(AlertPreferences.soundEnabled());
         deviceSeverityCombo.setValue(AlertPreferences.minimumSeverity());
     }
 
@@ -500,7 +503,14 @@ public class AlertCenterController {
     public void handleSaveDevicePrefs(ActionEvent event) {
         try {
             AlertPreferences.save(devicePopupCheck.isSelected(), deviceTrayCheck.isSelected(),
+                    deviceBriefingCheck.isSelected(), deviceSoundCheck.isSelected(),
                     deviceSeverityCombo.getValue());
+
+            // النغمة تُسمَع لحظة حفظها لا عند أول تنبيه: من فعّلها يريد أن يعرف
+            // كيف تبدو وأن مخرج الصوت في هذا الجهاز يعمل أصلاً
+            if (deviceSoundCheck.isSelected()) {
+                Sounds.notifyUser();
+            }
             Dialogs.success(I18n.get("common.updated"));
         } catch (RuntimeException e) {
             Dialogs.error(FxAsync.messageOf(e));

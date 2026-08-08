@@ -6,6 +6,7 @@ import com.codejava.center.domain.enums.AlertSeverity;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.service.AttendanceService;
 import com.codejava.center.service.AuthService;
+import com.codejava.center.service.DayScheduleService;
 import com.codejava.center.service.SessionService;
 import com.codejava.center.service.SettingsService;
 import com.codejava.center.service.StudentService;
@@ -14,6 +15,7 @@ import com.codejava.center.service.alert.AlertBatch;
 import com.codejava.center.service.alert.AlertFeed;
 import com.codejava.center.service.alert.AlertService;
 import com.codejava.center.service.dto.DailyAttendance;
+import com.codejava.center.service.dto.DayBriefing;
 import com.codejava.center.service.dto.GroupRevenue;
 import com.codejava.center.util.AlertPreferences;
 import com.codejava.center.util.Dialogs;
@@ -21,12 +23,15 @@ import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.LanguageSelector;
 import com.codejava.center.util.MoneyUtils;
+import com.codejava.center.util.Sounds;
 import com.codejava.center.util.Toasts;
 import com.codejava.center.util.TrayNotifier;
 import com.codejava.center.util.UiScale;
 import com.codejava.center.util.UiScaleSelector;
 import com.codejava.center.util.UserSession;
 import com.codejava.center.util.ViewLoader;
+import com.codejava.center.util.WeekDays;
+import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -55,6 +60,7 @@ import javafx.scene.shape.Circle;
 import javafx.stage.Popup;
 import javafx.stage.Stage;
 import javafx.stage.Window;
+import javafx.util.Duration;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
@@ -64,6 +70,7 @@ import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
@@ -88,12 +95,19 @@ public class DashboardController {
     private final AlertService alertService;
     private final AlertFeed alertFeed;
     private final TrayNotifier trayNotifier;
+    private final DayScheduleService dayScheduleService;
 
     private static final String ACTIVE_STYLE_CLASS = "sidebar-btn-active";
     private static final String BELL_ALERT_STYLE_CLASS = "bell-btn-alert";
 
     /** فوق هذا العدد تُلخَّص الدفعة في بطاقة واحدة بدل بطاقة لكل تنبيه */
     private static final int INDIVIDUAL_TOAST_LIMIT = 3;
+
+    /**
+     * مهلة موجز اليوم بعد ظهور اللوحة: تكفي لتكبير النافذة وبناء المخططات، وتبقى
+     * أقصر من أن يكون المستخدم قد انتقل إلى شاشة أخرى وبدأ عمله فعلاً.
+     */
+    private static final Duration BRIEFING_DELAY = Duration.seconds(10);
 
     /** ما تعرضه قائمة الجرس؛ الباقي في صندوق التنبيهات وهو المكان الذي يُقرأ فيه */
     private static final int DROPDOWN_ROWS = 8;
@@ -102,6 +116,9 @@ public class DashboardController {
 
     private Popup dropdown;
     private long openAlertCount;
+
+    /** مهلة موجز اليوم المعلّقة، لتُلغى إن هُجرت هذه النسخة قبل انقضائها */
+    private PauseTransition briefingDelay;
     @FXML
     private StackPane contentArea;
     @FXML
@@ -207,6 +224,88 @@ public class DashboardController {
         loadDashboardStats();
         loadChartsData();
         startAlertFeed();
+        showDayBriefing();
+    }
+
+    // ================================================================ موجز اليوم
+
+    /**
+     * ماذا يعمل اليوم؟ سؤالٌ يُسأل أول ما يُفتح البرنامج، فيُجاب قبل أن يُسأل.
+     *
+     * <p>بطاقة واحدة تختفي وحدها، لا نافذةَ تُغلق بضغطة: الموظف يفتح البرنامج ليبدأ
+     * عمله، ونافذةٌ تعترضه كل صباح تُغلق دون قراءة بعد أسبوع. والضغط عليها يفتح جدول
+     * اليوم كاملاً - البطاقة تقول الأرقام، والشاشة تقول من ومتى.</p>
+     *
+     * <p>لكل الأدوار لا للمدير وحده: من يجلس على المكتب أمام الباب هو أول من يحتاج أن
+     * يعرف أن أربع مجموعات لم تُفتح لها حصة بعد. ولا شيء في الموجز ماليّ ولا شخصيّ -
+     * أعداد مجموعات واسم أقرب موعد.</p>
+     *
+     * <p>ولا إشعار في شريط المهام معه، بخلاف التنبيهات: البرنامج قد فُتح توّاً وهو أمام
+     * المستخدم على الشاشة، وفقاعةٌ خلفه تكرار لما يقرؤه.</p>
+     *
+     * <p><b>وبعد مهلة {@link #BRIEFING_DELAY}.</b> لحظةَ الدخول تُكبَّر النافذة وتُبنى
+     * المخططات، و{@code Toasts} يحسب موضع البطاقة من إحداثيات النافذة وقتها - فتُرسم
+     * البطاقة في زاوية النافذة الصغيرة ثم تكبر النافذة من تحتها وتتركها معلّقة في وسط
+     * الشاشة. والمهلة فوق ذلك أدب: من فتح البرنامج توّاً ما زال ينظر إلى الشاشة وهي
+     * تُبنى، وبطاقةٌ تظهر في تلك الثانية تُقرأ جزءاً من الضجيج.</p>
+     */
+    private void showDayBriefing() {
+        if (!AlertPreferences.dayBriefingEnabled() || !userSession.claimDayBriefing()) {
+            return;
+        }
+
+        briefingDelay = new PauseTransition(BRIEFING_DELAY);
+        briefingDelay.setOnFinished(event -> loadDayBriefing());
+        briefingDelay.play();
+    }
+
+    /**
+     * القراءة بعد المهلة لا قبلها: البطاقة تقول حال السنتر لحظة ظهورها، وحصةٌ فُتحت
+     * أثناء الانتظار كانت ستجعلها تكذب بعشر ثوانٍ. والاستعلام أيضاً لا يزاحم بذلك
+     * استعلامات فتح اللوحة.
+     */
+    private void loadDayBriefing() {
+        // النافذة قد تكون أُغلقت أو استُبدلت في هذه العشر ثوانٍ - والبطاقة تُعلَّق على
+        // نافذة، فلا معنى لقراءةٍ لا موضع لعرضها
+        if (window() == null || !window().isShowing()) {
+            return;
+        }
+
+        FxAsync.supply(() -> dayScheduleService.brief(LocalDate.now(), LocalTime.now()),
+                this::announceBriefing,
+                error -> { /* موجزٌ لم يصل أهون من نافذة خطأ في وجه من فتح البرنامج توّاً */ });
+    }
+
+    private void announceBriefing(DayBriefing brief) {
+        if (!AlertPreferences.popupEnabled()) {
+            return;
+        }
+
+        Toasts.show(window(), I18n.get("daySchedule.brief.title"), briefingText(brief),
+                AlertSeverity.INFO.getAccentColor(), () -> showDaySchedule(null));
+
+        // النغمة بعد البطاقة لا قبلها: من رفع بصره على الصوت يجب أن يجد ما يقرؤه
+        Sounds.notifyUser();
+    }
+
+    /**
+     * السطر الأول أرقام اليوم، والثاني أقرب موعد إن بقي منه شيء.
+     *
+     * <p>ويوم بلا مجموعات يُقال صراحةً: بطاقةٌ تعرض أصفاراً أربعة تُقرأ على أنها عطل في
+     * البرنامج لا على أنها إجازة.</p>
+     */
+    private String briefingText(DayBriefing brief) {
+        if (brief.isEmpty()) {
+            return I18n.get("daySchedule.brief.none");
+        }
+
+        String counts = I18n.format("daySchedule.brief.counts",
+                brief.total(), brief.open(), brief.notOpened(), brief.closed());
+
+        return brief.hasNext()
+                ? counts + "\n" + I18n.format("daySchedule.brief.next",
+                        brief.nextGroupName(), WeekDays.describeTime(brief.nextStartTime()))
+                : counts;
     }
 
     /**
@@ -430,6 +529,10 @@ public class DashboardController {
         } else {
             announce.forEach(this::announceOne);
         }
+
+        // نغمة واحدة للدفعة لا لكل بطاقة: ثلاث نغمات متتابعة تُقرأ عطلاً في الصوت،
+        // وتُطفأ النغمة كلها في أول يوم
+        Sounds.notifyUser();
     }
 
     private void announceOne(Alert alert) {
@@ -586,6 +689,13 @@ public class DashboardController {
         alertFeed.detach();
         dismissDropdown();
         Toasts.hideAll();
+
+        // مهلة الموجز المعلّقة تُلغى هنا أيضاً: عشر ثوانٍ تكفي لتسجيل الخروج، وبطاقةٌ
+        // تُبنى بعدها تعلّق جدول اليوم فوق شاشة الدخول
+        if (briefingDelay != null) {
+            briefingDelay.stop();
+            briefingDelay = null;
+        }
     }
     private void loadDashboardStats() {
         // البيانات المالية متاحة للمدير فقط؛ استدعاؤها بصلاحية سكرتارية

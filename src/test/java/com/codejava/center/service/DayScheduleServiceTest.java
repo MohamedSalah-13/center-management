@@ -11,6 +11,7 @@ import com.codejava.center.repository.SessionRepository;
 import com.codejava.center.repository.StudentGroupRepository;
 import com.codejava.center.repository.StudentRepository;
 import com.codejava.center.repository.TeacherRepository;
+import com.codejava.center.service.dto.DayBriefing;
 import com.codejava.center.service.dto.DayScheduleRow;
 import com.codejava.center.util.I18n;
 import org.junit.jupiter.api.BeforeEach;
@@ -146,6 +147,55 @@ class DayScheduleServiceTest {
         group("مجموعة الاثنين", Set.of(DayOfWeek.MONDAY), LocalTime.of(16, 0));
 
         assertThat(dayScheduleService.getSchedule(MONDAY.plusDays(4))).isEmpty();
+    }
+
+    /**
+     * موجز البطاقة التي تظهر عند فتح البرنامج: نفس أرقام الشاشة، وأقرب موعد لم يحن بعد.
+     *
+     * <p>"أقرب موعد" هو ما يُخطئ بصمت: مجموعةٌ مضى موعدها ولم تُفتح تبقى في عدّ "لم
+     * تُفتح" - وهي مشكلة قائمة - لكنها لا تصلح جواباً لسؤال "ما التالي".</p>
+     */
+    @Test
+    void briefsTheDayWithItsCountsAndTheNextGroupDue() {
+        CourseGroup running = group("جارية", Set.of(DayOfWeek.MONDAY), LocalTime.of(14, 0));
+        CourseGroup missed = group("فات موعدها", Set.of(DayOfWeek.MONDAY), LocalTime.of(15, 0));
+        CourseGroup next = group("التالية", Set.of(DayOfWeek.MONDAY), LocalTime.of(18, 0));
+        group("بعد التالية", Set.of(DayOfWeek.MONDAY), LocalTime.of(20, 0));
+        group("مجموعة الثلاثاء", Set.of(DayOfWeek.TUESDAY), LocalTime.of(16, 0)); // ليست من اليوم
+
+        openSessionOn(running, MONDAY, true);
+
+        DayBriefing brief = dayScheduleService.brief(MONDAY, LocalTime.of(16, 30));
+
+        assertThat(brief.total()).isEqualTo(4);
+        assertThat(brief.open()).isEqualTo(1);
+        assertThat(brief.notOpened()).isEqualTo(3); // منها التي فات موعدها
+        assertThat(brief.closed()).isZero();
+        assertThat(brief.hasNext()).isTrue();
+        assertThat(brief.nextGroupName()).isEqualTo(next.getName());
+        assertThat(brief.nextStartTime()).isEqualTo(LocalTime.of(18, 0));
+        assertThat(missed.getName()).isNotEqualTo(brief.nextGroupName());
+    }
+
+    /** آخر مواعيد اليوم مضى: لا "تالية" تُخترع، والبطاقة تُسقط سطرها */
+    @Test
+    void reportsNoNextGroupOnceTheLastSlotHasPassed() {
+        CourseGroup last = group("آخر مجموعة", Set.of(DayOfWeek.MONDAY), LocalTime.of(18, 0));
+        openSessionOn(last, MONDAY, false);
+
+        DayBriefing brief = dayScheduleService.brief(MONDAY, LocalTime.of(21, 0));
+
+        assertThat(brief.closed()).isEqualTo(1);
+        assertThat(brief.hasNext()).isFalse();
+        assertThat(brief.nextStartTime()).isNull();
+    }
+
+    /** يوم إجازة: الموجز يقول "لا شيء" صراحةً بدل أربعة أصفار تُقرأ على أنها عطل */
+    @Test
+    void reportsAnEmptyDayAsEmpty() {
+        group("مجموعة الاثنين", Set.of(DayOfWeek.MONDAY), LocalTime.of(16, 0));
+
+        assertThat(dayScheduleService.brief(MONDAY.plusDays(4), LocalTime.of(9, 0)).isEmpty()).isTrue();
     }
 
     private CourseGroup group(String name, Set<DayOfWeek> days, LocalTime start) {

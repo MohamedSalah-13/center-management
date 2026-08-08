@@ -15,8 +15,11 @@ public class UserSession {
 
     private volatile User currentUser;
 
+    private volatile boolean dayBriefingShown;
+
     public void setCurrentUser(User user) {
         this.currentUser = user;
+        this.dayBriefingShown = false;
     }
 
     public User getCurrentUser() {
@@ -25,6 +28,24 @@ public class UserSession {
 
     public void cleanUserSession() {
         this.currentUser = null;
+        this.dayBriefingShown = false;
+    }
+
+    /**
+     * موجز اليوم يُعرض مرة واحدة لكل دخول: أول من يطلبه يأخذه، ومن بعده لا شيء.
+     *
+     * <p>الحارس هنا لا في المتحكّم لأن {@code DashboardController} نموذج
+     * ({@code PROTOTYPE}) يُعاد بناؤه مع كل تبديل للغة أو لحجم الخط، فحقلٌ بداخله يولد
+     * فارغاً في كل مرة وتقفز البطاقة من جديد على من غيّر اللغة فحسب. والجلسة هي المدى
+     * الصحيح: تبديل اللغة ليس دخولاً جديداً، وتسجيل الخروج ثم الدخول هو دخول جديد
+     * فعلاً - وقد يكون اليوم تغيّر بينهما.</p>
+     */
+    public boolean claimDayBriefing() {
+        if (dayBriefingShown) {
+            return false;
+        }
+        this.dayBriefingShown = true;
+        return true;
     }
 
     public boolean hasRole(Role role) {

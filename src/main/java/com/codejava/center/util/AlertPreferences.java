@@ -21,6 +21,8 @@ public final class AlertPreferences {
     private static final String POPUP_KEY = "alerts.popupEnabled";
     private static final String TRAY_KEY = "alerts.trayEnabled";
     private static final String MIN_SEVERITY_KEY = "alerts.minimumSeverity";
+    private static final String DAY_BRIEFING_KEY = "alerts.dayBriefingEnabled";
+    private static final String SOUND_KEY = "alerts.soundEnabled";
 
     /**
      * أدنى درجة تستحق أن تقفز أمام المستخدم. {@code WARNING} لا {@code INFO}:
@@ -55,16 +57,41 @@ public final class AlertPreferences {
         }
     }
 
+    /**
+     * هل يُعرض موجز جدول اليوم عند فتح البرنامج على هذا الجهاز؟
+     *
+     * <p>مفتاح مستقلّ عن {@link #popupEnabled()} وعن أدنى درجة، لا تنبيهٌ من الأنواع:
+     * الموجز خبرُ بداية اليوم لمن يجلس على المكتب، يظهر مرة واحدة عند الدخول ولا
+     * يذكر اسم طالب ولا مبلغاً - فإخفاؤه مع بطاقات الأرصدة يُسكت ما لا سبب لإسكاته،
+     * وإظهاره تحت حدّ {@code WARNING} يجعله يختفي عند أول من يرفع الحدّ.</p>
+     */
+    public static boolean dayBriefingEnabled() {
+        return prefs().getBoolean(DAY_BRIEFING_KEY, true);
+    }
+
+    /**
+     * هل تُرافق البطاقةَ نغمةٌ على هذا الجهاز؟
+     *
+     * <p>مفتاح جهاز لا سنتر، للسبب نفسه المكتوب أعلاه مقلوباً: مكتب الاستقبال يجلس فيه
+     * من عينه على الطالب لا على الشاشة فيحتاجها، ومكتب المدير قد يكون فيه اجتماع.</p>
+     */
+    public static boolean soundEnabled() {
+        return prefs().getBoolean(SOUND_KEY, true);
+    }
+
     /** هل تستحق هذه الدرجة أن تقفز أمام المستخدم على هذا الجهاز؟ */
     public static boolean shouldAnnounce(AlertSeverity severity) {
         return severity != null && severity.isAtLeast(minimumSeverity());
     }
 
-    public static void save(boolean popup, boolean tray, AlertSeverity minimumSeverity) {
+    public static void save(boolean popup, boolean tray, boolean dayBriefing, boolean sound,
+                            AlertSeverity minimumSeverity) {
         try {
             Preferences prefs = prefs();
             prefs.putBoolean(POPUP_KEY, popup);
             prefs.putBoolean(TRAY_KEY, tray);
+            prefs.putBoolean(DAY_BRIEFING_KEY, dayBriefing);
+            prefs.putBoolean(SOUND_KEY, sound);
             prefs.put(MIN_SEVERITY_KEY,
                     (minimumSeverity == null ? DEFAULT_MINIMUM_SEVERITY : minimumSeverity).name());
             prefs.flush();
