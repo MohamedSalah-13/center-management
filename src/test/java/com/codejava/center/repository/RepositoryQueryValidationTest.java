@@ -25,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * الاختبار يعمل على قاعدة H2 في الذاكرة ولا يلمس قاعدة بيانات حقيقية.
  */
 @DataJpaTest
-// CenterApplication نفسه bean يحقن PasswordEncoder، وشريحة @DataJpaTest لا تحمّل SecurityConfig
+// خدمات المستخدمين تحتاج PasswordEncoder، وشريحة @DataJpaTest لا تحمّل SecurityConfig
 @Import(SecurityConfig.class)
 class RepositoryQueryValidationTest {
 

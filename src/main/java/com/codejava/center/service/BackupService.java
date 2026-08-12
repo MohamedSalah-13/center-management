@@ -187,7 +187,7 @@ public class BackupService {
                 auditService.record(AuditAction.BACKUP_RESTORED, null,
                         source.getFileName().toString(), "encrypted=" + (temporary != null));
             } catch (RuntimeException e) {
-                e.printStackTrace();
+                log.error("نجحت الاستعادة لكن تعذر تسجيلها في سجل المراقبة", e);
             }
         } catch (IOException e) {
             auditService.recordFailure(AuditAction.BACKUP_RESTORED,

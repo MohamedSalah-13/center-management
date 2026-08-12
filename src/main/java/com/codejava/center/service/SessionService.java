@@ -5,7 +5,9 @@ import com.codejava.center.domain.Session;
 import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.repository.SessionRepository;
 import com.codejava.center.util.I18n;
+import com.codejava.center.util.PersistenceErrors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -57,7 +59,18 @@ public class SessionService {
                 .isPaidOut(false)
                 .build();
 
-        Session saved = sessionRepository.save(session);
+        Session saved;
+        try {
+            saved = sessionRepository.save(session);
+            sessionRepository.flush();
+        } catch (DataIntegrityViolationException error) {
+            if (PersistenceErrors.isConstraint(error, "uk_session_group_date")
+                    || PersistenceErrors.isConstraint(error, "uk_session_active_group")) {
+                throw new IllegalStateException(
+                        I18n.format("error.session.concurrentOpen", group.getName()), error);
+            }
+            throw error;
+        }
         auditService.record(AuditAction.SESSION_OPENED, saved.getId(), group.getName(),
                 "date=" + saved.getSessionDate() + "; startedAt=" + saved.getStartedAt());
 

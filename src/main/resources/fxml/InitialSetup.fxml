@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox styleClass="setup-root" xmlns="http://javafx.com/javafx/17"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.codejava.center.controller.InitialSetupController">
+
+    <VBox styleClass="card,setup-card">
+        <Label text="%setup.title" styleClass="header-label" />
+        <Label text="%setup.description" styleClass="muted-text" wrapText="true" />
+
+        <VBox styleClass="setup-fields">
+            <Label text="%setup.usernameLabel" styleClass="muted-text" />
+            <Label text="%setup.usernameValue" styleClass="sub-label,setup-username" />
+            <PasswordField fx:id="passwordField" promptText="%setup.password" />
+            <PasswordField fx:id="confirmationField" promptText="%setup.confirmPassword" />
+            <Label text="%setup.passwordHint" styleClass="muted-text" wrapText="true" />
+        </VBox>
+
+        <Label fx:id="errorLabel" styleClass="danger-text" visible="false" wrapText="true" />
+        <Button fx:id="createButton" text="%setup.create" onAction="#handleCreate"
+                defaultButton="true" maxWidth="Infinity" styleClass="button,btn-success" />
+    </VBox>
+
+    <HBox styleClass="setup-selector-row">
+        <Label text="%common.language" styleClass="muted-text" />
+        <ComboBox fx:id="languageCombo" styleClass="setup-language" />
+        <Label text="%common.fontSize" styleClass="muted-text" />
+        <ComboBox fx:id="fontScaleCombo" styleClass="setup-font-scale" />
+    </HBox>
+</VBox>

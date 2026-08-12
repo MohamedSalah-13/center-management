@@ -2,7 +2,9 @@ package com.codejava.center.repository;
 
 import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.enums.SchoolLevel;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -12,6 +14,14 @@ import java.util.Optional;
 
 @Repository
 public interface CourseGroupRepository extends JpaRepository<CourseGroup, Long> {
+
+    /**
+     * يقفل صف المجموعة حتى نهاية المعاملة عند قبول عضو جديد.
+     * بدونه يستطيع جهازان قراءة السعة المتبقية نفسها ثم تجاوز الحد معاً.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT cg FROM CourseGroup cg WHERE cg.id = :id")
+    Optional<CourseGroup> findByIdForEnrollment(@Param("id") Long id);
 
     // تجاوز دالة الجلب الافتراضية لجلب بيانات المعلم مع المجموعة في استعلام واحد (تجنب LazyInitializationException)
     @Query("SELECT cg FROM CourseGroup cg JOIN FETCH cg.teacher")

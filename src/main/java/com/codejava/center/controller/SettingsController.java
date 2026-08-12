@@ -42,6 +42,8 @@ import javafx.stage.Stage;
 import javafx.stage.Window;
 import javafx.util.StringConverter;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
@@ -80,6 +82,8 @@ import java.util.Optional;
 @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 @RequiredArgsConstructor
 public class SettingsController {
+
+    private static final Logger log = LoggerFactory.getLogger(SettingsController.class);
 
     private final SettingsService settingsService;
     private final BackupService backupService;
@@ -795,7 +799,7 @@ public class SettingsController {
         try {
             viewLoader.showDashboard((Stage) languageCombo.getScene().getWindow());
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("تعذر إعادة تحميل لوحة القيادة بعد تغيير اللغة من الإعدادات", e);
             Dialogs.error(FxAsync.messageOf(e));
         }
     }

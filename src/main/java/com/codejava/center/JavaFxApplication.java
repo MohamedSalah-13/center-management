@@ -1,7 +1,9 @@
 package com.codejava.center;
 
 import com.codejava.center.config.StageReadyEvent;
+import com.codejava.center.util.ApplicationLogs;
 import com.codejava.center.util.I18n;
+import com.codejava.center.util.UncaughtExceptionReporter;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.stage.Stage;
@@ -14,6 +16,9 @@ public class JavaFxApplication extends Application {
 
     @Override
     public void init() {
+        // قبل إقلاع Spring حتى يُكتب أول سطر إقلاع في ملف يمكن الوصول إليه بلا Console.
+        ApplicationLogs.configure();
+
         // لغة الواجهة المحفوظة تصبح Locale الافتراضي للـ JVM قبل إقلاع أي شيء:
         // أسماء الشهور في DatePicker ونصوص أزرار JavaFX الداخلية تقرأ الافتراضي وحده
         I18n.installAsJvmDefault();
@@ -32,6 +37,9 @@ public class JavaFxApplication extends Application {
 
     @Override
     public void start(Stage stage) {
+        // خيط JavaFX هو المكان الأهم: استثناء معالِج زر غير ملتقط كان يختفي في jpackage.
+        this.applicationContext.getBean(UncaughtExceptionReporter.class).install();
+
         // إخبار Spring أن الـ Stage جاهز للاستخدام
         this.applicationContext.publishEvent(new StageReadyEvent(stage));
     }

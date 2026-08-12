@@ -68,6 +68,8 @@ import javafx.stage.Stage;
 import javafx.stage.Window;
 import javafx.util.Duration;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
@@ -89,6 +91,8 @@ import java.util.stream.Collectors;
 @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE) // نسخة جديدة لكل فتح للشاشة - يمنع تراكم الـ listeners والحالة القديمة
 @RequiredArgsConstructor
 public class DashboardController {
+
+    private static final Logger log = LoggerFactory.getLogger(DashboardController.class);
 
     // حقن الخدمات المطلوبة لجلب الإحصائيات
     private final StudentService studentService;
@@ -479,7 +483,7 @@ public class DashboardController {
             hide(logoPlaceholder);
         } catch (RuntimeException e) {
             // ملف تالف أو صيغة غير مدعومة: الدائرة البديلة أهون من ترويسة فارغة
-            e.printStackTrace();
+            log.warn("تعذر تحميل شعار السنتر من {}", logoPath, e);
         }
     }
 
@@ -829,7 +833,7 @@ public class DashboardController {
                     ? I18n.get("common.empty") : MoneyUtils.formatWithCurrency(stats.dailyRevenue));
             activeSessionsLabel.setText(String.valueOf(stats.activeSessions));
         })).exceptionally(ex -> {
-            ex.printStackTrace();
+            log.error("تعذر تحميل إحصاءات لوحة القيادة", FxAsync.rootCause(ex));
             return null;
         });
     }
@@ -852,7 +856,7 @@ public class DashboardController {
             markActive(sourceButton);
         } catch (IOException | RuntimeException e) {
             // الفشل الصامت كان يترك الشاشة كما هي فيظن المستخدم أن الزر لا يعمل
-            e.printStackTrace();
+            log.error("تعذر فتح الشاشة {}", fxmlPath, e);
             Dialogs.error(I18n.format("home.openFailed", FxAsync.messageOf(e)));
         }
     }
@@ -924,7 +928,7 @@ public class DashboardController {
             attendanceBarChart.getData().clear();
             attendanceBarChart.getData().add(series);
         })).exceptionally(ex -> {
-            ex.printStackTrace();
+            log.error("تعذر تحميل مخططات لوحة القيادة", FxAsync.rootCause(ex));
             return null;
         });
     }
@@ -940,7 +944,7 @@ public class DashboardController {
             stopAlertFeed();
             viewLoader.showDashboard(stageOf(languageCombo));
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("تعذر إعادة تحميل لوحة القيادة بعد تغيير اللغة", e);
             Dialogs.error(FxAsync.messageOf(e));
         }
     }
@@ -955,12 +959,12 @@ public class DashboardController {
             // 2. تسجيل الخروج في سجل المراقبة في الخلفية: بداية الجلسة ونهايتها هما ما
             // يحدّد أي أحداث تقع في نطاق مسؤولية من، وخيط الواجهة لا ينتظر قاعدة البيانات
             FxAsync.run(() -> authService.recordLogout(leaving), () -> {
-            }, Throwable::printStackTrace);
+            }, error -> log.error("تعذر تسجيل حدث الخروج في سجل المراقبة", error));
 
             // 3. العودة إلى شاشة الدخول
             viewLoader.showLogin(stageOf(actionEvent.getSource()));
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("تعذر العودة إلى شاشة الدخول بعد تسجيل الخروج", e);
             Dialogs.error(I18n.format("home.logoutFailed", FxAsync.messageOf(e)));
         }
     }

@@ -25,6 +25,7 @@
 | `DB_URL` | رابط JDBC (اختياري، له قيمة افتراضية) | `jdbc:mysql://localhost:3306/center_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true` |
 | `DB_USERNAME` | اسم مستخدم قاعدة البيانات | `center_app` |
 | `DB_PASSWORD` | كلمة المرور | — |
+| `CENTER_LOG_DIR` | مجلد سجل التشغيل (اختياري) | `D:\CenterLogs` |
 
 **PowerShell:**
 
@@ -36,12 +37,17 @@ $env:DB_USERNAME = "center_app"; $env:DB_PASSWORD = "your-password"; mvn spring-
 
 > يُنصح بإنشاء مستخدم MySQL مخصّص بصلاحيات محدودة على `center_db` بدلاً من استخدام `root`.
 
+سجل التشغيل الافتراضي يوجد في
+`%USERPROFILE%\.center-management\logs\center-management.log`، ويُدوَّر تلقائياً حتى
+لا ينمو بلا حد. لا تُكتب فيه كلمات المرور، ولا يُفعَّل التسجيل الروتيني لاستعلامات SQL
+أو قيم ربطها أو محتوى رسائل أولياء الأمور.
+
 ### حساب المدير الأول
 
-عند أول تشغيل يُنشأ حساب `admin`. كلمة المرور **لم تعد ثابتة**:
-
-- إن ضبطت `ADMIN_INITIAL_PASSWORD` تُستخدم قيمتها.
-- وإلا تُولَّد كلمة عشوائية وتُطبع في الطرفية **مرة واحدة فقط** عند الإنشاء. سجّلها فوراً وغيّرها من شاشة إدارة المستخدمين.
+عند أول تشغيل على قاعدة بيانات خالية تظهر شاشة **تهيئة حساب المدير**. اختر فيها كلمة
+مرور لحساب `admin` وأكّدها؛ لا توجد كلمة افتراضية، ولا تُكتب كلمة المرور في الطرفية
+أو ملفات السجل. بعد إنشاء الحساب مرة واحدة ينتقل التطبيق إلى شاشة الدخول ولا يعرض
+معالج التهيئة مجدداً.
 
 ### 📗 دليل التركيب الكامل
 
@@ -67,7 +73,7 @@ $env:DB_USERNAME = "center_app"; $env:DB_PASSWORD = "your-password"; mvn spring-
 src/
 └── main/
     ├── java/com/codejava/center/
-    │   ├── CenterApplication.java       # نقطة تشغيل Spring Boot وتوليد مستخدم افتراضي (CommandLineRunner)
+    │   ├── CenterApplication.java       # نقطة تشغيل Spring Boot وJavaFX
     │   ├── JavaFxApplication.java       # دورة حياة JavaFX
     │   ├── config/                      # إعدادات الشاشات والأمان (SecurityConfig, StageReadyEvent)
     │   ├── domain/                      # كيانات قاعدة البيانات (Entities & Enums)

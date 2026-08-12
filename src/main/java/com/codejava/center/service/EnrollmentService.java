@@ -6,10 +6,13 @@ import com.codejava.center.domain.StudentGroup;
 import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.domain.enums.SchoolLevel;
 import com.codejava.center.repository.StudentGroupRepository;
+import com.codejava.center.repository.CourseGroupRepository;
 import com.codejava.center.service.dto.MembershipRow;
 import com.codejava.center.util.I18n;
+import com.codejava.center.util.PersistenceErrors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -26,28 +29,33 @@ import java.util.Optional;
 public class EnrollmentService {
 
     private final StudentGroupRepository studentGroupRepository;
+    private final CourseGroupRepository courseGroupRepository;
     private final AuditService auditService;
 
     @Transactional
     public StudentGroup subscribe(Student student, CourseGroup group) {
-        Optional<StudentGroup> existing = studentGroupRepository.findByStudentAndGroup(student, group);
+        // قفل المجموعة يجعل فحص السعة والحفظ قراراً متسلسلاً بين كل أجهزة السنتر.
+        CourseGroup lockedGroup = courseGroupRepository.findByIdForEnrollment(group.getId())
+                .orElseThrow(() -> new IllegalArgumentException(I18n.get("error.group.notFound")));
+
+        Optional<StudentGroup> existing = studentGroupRepository.findByStudentAndGroup(student, lockedGroup);
 
         if (existing.isPresent() && existing.get().isActive()) {
             throw new IllegalStateException(I18n.get("error.enrollment.alreadyMember"));
         }
 
-        requireMatchingLevel(student, group);
+        requireMatchingLevel(student, lockedGroup);
 
-        long currentMembers = studentGroupRepository.countByGroupAndIsActiveTrue(group);
-        if (group.getMaxCapacity() != null && currentMembers >= group.getMaxCapacity()) {
+        long currentMembers = studentGroupRepository.countByGroupAndIsActiveTrue(lockedGroup);
+        if (lockedGroup.getMaxCapacity() != null && currentMembers >= lockedGroup.getMaxCapacity()) {
             throw new IllegalStateException(
-                    I18n.format("error.enrollment.groupFull", group.getMaxCapacity()));
+                    I18n.format("error.enrollment.groupFull", lockedGroup.getMaxCapacity()));
         }
 
         // إعادة تفعيل اشتراك سابق بدل إنشاء صف مكرر لنفس الطالب ونفس المجموعة
         StudentGroup membership = existing.orElseGet(() -> StudentGroup.builder()
                 .student(student)
-                .group(group)
+                .group(lockedGroup)
                 .build());
 
         membership.setActive(true);
@@ -56,9 +64,19 @@ public class EnrollmentService {
         // حصص الطالب ينتهي عند يوم خروجه الأول فيظهر بلا حضور منذ عودته
         membership.setLeaveDate(null);
 
-        StudentGroup saved = studentGroupRepository.save(membership);
+        StudentGroup saved;
+        try {
+            saved = studentGroupRepository.save(membership);
+            // الحفظ المؤجل إلى commit لا يمكن ترجمة خطئه هنا؛ flush يجعله يقع داخل هذا الحارس.
+            studentGroupRepository.flush();
+        } catch (DataIntegrityViolationException error) {
+            if (PersistenceErrors.isConstraint(error, "uk_membership_student_group")) {
+                throw new IllegalStateException(I18n.get("error.enrollment.alreadyMember"), error);
+            }
+            throw error;
+        }
         auditService.record(AuditAction.STUDENT_ENROLLED, saved.getId(), student.getName(),
-                "group=" + group.getName() + "; level=" + group.getSchoolLevel());
+                "group=" + lockedGroup.getName() + "; level=" + lockedGroup.getSchoolLevel());
 
         return saved;
     }

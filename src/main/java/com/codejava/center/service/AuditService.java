@@ -11,6 +11,8 @@ import com.codejava.center.service.dto.AuditPage;
 import com.codejava.center.util.MoneyUtils;
 import com.codejava.center.util.UserSession;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -46,6 +48,8 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class AuditService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuditService.class);
 
     /**
      * سقف ما تجلبه الشاشة دفعةً واحدة. السجل لا يُنظَّف ولا يُقصّ، وسنتر بعد سنتين
@@ -110,7 +114,7 @@ public class AuditService {
                     .build());
         } catch (RuntimeException e) {
             // على مسار استثناء قائم: رمي خطأ الكتابة هنا يُخفي سبب الرفض عن المستخدم
-            e.printStackTrace();
+            log.error("تعذر حفظ حدث فشل في سجل المراقبة: {}", action, e);
         }
     }
 
@@ -137,7 +141,7 @@ public class AuditService {
                     .build());
         } catch (RuntimeException e) {
             // فشل الدخول لا يجوز أن يتحول إلى خطأ نظام أمام من يحاول الدخول
-            e.printStackTrace();
+            log.error("تعذر حفظ حدث منسوب صراحةً في سجل المراقبة: {}", action, e);
         }
     }
 

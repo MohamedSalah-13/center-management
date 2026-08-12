@@ -12,7 +12,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "sessions")
+@Table(name = "sessions",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_session_group_date",
+                columnNames = {"group_id", "session_date"}))
 @Getter
 @Setter
 @NoArgsConstructor

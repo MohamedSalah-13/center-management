@@ -155,7 +155,12 @@ public class AlertScheduler {
 
             log.info("اكتمل فحص التنبيهات: {} تنبيهاً، {} رسالة، {} فشل",
                     result.raised(), result.messaged(), result.failures().size());
-            result.failures().forEach(failure -> log.warn("فشل في فحص التنبيهات: {}", failure));
+            // الأسطر التفصيلية تحمل أسماء طلاب وردود مزود الرسائل؛ تُعرض في الواجهة
+            // لصاحب الصلاحية ولا تُنسخ إلى ملف دعم خارج قاعدة البيانات.
+            if (!result.failures().isEmpty()) {
+                log.warn("فشل إرسال {} إشعاراً أثناء الفحص؛ راجع نتيجة الفحص داخل التطبيق",
+                        result.failures().size());
+            }
         } catch (RuntimeException e) {
             // لا يُعاد الرمي: المشغّل يعتبر المهمة منتهية على أي حال.
             // ولا يُكتب lastAlertScanAt، فيبقى الموعد فائتاً وتُعاد المحاولة عند الإقلاع التالي

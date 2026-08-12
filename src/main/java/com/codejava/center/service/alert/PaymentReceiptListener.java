@@ -48,8 +48,8 @@ public class PaymentReceiptListener {
                     MoneyUtils.format(event.amount()),
                     MoneyUtils.format(balance)));
         } catch (RuntimeException e) {
-            log.error("تعذّر تجهيز تأكيد استلام الدفعة للطالب {}: {}",
-                    event.studentName(), e.getMessage(), e);
+            // لا نكتب اسم الطالب أو هاتف ولي الأمر في ملف دعم خارج قاعدة البيانات.
+            log.error("تعذّر تجهيز تأكيد استلام الدفعة للطالب id={}", event.studentId(), e);
         }
     }
 }

@@ -45,8 +45,8 @@ class SchemaScriptGenerator {
 
     /**
      * سياق يقتصر على الكيانات.
-     * لا يستخدم CenterApplication لأنه CommandLineRunner ينشئ حساب المدير عند الإقلاع،
-     * وهو يفشل هنا إذ لا تُنشأ الجداول أصلاً (ddl-auto=none).
+     * لا يستخدم CenterApplication لأن الأداة تحتاج سياق كيانات صغيراً فقط، ولا تحتاج
+     * خدمات JavaFX أو المجدوِلات أو بقية التطبيق أثناء توليد DDL.
      */
     @Configuration
     @EnableAutoConfiguration

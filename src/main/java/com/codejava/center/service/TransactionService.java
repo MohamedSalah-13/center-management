@@ -19,6 +19,8 @@ import com.codejava.center.service.dto.GroupRevenue;
 import com.codejava.center.service.dto.ShiftSummary;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
+import com.codejava.center.util.PersistenceErrors;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -60,7 +62,18 @@ public class TransactionService {
                 .session(session) // ربط الحصة بالحركة المالية
                 .build();
 
-        Transaction saved = transactionRepository.save(transaction);
+        Transaction saved;
+        try {
+            saved = transactionRepository.save(transaction);
+            if (session != null) {
+                transactionRepository.flush();
+            }
+        } catch (DataIntegrityViolationException error) {
+            if (PersistenceErrors.isConstraint(error, "uk_transaction_student_session_type")) {
+                throw new IllegalStateException(I18n.get("error.transaction.sessionAlreadyPaid"), error);
+            }
+            throw error;
+        }
 
         // اسم الطالب يُنسخ إلى السجل: حذف الطالب لاحقاً لا يجوز أن يترك تحصيلاً بلا صاحب
         auditService.record(AuditAction.PAYMENT_RECORDED, saved.getId(),
@@ -239,7 +252,16 @@ public class TransactionService {
                 .session(session)
                 .build();
 
-        return transactionRepository.save(charge);
+        try {
+            Transaction saved = transactionRepository.save(charge);
+            transactionRepository.flush();
+            return saved;
+        } catch (DataIntegrityViolationException error) {
+            if (PersistenceErrors.isConstraint(error, "uk_transaction_student_session_type")) {
+                throw new IllegalStateException(I18n.get("error.transaction.sessionAlreadyCharged"), error);
+            }
+            throw error;
+        }
     }
 
     /**

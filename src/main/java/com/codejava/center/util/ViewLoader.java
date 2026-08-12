@@ -33,12 +33,15 @@ import java.util.function.Consumer;
 public class ViewLoader {
 
     public static final String LOGIN_FXML = "/fxml/Login.fxml";
+    public static final String INITIAL_SETUP_FXML = "/fxml/InitialSetup.fxml";
     public static final String DASHBOARD_FXML = "/fxml/Dashboard.fxml";
 
     private static final String STYLESHEET = "/css/style.css";
 
     private static final double LOGIN_WIDTH = 500;
     private static final double LOGIN_HEIGHT = 400;
+    private static final double INITIAL_SETUP_WIDTH = 560;
+    private static final double INITIAL_SETUP_HEIGHT = 590;
     private static final double DASHBOARD_WIDTH = 1280;
     private static final double DASHBOARD_HEIGHT = 800;
 
@@ -140,6 +143,24 @@ public class ViewLoader {
 
         stage.setScene(scene(root, width, height));
         stage.setTitle(I18n.get("login.windowTitle"));
+        stage.setWidth(width);
+        stage.setHeight(height);
+        stage.centerOnScreen();
+    }
+
+    /** يعرض معالج إنشاء أول مدير، ولا يصل إليه التطبيق بعد وجود أي مستخدم */
+    public void showInitialSetup(Stage stage) throws IOException {
+        Parent root = load(INITIAL_SETUP_FXML);
+
+        stage.setMaximized(false);
+        stage.setMinWidth(0);
+        stage.setMinHeight(0);
+
+        double width = fitToScreen(UiScale.scaled(INITIAL_SETUP_WIDTH), true);
+        double height = fitToScreen(UiScale.scaled(INITIAL_SETUP_HEIGHT), false);
+
+        stage.setScene(scene(root, width, height));
+        stage.setTitle(I18n.get("setup.windowTitle"));
         stage.setWidth(width);
         stage.setHeight(height);
         stage.centerOnScreen();

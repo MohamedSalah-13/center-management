@@ -17,7 +17,9 @@ import com.codejava.center.service.dto.GroupAttendanceReport;
 import com.codejava.center.util.Durations;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
+import com.codejava.center.util.PersistenceErrors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -124,11 +126,20 @@ public class AttendanceService {
         }
 
         // 6. تسجيل الحضور وخصم رسوم الحصة معاً داخل نفس الـ Transaction
-        Attendance saved = attendanceRepository.save(Attendance.builder()
-                .student(student)
-                .session(currentSession)
-                .timeIn(LocalDateTime.now())
-                .build());
+        Attendance saved;
+        try {
+            saved = attendanceRepository.save(Attendance.builder()
+                    .student(student)
+                    .session(currentSession)
+                    .timeIn(LocalDateTime.now())
+                    .build());
+            attendanceRepository.flush();
+        } catch (DataIntegrityViolationException error) {
+            if (PersistenceErrors.isConstraint(error, "uk_attendance_student_session")) {
+                throw new IllegalStateException(I18n.get("attendance.result.duplicateScan"), error);
+            }
+            throw error;
+        }
 
         transactionService.chargeSession(student, currentGroup, currentSession, sessionPrice);
 

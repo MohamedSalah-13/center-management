@@ -30,11 +30,19 @@ jobs:
       # وضع عدم الاتصال يعمل على جهاز المطوّر لأن كل شيء مخزَّن في ~/.m2،
       # أما هنا فالكاش فارغ في أول تشغيل وبعد كل تغيير في pom، فيفشل البناء فوراً.
       #
-      # الاختبارات لا تحتاج MySQL ولا متغيرات بيئة: ملف
-      # src/test/resources/application.properties يحجب الرئيسي بالكامل ويستعمل H2 في الذاكرة.
+      # أغلب الاختبارات تستعمل H2 في الذاكرة. اختبار MySqlMigrationIntegrationTest وحده
+      # يشغّل حاوية MySQL 8 عبر Docker المتاح في GitHub runner، ثم يطبق Flyway ويفحص القيود.
       # ولا تحتاج شاشة كذلك: لا اختبار يُقلع منصة JavaFX.
       - name: Run tests
         run: mvn --batch-mode clean test
+
+      # disabledWithoutDocker يسمح للمطوّر بتشغيل الاختبارات العادية بلا Docker، لكنه لا يجوز
+      # أن يحوّل بوابة MySQL في CI إلى نجاح صامت. هنا يجب أن يكون الاختبار قد نُفّذ فعلاً.
+      - name: Require MySQL migration gate
+        run: |
+          report=target/surefire-reports/TEST-com.codejava.center.MySqlMigrationIntegrationTest.xml
+          test -f "$report"
+          ! grep -Eq 'skipped="[1-9][0-9]*"' "$report"
 
       # تقارير surefire هي الموضع الوحيد الذي يحمل رسالة الفشل كاملة،
       # وسجل الخطوة يقتصر على أسماء الاختبارات الفاشلة

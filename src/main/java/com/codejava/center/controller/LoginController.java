@@ -17,6 +17,8 @@ import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
 import javafx.stage.Stage;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
@@ -28,6 +30,8 @@ import java.util.Locale;
 @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE) // نسخة جديدة لكل فتح للشاشة - يمنع تراكم الـ listeners والحالة القديمة
 @RequiredArgsConstructor
 public class LoginController {
+
+    private static final Logger log = LoggerFactory.getLogger(LoginController.class);
 
     private final AuthService authService;
     private final UserSession userSession;
@@ -74,7 +78,7 @@ public class LoginController {
 
             viewLoader.showDashboard(stageOf(event.getSource()));
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("تعذر تحميل لوحة القيادة بعد تسجيل الدخول", e);
             showError(I18n.get("login.dashboardFailed"));
         }
     }
@@ -83,7 +87,7 @@ public class LoginController {
         try {
             viewLoader.showLogin(stageOf(languageCombo));
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("تعذر إعادة تحميل شاشة الدخول بعد تغيير اللغة", e);
             showError(FxAsync.messageOf(e));
         }
     }
