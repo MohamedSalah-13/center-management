@@ -26,12 +26,20 @@
         <Label text="%user.password" GridPane.columnIndex="0" GridPane.rowIndex="1" />
         <PasswordField fx:id="passwordField" promptText="%user.passwordPrompt" styleClass="text-field" GridPane.columnIndex="1" GridPane.rowIndex="1" />
 
+        <Label text="%user.passwordConfirmation" GridPane.columnIndex="2" GridPane.rowIndex="1" />
+        <PasswordField fx:id="passwordConfirmationField" promptText="%user.passwordConfirmationPrompt"
+                       styleClass="text-field" GridPane.columnIndex="3" GridPane.rowIndex="1" />
+
         <HBox alignment="CENTER_LEFT" spacing="15.0" GridPane.columnIndex="1" GridPane.rowIndex="2" GridPane.columnSpan="3" style="-fx-padding: 10 0 0 0;">
             <Button text="%common.saveNew" onAction="#handleSaveAction" styleClass="button, btn-success" />
             <Button fx:id="updateButton" text="%common.edit" disable="true" onAction="#handleUpdateAction" styleClass="button, btn-warning" />
             <Button fx:id="deleteButton" text="%common.delete" disable="true" onAction="#handleDeleteAction" styleClass="button, btn-danger" />
             <Button text="%common.clearSelection" onAction="#clearForm" styleClass="button, btn-secondary" />
         </HBox>
+
+        <Label fx:id="protectionLabel" styleClass="muted-text"
+               visible="false" managed="false" wrapText="true"
+               GridPane.columnIndex="1" GridPane.rowIndex="3" GridPane.columnSpan="3" />
     </GridPane>
 
     <!-- جدول المستخدمين -->

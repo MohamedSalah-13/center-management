@@ -5,13 +5,12 @@ import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.repository.UserRepository;
 import com.codejava.center.util.I18n;
+import com.codejava.center.util.PasswordPolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.nio.charset.StandardCharsets;
 
 /**
  * بوابة التهيئة الوحيدة لقاعدة مستخدمين جديدة.
@@ -25,9 +24,6 @@ import java.nio.charset.StandardCharsets;
 public class InitialSetupService {
 
     public static final String INITIAL_ADMIN_USERNAME = "admin";
-    static final int MIN_PASSWORD_LENGTH = 8;
-    static final int MAX_BCRYPT_BYTES = 72;
-
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
@@ -67,16 +63,7 @@ public class InitialSetupService {
         if (password == null || password.isBlank()) {
             throw new IllegalArgumentException(I18n.get("setup.error.passwordRequired"));
         }
-        if (password.length() < MIN_PASSWORD_LENGTH) {
-            throw new IllegalArgumentException(I18n.format(
-                    "setup.error.passwordTooShort", MIN_PASSWORD_LENGTH));
-        }
-        // BCrypt لا يميّز ما بعد 72 بايت؛ رفض القيمة يمنع كلمتين مختلفتين من التطابق.
-        if (password.getBytes(StandardCharsets.UTF_8).length > MAX_BCRYPT_BYTES) {
-            throw new IllegalArgumentException(I18n.get("setup.error.passwordTooLong"));
-        }
-        if (!password.equals(confirmation)) {
-            throw new IllegalArgumentException(I18n.get("setup.error.passwordMismatch"));
-        }
+        PasswordPolicy.validate(password);
+        PasswordPolicy.requireConfirmation(password, confirmation);
     }
 }

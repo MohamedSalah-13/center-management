@@ -1,11 +1,14 @@
 package com.codejava.center;
 
+import com.codejava.center.domain.enums.Role;
+import com.codejava.center.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -44,6 +47,9 @@ class MySqlMigrationIntegrationTest {
     @Autowired
     private JdbcTemplate jdbc;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @Test
     void appliesEveryMigrationAndCreatesConcurrentWriteGuards() {
         String latestVersion = jdbc.queryForObject("""
@@ -72,5 +78,17 @@ class MySqlMigrationIntegrationTest {
                 "uk_session_group_date",
                 "uk_session_active_group",
                 "uk_transaction_student_session_type");
+    }
+
+    /** قرار "آخر مدير" يعتمد على هذا القفل، فيجب أن يعمل بلهجة MySQL لا H2 وحدها. */
+    @Test
+    @Transactional
+    void locksUserRowsForAdministratorSafetyDecisions() {
+        jdbc.update("insert into users (username, password, role) values (?, ?, ?)",
+                "mysql-admin", "encoded", Role.ADMIN.name());
+
+        assertThat(userRepository.findAllForUpdate())
+                .extracting(user -> user.getUsername())
+                .containsExactly("mysql-admin");
     }
 }

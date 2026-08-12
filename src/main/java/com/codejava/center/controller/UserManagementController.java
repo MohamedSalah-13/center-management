@@ -6,6 +6,7 @@ import com.codejava.center.service.UserService;
 import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
+import com.codejava.center.util.UserSession;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -24,14 +25,17 @@ import org.springframework.stereotype.Controller;
 public class UserManagementController {
 
     private final UserService userService;
+    private final UserSession userSession;
 
     @FXML private TextField usernameField;
     @FXML private PasswordField passwordField;
+    @FXML private PasswordField passwordConfirmationField;
     @FXML private ComboBox<Role> roleCombo;
 
     @FXML private TableView<User> usersTable;
     @FXML private TableColumn<User, String> colId, colUsername, colRole;
     @FXML private Button updateButton, deleteButton;
+    @FXML private Label protectionLabel;
 
     private User selectedUser = null;
     private final ObservableList<User> usersList = FXCollections.observableArrayList();
@@ -79,9 +83,25 @@ public class UserManagementController {
                 usernameField.setText(selectedUser.getUsername());
                 roleCombo.setValue(selectedUser.getRole());
                 passwordField.clear(); // مسح حقل الباسورد لدواعي أمنية
+                passwordConfirmationField.clear();
 
+                boolean builtInAdmin = "admin".equalsIgnoreCase(selectedUser.getUsername());
+                boolean currentAccount = userSession.getCurrentUser() != null
+                        && selectedUser.getId().equals(userSession.getCurrentUser().getId());
+                boolean lastAdmin = selectedUser.getRole() == Role.ADMIN
+                        && usersList.stream().filter(user -> user.getRole() == Role.ADMIN).count() == 1;
+                // هذه إشارة واجهة فقط؛ UserService يعيد فرض القواعد داخل المعاملة.
+                usernameField.setDisable(builtInAdmin || currentAccount);
+                roleCombo.setDisable(builtInAdmin || currentAccount || lastAdmin);
+                deleteButton.setDisable(builtInAdmin || currentAccount || lastAdmin);
+
+                String protectionKey = builtInAdmin ? "user.adminProtectedNote"
+                        : currentAccount ? "user.currentAccountProtectedNote"
+                        : lastAdmin ? "user.lastAdminProtectedNote" : null;
+                protectionLabel.setText(protectionKey == null ? "" : I18n.get(protectionKey));
+                protectionLabel.setManaged(protectionKey != null);
+                protectionLabel.setVisible(protectionKey != null);
                 updateButton.setDisable(false);
-                deleteButton.setDisable(false);
             }
         });
     }
@@ -101,6 +121,7 @@ public class UserManagementController {
     private void saveOrUpdateUser(User user) {
         String username = usernameField.getText().trim();
         String password = passwordField.getText();
+        String passwordConfirmation = passwordConfirmationField.getText();
         Role role = roleCombo.getValue();
 
         if (username.isEmpty() || role == null) {
@@ -108,18 +129,22 @@ public class UserManagementController {
             return;
         }
 
-        user.setUsername(username);
-        user.setRole(role);
-
         boolean isNew = user.getId() == null;
-        FxAsync.supply(() -> userService.saveUser(user, password), saved -> {
+        int editedIndex = isNew ? -1 : usersList.indexOf(user);
+        // لا نعدّل كائن الجدول قبل نجاح الخدمة؛ الرفض يجب ألا يترك قيمة وهمية في الواجهة.
+        User request = User.builder()
+                .id(user.getId())
+                .username(username)
+                .role(role)
+                .build();
+
+        FxAsync.supply(() -> userService.saveUser(request, password, passwordConfirmation), saved -> {
             if (isNew) {
                 usersList.add(saved);
                 Dialogs.success(I18n.get("user.added"));
             } else {
-                int idx = usersList.indexOf(user);
-                if (idx >= 0) {
-                    usersList.set(idx, saved);
+                if (editedIndex >= 0) {
+                    usersList.set(editedIndex, saved);
                 }
                 Dialogs.success(I18n.get("user.updated"));
             }
@@ -153,7 +178,13 @@ public class UserManagementController {
     private void clearForm() {
         usernameField.clear();
         passwordField.clear();
+        passwordConfirmationField.clear();
         roleCombo.setValue(null);
+        usernameField.setDisable(false);
+        roleCombo.setDisable(false);
+        protectionLabel.setManaged(false);
+        protectionLabel.setVisible(false);
+        protectionLabel.setText("");
         selectedUser = null;
         usersTable.getSelectionModel().clearSelection();
         updateButton.setDisable(true);
