@@ -111,8 +111,8 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host ""
 Write-Host "تم. الناتج في: $dest" -ForegroundColor Green
 Write-Host ""
-Write-Host "قبل التشغيل على جهاز العميل يجب ضبط متغيرات الاتصال:" -ForegroundColor Yellow
-Write-Host '  setx DB_USERNAME "center_app"'
-Write-Host '  setx DB_PASSWORD "..."'
+Write-Host "قبل التشغيل على جهاز العميل، بعد تثبيت MySQL 8 هناك، شغّل مرة واحدة:" -ForegroundColor Yellow
+Write-Host "  packaging\setup-database.ps1"
+Write-Host "ينشئ القاعدة والمستخدم بكلمة مرور عشوائية ويضبط DB_USERNAME/DB_PASSWORD تلقائياً." -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "راجع docs/first-install.md للخطوات الكاملة." -ForegroundColor Yellow

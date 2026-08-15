@@ -6,6 +6,7 @@ import com.codejava.center.security.RequiresRole;
 import com.codejava.center.util.BackupCrypto;
 import com.codejava.center.util.BackupPreferences;
 import com.codejava.center.util.I18n;
+import com.codejava.center.util.MySqlLocator;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,9 +88,10 @@ public class BackupService {
     private String dbUrl;
 
     /**
-     * مجلد أدوات MySQL حين لا تكون في {@code PATH}.
+     * مجلد أدوات MySQL حين لا تكون في {@code PATH}، مضبوطاً صراحةً.
      * مثبِّت MySQL على ويندوز لا يضيفها إلى المسار افتراضياً، وكان ذلك يعني نسخاً
-     * احتياطية لا تعمل عند العميل بلا سبب ظاهر.
+     * احتياطية لا تعمل عند العميل بلا سبب ظاهر. تصريحٌ فارغ هنا لا يعني عدم البحث —
+     * راجع {@link #effectiveMysqlBinDir()} و{@link MySqlLocator}.
      */
     @Value("${center.backup.mysql-bin-dir:}")
     private String mysqlBinDir;
@@ -342,9 +344,22 @@ public class BackupService {
     }
 
     private String mysqlTool(String name) {
-        return mysqlBinDir == null || mysqlBinDir.isBlank()
+        String binDir = effectiveMysqlBinDir();
+        return binDir == null || binDir.isBlank()
                 ? name
-                : Path.of(mysqlBinDir, name).toString();
+                : Path.of(binDir, name).toString();
+    }
+
+    /**
+     * {@code CENTER_BACKUP_MYSQL_BIN_DIR} صريح دائماً له الأولوية؛ فقط حين يكون فارغاً
+     * يُستشار {@link MySqlLocator}، الذي يعيد {@code null} لو كانت الأدوات في {@code PATH}
+     * أصلاً أو تعذّر إيجادها بالفحص التلقائي.
+     */
+    private String effectiveMysqlBinDir() {
+        if (mysqlBinDir != null && !mysqlBinDir.isBlank()) {
+            return mysqlBinDir;
+        }
+        return MySqlLocator.resolve();
     }
 
     /**
