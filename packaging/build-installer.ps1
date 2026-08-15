@@ -80,6 +80,14 @@ $jpackageArgs = @(
     '--java-options', '-Dfile.encoding=UTF-8'
 )
 
+$icon = Join-Path $PSScriptRoot 'app.ico'
+if (Test-Path $icon) {
+    $jpackageArgs += @('--icon', $icon)
+} else {
+    Write-Host "لا توجد أيقونة في packaging\app.ico — ستُستخدم أيقونة Java الافتراضية." -ForegroundColor DarkGray
+    Write-Host "ولّدها بـ: java packaging\IconBuilder.java" -ForegroundColor DarkGray
+}
+
 if ($Type -eq 'msi') {
     $jpackageArgs += @(
         '--win-dir-chooser',      # يسمح للعميل باختيار مسار التثبيت

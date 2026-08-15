@@ -410,6 +410,7 @@ public final class Printing {
         stage.initOwner(owner);
         stage.initModality(Modality.APPLICATION_MODAL);
         stage.setTitle(I18n.get("print.previewTitle"));
+        AppIcons.applyTo(stage);
 
         VBox sheets = new VBox(18);
         sheets.setAlignment(Pos.TOP_CENTER);

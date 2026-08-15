@@ -121,6 +121,7 @@ public class ViewLoader {
         stage.initOwner(owner);
         stage.initModality(Modality.WINDOW_MODAL);
         stage.setTitle(title);
+        AppIcons.applyTo(stage);
         stage.setScene(scene(root,
                 fitToScreen(UiScale.scaled(width), true),
                 fitToScreen(UiScale.scaled(height), false)));
@@ -143,6 +144,7 @@ public class ViewLoader {
 
         stage.setScene(scene(root, width, height));
         stage.setTitle(I18n.get("login.windowTitle"));
+        AppIcons.applyTo(stage);
         stage.setWidth(width);
         stage.setHeight(height);
         stage.centerOnScreen();
@@ -161,6 +163,7 @@ public class ViewLoader {
 
         stage.setScene(scene(root, width, height));
         stage.setTitle(I18n.get("setup.windowTitle"));
+        AppIcons.applyTo(stage);
         stage.setWidth(width);
         stage.setHeight(height);
         stage.centerOnScreen();
@@ -172,6 +175,7 @@ public class ViewLoader {
 
         stage.setScene(scene(root, DASHBOARD_WIDTH, DASHBOARD_HEIGHT));
         stage.setTitle(I18n.get("app.title"));
+        AppIcons.applyTo(stage);
         stage.setMinWidth(fitToScreen(UiScale.scaled(DASHBOARD_MIN_WIDTH), true));
         stage.setMinHeight(fitToScreen(UiScale.scaled(DASHBOARD_MIN_HEIGHT), false));
         stage.setMaximized(true);
