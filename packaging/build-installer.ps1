@@ -52,10 +52,10 @@ $jpackage = Resolve-JPackage
 Write-Host "jpackage: $jpackage" -ForegroundColor DarkGray
 
 Write-Host "==> بناء الحزمة" -ForegroundColor Cyan
-& mvn -q clean package -DskipTests
+& mvn -q -pl center-desktop -am clean package -DskipTests
 if ($LASTEXITCODE -ne 0) { throw "فشل بناء Maven" }
 
-$jar = Join-Path $root "target\$JarName"
+$jar = Join-Path $root "center-desktop\target\$JarName"
 if (-not (Test-Path $jar)) { throw "لم يُعثر على الحزمة: $jar" }
 
 # jpackage ينسخ مجلد الإدخال كاملاً، فنعزل الحزمة وحدها

@@ -30,10 +30,10 @@
 **PowerShell:**
 
 ```bash
-$env:DB_USERNAME = "center_app"; $env:DB_PASSWORD = "your-password"; mvn spring-boot:run
+$env:DB_USERNAME = "center_app"; $env:DB_PASSWORD = "your-password"; mvn -pl center-desktop spring-boot:run
 ```
 
-بدلاً من ذلك يمكن إنشاء ملف `src/main/resources/application-local.properties` (مستثنى من git تلقائياً) وتشغيل التطبيق بالبروفايل `local`.
+بدلاً من ذلك يمكن إنشاء ملف `center-desktop/src/main/resources/application-local.properties` (مستثنى من git تلقائياً) وتشغيل التطبيق بالبروفايل `local`.
 
 > يُنصح بإنشاء مستخدم MySQL مخصّص بصلاحيات محدودة على `center_db` بدلاً من استخدام `root`.
 
@@ -62,6 +62,11 @@ $env:DB_USERNAME = "center_app"; $env:DB_PASSWORD = "your-password"; mvn spring-
 
 ## 🏛️ البنية المعمارية (Architecture & Integration Design)
 
+المستودع مبني كـ **Maven multi-module**: الملف `pom.xml` في الجذر هو الأب والمجمّع،
+ووحدة `center-core` تحمل عقود الهوية والمؤسسة المستقلة عن أطر التشغيل، بينما التطبيق
+الحالي داخل `center-desktop`. هذا الحد يحافظ على إصدار JavaFX كما هو، ويتيح إضافة
+خادم SaaS كوحدة مستقلة من دون جعل تطبيق سطح المكتب يعتمد على الويب.
+
 تم دمج **Spring Boot** مع **JavaFX** باستخدام نمط مراقب الأحداث (`ApplicationListener` / `StageReadyEvent`).
 تُدار جميع كائنات التحكم (`Controllers`) وخدمات البيانات (`Services`) بالكامل بوساطة **Spring IoC Container** عبر الخاصية:
 `fxmlLoader.setControllerFactory(applicationContext::getBean)`
@@ -70,8 +75,13 @@ $env:DB_USERNAME = "center_app"; $env:DB_PASSWORD = "your-password"; mvn spring-
 
 ### هيكل المجلدات الرئيسي (Project Structure):
 ```text
-src/
-└── main/
+center-core/
+└── src/main/java/com/codejava/center/core/
+    ├── security/                    # هوية المنفّذ المستقلة عن طريقة تسجيل الدخول
+    └── tenant/                      # سياق المؤسسة المشترك بين Desktop وSaaS
+
+center-desktop/
+└── src/main/
     ├── java/com/codejava/center/
     │   ├── CenterApplication.java       # نقطة تشغيل Spring Boot وJavaFX
     │   ├── JavaFxApplication.java       # دورة حياة JavaFX
@@ -147,7 +157,7 @@ mvn -o clean test
 وحده:
 
 ```bash
-mvn -o test -Dtest=SchemaScriptGenerator
+mvn -o -pl center-desktop test -Dtest=SchemaScriptGenerator
 ```
 
 ---

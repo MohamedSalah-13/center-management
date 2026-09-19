@@ -14,22 +14,22 @@ commit-adjacent docs.
 ```bash
 mvn -o clean test          # build + run all tests (offline works; everything is cached)
 mvn -o compile             # compile only
-mvn spring-boot:run        # run the app (needs DB credentials, see below)
+mvn -pl center-desktop spring-boot:run # run the app (needs DB credentials, see below)
 ```
 
 `.github/workflows/build.yml` runs the same suite on every PR and push to `main`, but
 **without `-o`** — the runner's `~/.m2` starts empty, so offline mode fails there. It needs
-no database and no secrets: `src/test/resources/application.properties` shadows the main
+no database and no secrets: `center-desktop/src/test/resources/application.properties` shadows the main
 one and uses in-memory H2.
 
 Run a single test class or method:
 
 ```bash
-mvn -o test -Dtest=EnrollmentServiceTest
-mvn -o test -Dtest=EnrollmentServiceTest#reactivatesPreviousMembershipInsteadOfCreatingDuplicate
+mvn -o -pl center-desktop test -Dtest=EnrollmentServiceTest
+mvn -o -pl center-desktop test -Dtest=EnrollmentServiceTest#reactivatesPreviousMembershipInsteadOfCreatingDuplicate
 ```
 
-Tests use in-memory H2 (`src/test/resources/application.properties` overrides the dialect)
+Tests use in-memory H2 (`center-desktop/src/test/resources/application.properties` overrides the dialect)
 and never touch a real database. The app itself needs MySQL 8 plus `DB_USERNAME` /
 `DB_PASSWORD` — there is deliberately **no default password**, so it fails loudly rather
 than falling back to a committed secret. `application-local.properties` is gitignored but
@@ -144,7 +144,7 @@ of 10000 events invites the reader to conclude the rest never happened.
 ### Language and direction
 
 The UI ships in Arabic and English. **No user-facing string belongs in code or FXML** — it
-goes in `src/main/resources/i18n/`:
+goes in `center-desktop/src/main/resources/i18n/`:
 
 - `messages.properties` — Arabic, and the **base** bundle (no locale suffix).
 - `messages_en.properties` — English.
@@ -356,7 +356,7 @@ printing in another makes the computed page breaks wrong.
 
 #### The other printing path: JasperReports
 
-**Every printout the app produces is now a `.jrxml` under `src/main/resources/reports/`,**
+**Every printout the app produces is now a `.jrxml` under `center-desktop/src/main/resources/reports/`,**
 filled by `ReportService` and delivered as PDF or straight to a printer. `PrintDocument` /
 `Printing` survive only for the settings screen's test page — `Printing.printTestPage` and
 `describeTarget`, which answer "does this printer work" and belong to the printer, not to any
@@ -1063,7 +1063,7 @@ because `CenterApplication` is itself a bean injecting `PasswordEncoder`.
 
 ## Schema changes
 
-The schema is owned by **Flyway** (`src/main/resources/db/migration`), and
+The schema is owned by **Flyway** (`center-desktop/src/main/resources/db/migration`), and
 `ddl-auto=validate` means Hibernate creates nothing — it refuses to start if the schema and
 the entities disagree. A missing migration is therefore a loud startup failure, not a
 mystery error later.
@@ -1072,9 +1072,9 @@ After changing any entity:
 
 1. Run the generator — it is not part of the normal suite, so name it explicitly:
    ```bash
-   mvn -o test -Dtest=SchemaScriptGenerator
+   mvn -o -pl center-desktop test -Dtest=SchemaScriptGenerator
    ```
-2. Diff `target/schema-mysql.sql` against the existing migrations.
+2. Diff `center-desktop/target/schema-mysql.sql` against the existing migrations.
 3. Add a **new** `V<n>__*.sql` with just the delta. Never edit a migration that has been
    applied anywhere — Flyway checksums them and will refuse to run.
 

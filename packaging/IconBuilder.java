@@ -37,7 +37,7 @@ public class IconBuilder {
     static final int PNG_FROM = 128;   // هذا المقاس فأعلى يُخزَّن داخل ico كـ PNG
 
     static final String ICO_PATH = "packaging/app.ico";
-    static final String PNG_DIR  = "src/main/resources/img";
+    static final String PNG_DIR  = "center-desktop/src/main/resources/img";
 
     public static void main(String[] args) throws Exception {
         File root = new File(args.length > 0 ? args[0] : ".").getCanonicalFile();

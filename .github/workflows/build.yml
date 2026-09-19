@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@v5
 
       # جافا 21: المشروع يستعمل مزايا اللغة الحديثة (records، switch expressions، pattern matching)
-      # وpom يضبط maven.compiler.source/target على 21
+      # وpom الأب يضبط java.version على 21، ومنها يضبط Spring Boot compiler release
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
@@ -40,7 +40,7 @@ jobs:
       # أن يحوّل بوابة MySQL في CI إلى نجاح صامت. هنا يجب أن يكون الاختبار قد نُفّذ فعلاً.
       - name: Require MySQL migration gate
         run: |
-          report=target/surefire-reports/TEST-com.codejava.center.MySqlMigrationIntegrationTest.xml
+          report=center-desktop/target/surefire-reports/TEST-com.codejava.center.MySqlMigrationIntegrationTest.xml
           test -f "$report"
           ! grep -Eq 'skipped="[1-9][0-9]*"' "$report"
 
@@ -51,5 +51,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: surefire-reports
-          path: target/surefire-reports/
+          path: center-desktop/target/surefire-reports/
           retention-days: 7

@@ -128,7 +128,7 @@ SELECT user, host FROM mysql.user WHERE user = 'center_app';
 
 ### الطريقة أ — ملف إعدادات محلي (الأنسب للتطوير)
 
-أنشئ `src/main/resources/application-local.properties` — وهو مستثنى من git بالفعل:
+أنشئ `center-desktop/src/main/resources/application-local.properties` — وهو مستثنى من git بالفعل:
 
 ```properties
 spring.datasource.username=center_app
@@ -422,7 +422,7 @@ powershell -ExecutionPolicy Bypass -File packaging\build-installer.ps1 -Type msi
 
 ## 9. تطوّر المخطط بعد التوزيع
 
-المخطط تديره Flyway: كل تغيير هو ملف `V<رقم>__وصف.sql` في `src/main/resources/db/migration`
+المخطط تديره Flyway: كل تغيير هو ملف `V<رقم>__وصف.sql` في `center-desktop/src/main/resources/db/migration`
 يُنفَّذ مرة واحدة ويُسجَّل في جدول `flyway_schema_history`. بهذا تعرف أي تركيب على أي
 إصدار، ويرقّي التطبيق نفسه قاعدة العميل عند أول تشغيل بعد التحديث.
 
@@ -434,9 +434,9 @@ powershell -ExecutionPolicy Bypass -File packaging\build-installer.ps1 -Type msi
 **ولّد المخطط ولا تكتبه يدوياً.** بعد تغيير أي كيان:
 
 ```bash
-mvn -o test -Dtest=SchemaScriptGenerator
+mvn -o -pl center-desktop test -Dtest=SchemaScriptGenerator
 ```
 
-يكتب `target/schema-mysql.sql` من الكيانات نفسها؛ قارنه بالترحيلات الحالية وأضف
+يكتب `center-desktop/target/schema-mysql.sql` من الكيانات نفسها؛ قارنه بالترحيلات الحالية وأضف
 الفروق في ملف `V` جديد. المخطط المكتوب يدوياً يختلف عمّا يتوقعه Hibernate بفروق دقيقة
 لا تظهر إلا عند رفض `validate` بدء التشغيل على جهاز العميل.
