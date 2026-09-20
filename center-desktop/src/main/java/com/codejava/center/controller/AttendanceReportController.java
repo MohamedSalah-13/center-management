@@ -144,7 +144,7 @@ public class AttendanceReportController {
         LocalDate from = fromPicker.getValue();
         LocalDate to = toPicker.getValue();
 
-        FxAsync.supply(() -> reportService.deliverAttendanceReport(report, from, to),
+        FxAsync.supply(() -> Sheets.deliver(reportService.attendanceReportSheet(report, from, to)),
                 Sheets::show,
                 error -> Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(error)));
     }

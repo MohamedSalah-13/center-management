@@ -566,8 +566,8 @@ public class GroupManagementController {
      * لا يشترط ذلك، فلا شيء يعود إلى خيط الواجهة إلا نتيجة التسليم.</p>
      */
     private void printRoster(CourseGroup group) {
-        FxAsync.supply(() -> reportService.deliverGroupRoster(group,
-                        enrollmentService.getRoster(group.getId())),
+        FxAsync.supply(() -> Sheets.deliver(reportService.groupRosterSheet(group,
+                        enrollmentService.getRoster(group.getId()))),
                 Sheets::show,
                 error -> Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(error)));
     }
@@ -586,7 +586,7 @@ public class GroupManagementController {
         Map<Long, Long> counts = Map.copyOf(memberCounts);
         String filters = describeFilters();
 
-        FxAsync.supply(() -> reportService.deliverGroupsList(shown, counts, filters),
+        FxAsync.supply(() -> Sheets.deliver(reportService.groupsListSheet(shown, counts, filters)),
                 Sheets::show,
                 error -> Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(error)));
     }

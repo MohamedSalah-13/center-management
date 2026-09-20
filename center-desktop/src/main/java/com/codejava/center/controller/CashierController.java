@@ -177,8 +177,8 @@ public class CashierController {
     /** الإيصال يُبنى في ReportService ليحمل ترويسة السنتر (الاسم والشعار والهاتف) */
     private void printReceipt(Student student, CourseGroup group, BigDecimal amount,
                               BigDecimal newBalance, String description) {
-        FxAsync.supply(() -> reportService.deliverPaymentReceipt(student.getName(),
-                        group.getName(), amount, newBalance, description),
+        FxAsync.supply(() -> Sheets.deliver(reportService.paymentReceiptSheet(student.getName(),
+                        group.getName(), amount, newBalance, description)),
                 Sheets::show,
                 error -> Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(error)));
     }

@@ -152,7 +152,7 @@ public class DayScheduleController {
         LocalDate date = date();
         String summary = summaryLabel.getText();
 
-        FxAsync.supply(() -> reportService.deliverDaySchedule(date, shown, summary),
+        FxAsync.supply(() -> Sheets.deliver(reportService.dayScheduleSheet(date, shown, summary)),
                 Sheets::show,
                 error -> Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(error)));
     }

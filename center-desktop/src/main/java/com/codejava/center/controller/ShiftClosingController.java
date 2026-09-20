@@ -97,7 +97,7 @@ public class ShiftClosingController {
         ShiftSummary summary = currentSummary;
         List<Transaction> rows = new ArrayList<>(movements);
 
-        FxAsync.supply(() -> reportService.deliverShiftSummary(day, summary, rows),
+        FxAsync.supply(() -> Sheets.deliver(reportService.shiftSummarySheet(day, summary, rows)),
                 Sheets::show,
                 error -> Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(error)));
     }
