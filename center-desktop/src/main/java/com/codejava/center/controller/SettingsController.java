@@ -11,6 +11,7 @@ import com.codejava.center.service.BackupService;
 import com.codejava.center.service.NotificationService;
 import com.codejava.center.service.SettingsService;
 import com.codejava.center.service.notification.HttpGatewaySender;
+import com.codejava.center.service.notification.MessageSender;
 import com.codejava.center.service.notification.NotificationConfig;
 import com.codejava.center.service.notification.WhatsAppCloudApiSender;
 import com.codejava.center.service.notification.WhatsAppLink;
@@ -21,6 +22,7 @@ import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.LanguageSelector;
+import com.codejava.center.util.Links;
 import com.codejava.center.util.MoneyUtils;
 import com.codejava.center.util.NotificationPreferences;
 import com.codejava.center.util.PrintPreferences;
@@ -933,7 +935,16 @@ public class SettingsController {
         }
 
         statusLabel.setText(I18n.get("settings.notif.testSending"));
-        FxAsync.supply(() -> notificationService.sendTestMessage(phone.trim()), result -> {
+        // القناة اليدوية لا تُرسل بل تجهّز رابطاً، وفتحُه من هنا: الخدمة لا تعرف أن أمامها
+        // جهازاً بتطبيق واتساب. والفتح على الخيط الخلفي نفسه كما كان قبل الفصل.
+        FxAsync.supply(() -> {
+            MessageSender.SendResult result = notificationService.sendTestMessage(phone.trim());
+            if (result.needsHandOff()) {
+                Links.open(result.link());
+                return MessageSender.SendResult.ok();
+            }
+            return result;
+        }, result -> {
             statusLabel.setText("");
             if (result.success()) {
                 Dialogs.success(I18n.get("settings.notif.testDone"));

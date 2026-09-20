@@ -709,6 +709,7 @@ Three channel-specific things worth knowing:
   `%20` not `+`: `whatsapp://` is opened by the OS protocol handler, not a browser, and `+`
   arrives literally inside the message text. A template missing `{phone}` or `{text}` is
   rejected when it is typed — either one opens a chat that looks sent and is not.
+  **It builds the URL and does not open it** — see the three outcomes below.
 - **Cloud API needs a template name for what this app actually sends.** Free-form text is
   only allowed inside 24 hours of the parent's last message to the centre; absence and
   arrears notifications start from the centre, so they are outside it and get error 131047.
@@ -716,6 +717,25 @@ Three channel-specific things worth knowing:
 - The generic gateway describes the request instead of hard-coding a provider per class —
   Egyptian centres buy WhatsApp/SMS from local resellers that each name their fields
   differently, and that is a difference in one request string, not in the program.
+
+**A send has three outcomes, not two.** `SendResult` is `ok`, `failed`, or **`handOff(link)`**:
+nothing was sent, here is a URL a person must open and then press send in WhatsApp themselves.
+That is the whole of the link channel — `WhatsAppLinkSender` returns the URL and never touches
+`java.awt.Desktop`, because a service that opens a desktop app is a service that cannot run on
+a server, and the same URL on the web belongs in the response, not in the server's own browser.
+`util/Links.open` is the desktop side of it, and `BusinessLayerPurityTest` now fails the build
+for `java.awt` anywhere in the business layer.
+
+**A hand-off is deliberately not a success, and that is what keeps `notification_logs` honest.**
+The row means "this parent's chat was opened with the message in it". So `NotificationService`
+writes nothing on a hand-off; the screen opens the link and *then* calls `recordOpened`. Writing
+it when the URL was built would log a notification for a chat that never opened — and the
+duplicate guard would then refuse to retry it, leaving a parent untold with nobody aware.
+
+**And the unattended path refuses a manual channel outright.** `sendAutomatic` (the alert
+scheduler, no session, possibly 2 a.m. or the reception terminal facing parents) checks
+`requiresManualConfirmation()` before building anything and fails with a translated reason.
+A link nobody opens is not a message sent, and saying so beats a result that reads like one.
 
 `configurationProblem()` exists so the screen can say "no token on this machine" the day
 before a send, and so the router refuses a doomed attempt rather than letting the provider
@@ -1159,8 +1179,9 @@ The test classes below exist because these failure modes are invisible to the co
   does not know is a rule that decays: an `import javafx.print.Printer` inside a service builds
   fine and only surfaces the day `center-app` is carved out, by which time it has spread.
   `BusinessLayerPurityTest` reads the imports of `service/`, `domain/`, `repository/` and
-  `security/` and fails the build for `javafx.*`, `java.util.prefs`, any `util/*Preferences`,
-  `UserSession` or a controller — naming the one exemption (`AlertFeed`) rather than hiding it.
+  `security/` and fails the build for `javafx.*`, `java.awt.*`, `java.util.prefs`, any
+  `util/*Preferences`, `UserSession` or a controller — naming the one exemption (`AlertFeed`)
+  rather than hiding it.
 
 **Never assert a user-facing string as a literal.** The UI language is stored per machine,
 so a test comparing against Arabic text starts failing the moment someone switches the app

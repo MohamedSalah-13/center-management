@@ -11,6 +11,7 @@ import com.codejava.center.service.notification.MessageSender;
 import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
+import com.codejava.center.util.Links;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -239,12 +240,11 @@ public class NotificationsController {
             int sent = 0;
             List<String> failures = new ArrayList<>();
             for (NotificationCandidate candidate : targets) {
-                MessageSender.SendResult result = notificationService.send(candidate);
-                if (result.success()) {
+                String failure = deliver(candidate);
+                if (failure == null) {
                     sent++;
                 } else {
-                    failures.add(I18n.format("notify.failureLine",
-                            candidate.studentName(), result.failureReason()));
+                    failures.add(I18n.format("notify.failureLine", candidate.studentName(), failure));
                 }
             }
             return new SendOutcome(sent, failures);
@@ -258,6 +258,35 @@ public class NotificationsController {
             }
             handleBuild(null); // إعادة التجهيز لتحديث حالة "أُرسل مسبقاً"
         }, error -> Dialogs.error(FxAsync.messageOf(error)));
+    }
+
+    /**
+     * إشعار واحد: إرسالٌ عبر مزوّد، أو فتحُ محادثة بيد الموظف ثم تسجيلها.
+     *
+     * <p>الفتح هنا لا في {@code WhatsAppLinkSender}: الخدمة تبني الرابط وتعيده، ومن
+     * يملك سطحَ مكتبٍ وتطبيقَ واتساب هو الذي يفتحه — راجع {@link Links}. والتسجيل
+     * <b>بعد</b> الفتح لا قبله: سطرٌ يُكتب لمحادثة لم تُفتح يمنع إعادة المحاولة ويترك
+     * وليَّ الأمر بلا خبر.</p>
+     *
+     * <p>ويجري على خيط خلفي كما كان قبل الفصل: فتح الرابط يمرّ بمعالج النظام وقد يتأخر،
+     * ولا يُنشئ نافذة JavaFX.</p>
+     *
+     * @return سبب الفشل، أو {@code null} إن تمّ
+     */
+    private String deliver(NotificationCandidate candidate) {
+        MessageSender.SendResult result = notificationService.send(candidate);
+
+        if (result.needsHandOff()) {
+            try {
+                Links.open(result.link());
+            } catch (RuntimeException e) {
+                return FxAsync.messageOf(e);
+            }
+            notificationService.recordOpened(candidate);
+            return null;
+        }
+
+        return result.success() ? null : result.failureReason();
     }
 
     private record SendOutcome(int sent, List<String> failures) {

@@ -20,8 +20,43 @@ class ProviderSendersTest {
     private static final String PHONE = "201012345678";
 
     private final RecordingPoster poster = new RecordingPoster();
+    private final WhatsAppLinkSender link = new WhatsAppLinkSender();
     private final WhatsAppCloudApiSender cloud = new WhatsAppCloudApiSender(poster);
     private final HttpGatewaySender gateway = new HttpGatewaySender(poster);
+
+    // -------------------------------------------------------- رابط واتساب
+
+    /**
+     * قناة الرابط تعيد الرابط ولا تفتح شيئاً.
+     *
+     * <p>كانت تفتح المحادثة بنفسها عبر {@code java.awt.Desktop}، أي أن طبقة الأعمال
+     * تفترض أن أمامها سطحَ مكتبٍ وتطبيقاً مثبَّتاً عليه. ما يُفحص هنا أن الرابط يعود
+     * قيمةً في النتيجة، وأن النتيجة <b>ليست نجاحاً</b>: لم يُرسل شيء بعد، ولو عُدّت
+     * نجاحاً لكُتب سطرٌ في سجل الإشعارات لمحادثة لم تُفتح.</p>
+     */
+    @Test
+    void linkChannelHandsTheUriBackInsteadOfOpeningIt() {
+        MessageSender.SendResult result = link.send(linkConfig(), PHONE, "مرحبا يا ولي الأمر");
+
+        assertThat(result.needsHandOff()).isTrue();
+        assertThat(result.success()).isFalse();
+        assertThat(result.failureReason()).isEqualTo(I18n.get("error.notification.linkNotOpened"));
+        assertThat(result.link())
+                .isEqualTo(WhatsAppLink.build(WhatsAppLinkStyle.WA_ME, null, PHONE, "مرحبا يا ولي الأمر"));
+    }
+
+    /** قالب مكسور يُقال الآن، لا يُفتح رابطاً ناقصاً */
+    @Test
+    void linkChannelReportsABrokenTemplateAsAFailureNotAHandOff() {
+        MessageSender.SendResult result = link.send(
+                config(NotificationChannel.WHATSAPP_LINK, null, null, null, null, null,
+                        WhatsAppLinkStyle.CUSTOM, "https://example.com/send?to={phone}"),
+                PHONE, "x");
+
+        assertThat(result.needsHandOff()).isFalse();
+        assertThat(result.success()).isFalse();
+        assertThat(result.failureReason()).isNotBlank();
+    }
 
     // ------------------------------------------------------- واتساب الرسمي
 
@@ -164,9 +199,20 @@ class ProviderSendersTest {
                 "inst-7", null, bodyTemplate, "TOKEN-123");
     }
 
+    private NotificationConfig linkConfig() {
+        return config(NotificationChannel.WHATSAPP_LINK, null, null, null, null, null);
+    }
+
     private NotificationConfig config(NotificationChannel channel, String apiUrl, String senderId,
                                       String templateName, String bodyTemplate, String token) {
-        return new NotificationConfig(channel, WhatsAppLinkStyle.WA_ME, null,
+        return config(channel, apiUrl, senderId, templateName, bodyTemplate, token,
+                WhatsAppLinkStyle.WA_ME, null);
+    }
+
+    private NotificationConfig config(NotificationChannel channel, String apiUrl, String senderId,
+                                      String templateName, String bodyTemplate, String token,
+                                      WhatsAppLinkStyle style, String linkTemplate) {
+        return new NotificationConfig(channel, style, linkTemplate,
                 apiUrl, senderId, templateName, null, bodyTemplate, token);
     }
 

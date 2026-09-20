@@ -120,11 +120,29 @@ public class NotificationService {
      * إرسال إشعار واحد وتسجيله.
      * لا يُسجَّل إلا ما نجح إرساله فعلاً، وإلا امتنع النظام عن إعادة المحاولة
      * ظاناً أن ولي الأمر أُبلغ.
+     *
+     * <p>وقناةُ الرابط لا تُرسل شيئاً هنا: تعيد
+     * {@link MessageSender.SendResult#handOff(String)} ولا تكتب سطراً، لأن المحادثة لم
+     * تُفتح بعد. على الشاشة أن تفتح الرابط ثم تنادي {@link #recordOpened(NotificationCandidate)}.</p>
      */
     @Transactional
     @RequiresRole(Role.ADMIN)
     public MessageSender.SendResult send(NotificationCandidate candidate) {
-        return deliver(candidate);
+        return deliver(candidate, true);
+    }
+
+    /**
+     * يسجّل أن محادثة ولي الأمر فُتحت أمام موظف بالنص جاهزاً.
+     *
+     * <p>منفصلة عن {@link #send} لأنها الحقيقة الوحيدة التي يملكها البرنامج في قناة
+     * الرابط: هو لم يُرسل، بل جهّز ما يُرسله إنسان. وكتابة السطر عند تجهيز الرابط بدل
+     * فتحه تعني أن فشلاً في الفتح يُسجَّل إشعاراً تمّ — فيمنع حارسُ التكرار إعادةَ
+     * المحاولة، وهو الخطأ الذي يُبقي وليَّ أمرٍ بلا خبر ولا أحد يعرف.</p>
+     */
+    @Transactional
+    @RequiresRole(Role.ADMIN)
+    public void recordOpened(NotificationCandidate candidate) {
+        logSent(candidate);
     }
 
     /**
@@ -140,33 +158,47 @@ public class NotificationService {
      */
     @Transactional
     public MessageSender.SendResult sendAutomatic(NotificationCandidate candidate) {
-        return deliver(candidate);
+        return deliver(candidate, false);
     }
 
-    private MessageSender.SendResult deliver(NotificationCandidate candidate) {
+    /**
+     * @param attended هل أمام الشاشة أحدٌ يستطيع فتح محادثة ويضغط إرسال
+     */
+    private MessageSender.SendResult deliver(NotificationCandidate candidate, boolean attended) {
         if (!candidate.phoneValid()) {
             return MessageSender.SendResult.failed(
                     I18n.format("error.notification.invalidPhone", candidate.rawPhone()));
+        }
+
+        // المسار التلقائي يعمل من خيط المجدوِل بلا أحد: قناة الرابط تجهّز رابطاً لن
+        // يفتحه أحد، فالقول إنها لا تصلح هنا أصدق من نتيجةٍ تبدو إرسالاً ولم تكن
+        if (!attended && messageSender.requiresManualConfirmation()) {
+            return MessageSender.SendResult.failed(I18n.get("error.notification.channelNeedsPerson"));
         }
 
         MessageSender.SendResult result = messageSender.send(
                 candidate.internationalPhone(), candidate.message());
 
         if (result.success()) {
-            Student student = studentRepository.findById(candidate.studentId())
-                    .orElseThrow(() -> new IllegalStateException(I18n.get("error.notification.studentNotFound")));
-
-            notificationLogRepository.save(NotificationLog.builder()
-                    .student(student)
-                    .type(candidate.type())
-                    .recipientPhone(candidate.internationalPhone())
-                    .message(candidate.message())
-                    .sentAt(LocalDateTime.now())
-                    .channel(messageSender.channelName())
-                    .build());
+            logSent(candidate);
         }
 
         return result;
+    }
+
+    /** سطر واحد في سجل الإشعارات، وهو ما يمنع تكرار الرسالة إلى ولي الأمر نفسه */
+    private void logSent(NotificationCandidate candidate) {
+        Student student = studentRepository.findById(candidate.studentId())
+                .orElseThrow(() -> new IllegalStateException(I18n.get("error.notification.studentNotFound")));
+
+        notificationLogRepository.save(NotificationLog.builder()
+                .student(student)
+                .type(candidate.type())
+                .recipientPhone(candidate.internationalPhone())
+                .message(candidate.message())
+                .sentAt(LocalDateTime.now())
+                .channel(messageSender.channelName())
+                .build());
     }
 
     /**
