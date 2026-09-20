@@ -22,8 +22,9 @@ import java.util.stream.Collectors;
  *
  * <p>كل رفض يُكتب في سجل المراقبة. المنع وحده لا يكفي: محاولة سكرتارية فتح شاشة
  * ليست لها تُفسَّر بخطأ في التنقّل، أما تكرارها على دوالّ الخزينة فهو ما يجب أن يراه
- * صاحب السنتر. {@link AuditService#recordFailure} تكتب في معاملة مستقلة لأن الاستثناء
- * الذي يلي هذا السطر يُلغي المعاملة الجارية.</p>
+ * صاحب السنتر. {@link AuditService#recordAccessDenied} تكتب في معاملة مستقلة لأن
+ * الاستثناء الذي يلي هذا السطر يُلغي المعاملة الجارية - وهي بابٌ ضيّق بنوع حدثٍ مثبَّت:
+ * من يستطيع تسمية الحدث يستطيع كتابة سطرٍ عن فشلٍ لم يقع، وسجلٌّ كهذا ليس شهادة.</p>
  *
  * <p>لا يجوز أن تحمل أيّ من دوالّ {@code AuditService} حارس {@code @RequiresRole}:
  * الحارس يستدعيها عند الرفض، فتصير محاولة تسجيل الرفض رفضاً جديداً بلا نهاية.</p>
@@ -41,8 +42,7 @@ public class RoleEnforcementAspect {
         ActorIdentity actor = currentActor.currentActor();
 
         if (actor == null) {
-            auditService.recordFailure(AuditAction.ACCESS_DENIED,
-                    operationOf(joinPoint), "reason=no-session");
+            auditService.recordAccessDenied(operationOf(joinPoint), "reason=no-session");
             throw new AccessDeniedException(I18n.get("error.access.noSession"));
         }
 
@@ -51,7 +51,7 @@ public class RoleEnforcementAspect {
 
         if (!permitted) {
             // بصيغة محايدة لغوياً: السطر يُقرأ لاحقاً بأي لغة كانت الواجهة عليها وقتها
-            auditService.recordFailure(AuditAction.ACCESS_DENIED, operationOf(joinPoint),
+            auditService.recordAccessDenied(operationOf(joinPoint),
                     "required=" + Arrays.stream(allowed).map(Enum::name).collect(Collectors.joining("|"))
                             + "; actual=" + actor.role());
 

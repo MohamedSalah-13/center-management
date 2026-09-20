@@ -15,6 +15,8 @@ import com.codejava.center.service.dto.AttendanceSummary;
 import com.codejava.center.service.dto.DailyAttendance;
 import com.codejava.center.service.dto.GroupAttendanceReport;
 import com.codejava.center.util.Durations;
+import com.codejava.center.domain.enums.Role;
+import com.codejava.center.security.RequiresRole;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
 import com.codejava.center.util.PersistenceErrors;
@@ -60,6 +62,8 @@ public class AttendanceService {
      *                         من مجموعات الطالب بين الحصص المفتوحة اليوم
      */
     @Transactional
+    // تكتب حضوراً وتخصم رسم الحصة: مالٌ يتحرّك، ولا تُنفَّذ بلا من ينسب إليه
+    @RequiresRole({Role.ADMIN, Role.SECRETARY})
     public AttendanceResult processAttendance(String barcode, Long boundSessionId) {
 
         // 1. التحقق من وجود الطالب
@@ -186,6 +190,7 @@ public class AttendanceService {
      * <p>بلا مهلة: هذه ضغطةُ إنسانٍ ينظر إلى الاسم، لا تمريرةُ قارئٍ قد تتكرّر من نفسها.</p>
      */
     @Transactional
+    @RequiresRole({Role.ADMIN, Role.SECRETARY})
     public AttendanceResult checkOut(Long attendanceId) {
         Attendance attendance = attendanceRepository.findById(attendanceId)
                 .orElseThrow(() -> new IllegalArgumentException(I18n.get("error.attendance.notFound")));

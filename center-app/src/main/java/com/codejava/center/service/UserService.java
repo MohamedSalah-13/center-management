@@ -3,6 +3,7 @@ package com.codejava.center.service;
 import com.codejava.center.core.security.ActorIdentity;
 import com.codejava.center.core.security.CurrentActor;
 import com.codejava.center.domain.User;
+import com.codejava.center.service.dto.UserDraft;
 import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.repository.UserRepository;
@@ -29,27 +30,27 @@ public class UserService {
 
     @Transactional
     @RequiresRole(Role.ADMIN)
-    public User saveUser(User request, String rawPassword, String passwordConfirmation) {
+    public User saveUser(UserDraft request, String rawPassword, String passwordConfirmation) {
         validateRequest(request);
 
         // قفل قصير لكل إدارة المستخدمين: القرار الأمني يعتمد على عدد المديرين الحاليين.
         List<User> users = userRepository.findAllForUpdate();
-        boolean isNew = request.getId() == null;
-        String username = request.getUsername().trim();
+        boolean isNew = request.isNew();
+        String username = request.trimmedUsername();
 
-        rejectDuplicateUsername(users, request.getId(), username);
+        rejectDuplicateUsername(users, request.id(), username);
 
         User target = isNew
                 ? new User()
                 : users.stream()
-                .filter(candidate -> candidate.getId().equals(request.getId()))
+                .filter(candidate -> candidate.getId().equals(request.id()))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException(I18n.get("error.user.notFound")));
 
         Role previousRole = target.getRole();
         String previousUsername = target.getUsername();
         if (!isNew) {
-            protectAdministratorIdentity(target, username, request.getRole(), users);
+            protectAdministratorIdentity(target, username, request.role(), users);
         }
 
         boolean passwordChanged = rawPassword != null && !rawPassword.isBlank();
@@ -63,7 +64,7 @@ public class UserService {
         }
 
         target.setUsername(username);
-        target.setRole(request.getRole());
+        target.setRole(request.role());
 
         User saved;
         try {
@@ -118,15 +119,22 @@ public class UserService {
                 "role=" + target.getRole().name());
     }
 
-    private void validateRequest(User request) {
-        if (request == null || request.getUsername() == null || request.getUsername().isBlank()) {
+    /**
+     * الفحص هنا لا في القيود وحدها.
+     *
+     * <p>{@code @NotBlank} على {@link UserDraft} تحمي كل من يكتب - بما فيه منفذُ HTTP
+     * حين يوجد - لكن رسالتها إنجليزية عامة من الإطار. وهذه الثلاثة يراها من يملأ
+     * النموذج، فتُقال بلغته وباسم الحقل الذي يعرفه.</p>
+     */
+    private void validateRequest(UserDraft request) {
+        if (request == null || request.username() == null || request.username().isBlank()) {
             throw new IllegalArgumentException(I18n.get("error.user.usernameRequired"));
         }
-        if (request.getUsername().trim().length() > MAX_USERNAME_LENGTH) {
+        if (request.trimmedUsername().length() > MAX_USERNAME_LENGTH) {
             throw new IllegalArgumentException(I18n.format(
                     "error.user.usernameTooLong", MAX_USERNAME_LENGTH));
         }
-        if (request.getRole() == null) {
+        if (request.role() == null) {
             throw new IllegalArgumentException(I18n.get("error.user.roleRequired"));
         }
     }

@@ -62,7 +62,8 @@ public class HttpGatewaySender implements ChannelSender {
         if (!requestTarget(config).contains(PHONE) && !bodyTemplate(config).contains(PHONE)) {
             return Optional.of(I18n.format("error.notification.templateMissing", PHONE));
         }
-        return Optional.empty();
+        // العنوان نصّ حرّ في الشاشة، والبرنامج يفتحه من داخل الشبكة حاملاً رمز السنتر
+        return Endpoints.problemWith(requestTarget(config));
     }
 
     @Override
@@ -74,8 +75,8 @@ public class HttpGatewaySender implements ChannelSender {
                 ? WhatsAppCloudApiSender::escape
                 : value -> URLEncoder.encode(value, StandardCharsets.UTF_8);
 
-        String url = fill(requestTarget(config), config, internationalPhone, message,
-                value -> URLEncoder.encode(value, StandardCharsets.UTF_8));
+        String url = Endpoints.require(fill(requestTarget(config), config, internationalPhone, message,
+                value -> URLEncoder.encode(value, StandardCharsets.UTF_8)));
         String body = fill(template, config, internationalPhone, message, encode);
 
         Map<String, String> headers = new LinkedHashMap<>();

@@ -1,6 +1,7 @@
 package com.codejava.center.service;
 
 import com.codejava.center.core.backup.BackupRetention;
+import com.codejava.center.core.backup.ContainedPath;
 
 import com.codejava.center.core.backup.BackupTarget;
 import com.codejava.center.core.secret.BackupSecretStore;
@@ -122,7 +123,8 @@ public class BackupService {
             throw new IllegalStateException(I18n.get("error.backup.noDirectory"));
         }
 
-        Path directory = Path.of(targetDirectory);
+        // الحدّ قبل أي إنشاء: مجلدٌ يُنشأ ثم يُرفض يترك أثراً على قرص الخادم
+        Path directory = contained(Path.of(targetDirectory));
         try {
             // المجلد قد يكون على قرص خارجي غير موصول: الإنشاء يفشل هنا برسالة واضحة
             // بدل أن يفشل mysqldump برسالة عن ملف لا يستطيع فتحه
@@ -170,7 +172,7 @@ public class BackupService {
      */
     @RequiresRole(Role.ADMIN)
     public void restoreBackup(String sqlFilePath, char[] passphrase) {
-        Path source = Path.of(sqlFilePath);
+        Path source = contained(Path.of(sqlFilePath));
         if (!Files.isReadable(source)) {
             throw new IllegalStateException(I18n.format("error.backup.fileUnreadable", source));
         }
@@ -348,6 +350,20 @@ public class BackupService {
             processBuilder.environment().put("MYSQL_PWD", password);
         }
         return processBuilder;
+    }
+
+    /**
+     * يحصر المسار داخل ما يسمح به النشر.
+     *
+     * <p>الرسالة مترجَمة لأن من يراها هو من كتب المسار، والسبب الحقيقي - "خرج عن
+     * الجذر" - لا يُعرض: على خادمٍ يقول لمن كتبه أين مجلدات الآخرين.</p>
+     */
+    private Path contained(Path requested) {
+        try {
+            return ContainedPath.resolve(backupTarget.backupRoot(), requested);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException(I18n.format("error.backup.pathNotAllowed", requested), e);
+        }
     }
 
     private ProcessBuilder processBuilder(String tool, String... extraFlags) {

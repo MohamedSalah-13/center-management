@@ -95,8 +95,7 @@ class RoleEnforcementAspectTest {
 
         ArgumentCaptor<String> operation = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> details = ArgumentCaptor.forClass(String.class);
-        verify(auditService).recordFailure(eq(AuditAction.ACCESS_DENIED),
-                operation.capture(), details.capture());
+        verify(auditService).recordAccessDenied(operation.capture(), details.capture());
 
         assertThat(operation.getValue()).isEqualTo("GuardedService.adminOnly");
         // بأسماء الـ enum لا بأسمائها المعروضة: السطر يُقرأ لاحقاً بأي لغة
@@ -108,8 +107,7 @@ class RoleEnforcementAspectTest {
         assertThatThrownBy(() -> guardedService.adminOnly())
                 .isInstanceOf(AccessDeniedException.class);
 
-        verify(auditService).recordFailure(AuditAction.ACCESS_DENIED,
-                "GuardedService.adminOnly", "reason=no-session");
+        verify(auditService).recordAccessDenied("GuardedService.adminOnly", "reason=no-session");
     }
 
     @Test
@@ -118,7 +116,7 @@ class RoleEnforcementAspectTest {
 
         guardedService.adminOnly();
 
-        verify(auditService, never()).recordFailure(any(), any(), any());
+        verify(auditService, never()).recordAccessDenied(any(), any());
     }
 
     private User userWithRole(Role role) {

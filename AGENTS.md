@@ -60,7 +60,7 @@ system:
 - `center-core` — **pure Java.** No Spring, no JPA, no JavaFX, no Lombok: the pom carries
   only JUnit and AssertJ, so a stray framework import fails to compile. Today it holds the
   identity and tenant contracts (`ActorIdentity`, `CurrentActor`, `TenantContext`, `TenantId`,
-  `SchemaName`, `TenantSweep`)
+  `SchemaName`, `TenantSweep`, `LoginThrottle`, `OutboundUrl`, `ContainedPath`)
   and the device contracts (`BackupSecretStore`, `MessagingSecretStore`, `SheetHeaderPolicy`,
   `UiDispatcher`, `BackupTarget`, `LocaleProvider`, plus `DocumentKind` which labels a filled
   sheet for whoever delivers it) that both the desktop app and a future SaaS server implement
@@ -70,7 +70,8 @@ system:
   stream and one tenant's schema on the other. Beside the contracts it holds the **pure
   decisions** (see below) with their tests — the calculations that are wrong silently.
 - `center-app` — **the business layer**: `domain/`, `repository/`, `service/`, `security/`,
-  `platform/` and `config/tenancy/` (the multi-tenant machinery, inert unless switched on), the
+  `platform/`, `config/tenancy/` and `config/server/` (the multi-tenant and request-scoped
+  machinery, inert unless switched on), the
   non-JavaFX half of `config/` (`SecurityConfig`, `TimeConfig`) and the
   half of `util/` that does not know a screen (`I18n`, `MoneyUtils`, `BackupCrypto`, `Passwords`,
   `CommissionTypes`, `PersistenceErrors`, `WeekDays`, `Durations`, `Moments`). With it come
@@ -258,6 +259,88 @@ desktop, one per centre on a server. The second key, the session, arrives with `
 because until there are sessions there is nothing to key by; each watcher's state is already
 separate, so that is a key change and not a redesign.
 
+### Security: what closes before an HTTP port opens
+
+The desktop is one person at one machine, and a surprising amount of the design leant on
+that. A server does not get to lean on it, so these are the holes that were closed while
+there is still nobody outside to walk through them (`docs/saas-review-and-plan.md` §2.4).
+
+**The default is deny, and the mechanism is `@RequiresRole` with a list.** Six services —
+attendance, enrolment, sessions, settings, reports, the day schedule — carried no guard at
+all, which meant the only barrier on `processAttendance` (it deducts a session fee) and on
+`SettingsService.save` (`ledgerStartDate` decides which movements count at all, so changing
+it moves every student's balance without touching one row) was a hidden button. Every
+*writing* method now names its roles: `{ADMIN, SECRETARY}` where the person at reception
+does the work, `{ADMIN}` for centre policy. Reads stay open — authentication, not
+authorization, is what an HTTP edge owes them.
+
+**Two writes into `SettingsService` stay unguarded on purpose**: `recordAutoBackupAt` and
+`recordAlertScanAt` are written by schedulers on threads with no session, exactly like
+`BackupService.executeBackup`. A guard there means every scheduled run is refused and the
+date on the settings screen quietly stops moving.
+
+`@DataJpaTest` is a slice **without AOP**, so a guard test written the obvious way passes
+against a guard that never runs. `DefaultDenyTest` imports `AspectProxying` for that reason,
+and it is the only place the guards are actually exercised.
+
+**The audit trail lost its two forgeable doors.** `recordAs` (writes a line under a named
+human with no session behind it) and `recordFailure` (names the event) are package-private
+now; the aspect calls `recordAccessDenied`, which is fixed to one action. A log anyone can
+write somebody else's name into is not evidence.
+
+**Sign-in has two barriers.** `LoginThrottle` (`center-core`, pure, fixed-clock tested) locks
+an account after five failures for fifteen minutes — BCrypt slows one attempt and does not
+stop a million, and a `LOGIN_FAILED` row tells the owner afterwards. It keys on the username
+because that is what the service knows; keying on the address belongs at the edge that has
+one. And `authenticate` now runs `passwordEncoder.matches` **on both paths**, against a decoy
+hash when the username is unknown: the old code returned immediately for an unknown user and
+waited for BCrypt for a wrong password, and that difference is measurable — it tells an
+attacker which names are real before it tells them any password. The distinction survives
+where it belongs, in the audit line.
+
+**`OutboundUrl` (`center-core`) is the SSRF guard.** The provider URL is free text that the
+program opens *from inside the network* carrying `Authorization: Bearer`. It must be `https`,
+must not resolve to a loopback, private, link-local or multicast address — `169.254.169.254`
+is the cloud metadata endpoint and the first thing anyone tries — and must not contain
+`{token}`, because whatever is in a URL is in every proxy's log. It is checked when the
+setting is typed *and* at every send.
+
+A host that does **not** resolve is not refused for that reason. Refusing looks stricter and
+is a fault: a minute of DNS trouble stops a centre's messages under a message claiming its URL
+is forbidden. The security cost is nil, because the same check runs at send time — a name that
+points inside is refused the moment it resolves, and until then no token goes anywhere,
+since the request has nowhere to go.
+
+**Backup paths are contained** by `ContainedPath` (`center-core`) against `BackupTarget.backupRoot()`.
+The desktop answers `null` — no limit — and that is right there: the owner's disk is theirs, and
+a limit would block the flash drive and the centre's network share, which is where backups
+actually get written. A server answers with the tenant's folder, because there the same free text
+is a write path on the host's disk.
+
+**A write takes a DTO, not an entity.** `UserService.saveUser` takes `UserDraft` — id, username,
+role, and no password field at all, so a pre-computed hash cannot be handed in. An entity as the
+input type is mass assignment waiting for a binder: a request meant to change a password carries
+`role=ADMIN` and it is written, with nothing in the code saying otherwise. `spring-boot-starter-validation`
+is on the path so the constraint is declared next to the field and holds for every caller. The
+other write surfaces still take entities; each one becomes a draft as `center-web` gives it an
+endpoint, and that is the rule: **no JPA entity is ever an HTTP input.**
+
+**Two database defaults were lying.** `spring.datasource.password` had `${DB_PASSWORD:}` — an
+empty default — while this file claimed there was none, so a missing variable produced a MySQL
+access-denied message that reads like a wrong password. It is `${DB_PASSWORD}` now and startup
+names the variable. And `useSSL=false` was *disabling* encryption in the shipped URL; it is
+`sslMode=PREFERRED`, with the note that anything crossing a network must set `sslMode=REQUIRED`,
+since PREFERRED accepts plaintext silently.
+
+On the server side of the switch: `ServerCurrentActor` reads `SecurityContextHolder` so identity
+is scoped to the request rather than to the process (a singleton `UserSession` on a server means
+the last person to sign in decides what everyone else sees), strips the framework's `ROLE_`
+prefix, and returns `null` with no authentication — which the aspect reads as "no session".
+`EnvironmentSecrets` answers the two secret ports from environment variables instead of the
+Windows registry. The task *executor* is wrapped so background work keeps the context; the task
+*scheduler* deliberately is not, or the nightly backup would run as whoever saved settings that
+evening and the audit trail would say so.
+
 ### Spring Boot + JavaFX wiring
 
 `CenterApplication.main` calls `Application.launch(JavaFxApplication.class)`. `JavaFxApplication.init()`
@@ -329,11 +412,17 @@ It reads the user from the injectable `UserSession` bean, not from `SecurityCont
 because service calls run on ForkJoinPool threads where the ThreadLocal security context
 would not propagate and every check would fail.
 
+**Every method that writes carries a guard, and the guard names its roles.** `@RequiresRole`
+takes a list, so `{ADMIN, SECRETARY}` is how "any signed-in user may do this" is written —
+deliberately, rather than a blanket "authenticated": when a third role appears the list does
+not silently widen to include it.
+
 Two constraints to respect when adding guards:
 
 - `BackupService.executeBackup` is intentionally **unguarded** — `BackupScheduler` runs it
   from a scheduler thread with no user session. Only `restoreBackup` (destructive) is
-  restricted.
+  restricted. `SettingsService.recordAutoBackupAt` and `recordAlertScanAt` are unguarded for
+  exactly the same reason.
 - Callers must check the role *before* invoking an admin-only method when the screen is
   reachable by other roles (see `DashboardController.loadDashboardStats`), otherwise a
   SECRETARY hits `AccessDeniedException` on every open.
@@ -1424,7 +1513,7 @@ to English. Compare against the key instead — `hasMessage(I18n.get("error.sess
 Add coverage when touching any of those. `@DataJpaTest` needs `@Import(SecurityConfig.class)`
 because the boot class is itself a bean injecting `PasswordEncoder`.
 
-**A test lives in the module that holds its subject**, which is why the suite is split 64 / 249 / 56.
+**A test lives in the module that holds its subject**, which is why the suite is split 86 / 261 / 56.
 Two classes in `center-app`'s test tree exist only because it is a library and not a program:
 
 - `AppTestApplication` — `@DataJpaTest` searches *upward* for a `@SpringBootConfiguration` to

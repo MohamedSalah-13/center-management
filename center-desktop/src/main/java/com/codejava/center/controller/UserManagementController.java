@@ -2,6 +2,7 @@ package com.codejava.center.controller;
 
 import com.codejava.center.domain.User;
 import com.codejava.center.domain.enums.Role;
+import com.codejava.center.service.dto.UserDraft;
 import com.codejava.center.service.UserService;
 import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
@@ -132,11 +133,8 @@ public class UserManagementController {
         boolean isNew = user.getId() == null;
         int editedIndex = isNew ? -1 : usersList.indexOf(user);
         // لا نعدّل كائن الجدول قبل نجاح الخدمة؛ الرفض يجب ألا يترك قيمة وهمية في الواجهة.
-        User request = User.builder()
-                .id(user.getId())
-                .username(username)
-                .role(role)
-                .build();
+        // ومدخل الخدمة طلبٌ لا كيان: ما يُرسل هو ما يُسمح بتغييره، لا كل ما في الصفّ.
+        UserDraft request = new UserDraft(user.getId(), username, role);
 
         FxAsync.supply(() -> userService.saveUser(request, password, passwordConfirmation), saved -> {
             if (isNew) {

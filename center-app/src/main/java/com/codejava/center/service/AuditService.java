@@ -2,6 +2,7 @@ package com.codejava.center.service;
 
 import com.codejava.center.core.security.ActorIdentity;
 import com.codejava.center.core.security.CurrentActor;
+import com.codejava.center.security.RoleEnforcementAspect;
 import com.codejava.center.domain.AuditLog;
 import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.domain.enums.AuditCategory;
@@ -97,10 +98,27 @@ public class AuditService {
     }
 
     /**
-     * حدث فشل أو رُفض. يُكتب في معاملة مستقلة ولا يرمي شيئاً - راجع شرح الصف.
+     * رفضُ صلاحية: الباب الوحيد المفتوح لما هو خارج هذه الحزمة.
+     *
+     * <p>{@link RoleEnforcementAspect} في حزمة {@code security} هو المستدعي الوحيد،
+     * ويكتب نوعاً واحداً من الأحداث. ولذلك هذه الدالة بنوعٍ مثبَّت لا معامَل: عبر
+     * {@link #recordFailure} العامة كان يمكن لأي كود أن يكتب "فشلت استعادة نسخة" أو
+     * "فشل دخول" لم يقعا - أي أن يُلوَّث السجلّ الذي وُجد ليكون شهادة.</p>
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void recordFailure(AuditAction action, String entityLabel, String details) {
+    public void recordAccessDenied(String operation, String details) {
+        recordFailure(AuditAction.ACCESS_DENIED, operation, details);
+    }
+
+    /**
+     * حدث فشل أو رُفض. يُكتب في معاملة مستقلة ولا يرمي شيئاً - راجع شرح الصف.
+     *
+     * <p><b>داخل الحزمة لا عامة:</b> من يستطيع تسمية الحدث يستطيع كتابة سطرٍ عن فشلٍ
+     * لم يقع. الكتابة في سجل المراقبة قرارٌ يخصّ الخدمة التي وقع فيها الحدث، لا قدرةٌ
+     * تُمنح لكل من يستطيع الحقن.</p>
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    void recordFailure(AuditAction action, String entityLabel, String details) {
         ActorIdentity actor = currentActor.currentActor();
 
         try {
@@ -127,10 +145,15 @@ public class AuditService {
      *
      * <p>{@code username} يُسجَّل كما كُتب حتى لو لم يكن لأحد: محاولات دخول متكررة
      * باسم غير موجود هي نفسها ما يجب أن يراه صاحب السنتر.</p>
+     *
+     * <p><b>داخل الحزمة لا عامة:</b> هي الدالة الوحيدة التي تكتب سطراً باسم إنسان لم
+     * تتحقّق منه جلسة. مستدعيها الوحيد {@code AuthService} - الدخول والخروج - وفتحُها
+     * لغيره يعني أن يُكتب في السجلّ "فعل فلانٌ كذا" بلا أن يفعل. وسجلٌّ يمكن الكتابة
+     * فيه باسم غيرك ليس شهادة.</p>
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void recordAs(String username, Role role, AuditAction action,
-                         boolean successful, String details) {
+    void recordAs(String username, Role role, AuditAction action,
+                  boolean successful, String details) {
         try {
             write(AuditLog.builder()
                     .actorUsername(username)
