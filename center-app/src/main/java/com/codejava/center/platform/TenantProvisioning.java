@@ -82,9 +82,14 @@ public class TenantProvisioning {
         TenantId id = insertTenantRow(name, slug, schema);
         PlatformTenant tenant = new PlatformTenant(id, name, slug, schema, TenantStatus.ACTIVE);
 
+        // السجلّ يعرف المؤسسة فور وجود صفّها، وقبل أيّ عملٍ يجري داخل نطاقها: هو
+        // الترجمة الوحيدة من معرّف إلى اسم قاعدة، فكلُّ ما يلي - وأوّله زرعُ صفّ
+        // الإعدادات - يسأله عبر TenantSchemaResolver. وكان يُحدَّث بعد الزرع، فيسقط
+        // فتحُ أيّ سنترٍ جديد بـ "no tenant registered with id N"
+        registry.refresh();
+
         migrations.migrate(tenant);
         seedSettings(tenant, name);
-        registry.refresh();
 
         String code = issueInvite(id);
         log.info("فُتحت المؤسسة {} ({}) في القاعدة {}", slug, id.value(), schema);
