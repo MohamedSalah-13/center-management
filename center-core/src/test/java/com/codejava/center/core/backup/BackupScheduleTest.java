@@ -1,7 +1,5 @@
-package com.codejava.center.service;
+package com.codejava.center.core.backup;
 
-import com.codejava.center.domain.CenterSettings;
-import com.codejava.center.domain.enums.BackupFrequency;
 import org.junit.jupiter.api.Test;
 
 import java.time.DayOfWeek;
@@ -125,8 +123,8 @@ class BackupScheduleTest {
      * على الموعد الذي كان مكتوباً في الكود قبل الترقية.
      */
     @Test
-    void settingsWithoutAScheduleKeepTheHistoricDailyTwoAmSlot() {
-        BackupSchedule schedule = BackupSchedule.from(CenterSettings.builder().build());
+    void valuesWithoutAScheduleKeepTheHistoricDailyTwoAmSlot() {
+        BackupSchedule schedule = BackupSchedule.of(null, null, null, null);
 
         assertThat(schedule.frequency()).isEqualTo(BackupFrequency.DAILY);
         assertThat(schedule.time()).isEqualTo(LocalTime.of(2, 0));
@@ -134,13 +132,7 @@ class BackupScheduleTest {
 
     @Test
     void outOfRangeDaysAreClampedInsteadOfThrowing() {
-        CenterSettings settings = CenterSettings.builder()
-                .backupFrequency(BackupFrequency.WEEKLY)
-                .backupDayOfWeek(99)
-                .backupDayOfMonth(0)
-                .build();
-
-        BackupSchedule schedule = BackupSchedule.from(settings);
+        BackupSchedule schedule = BackupSchedule.of(BackupFrequency.WEEKLY, null, 99, 0);
 
         assertThat(schedule.dayOfWeek()).isEqualTo(7);
         assertThat(schedule.dayOfMonth()).isEqualTo(1);

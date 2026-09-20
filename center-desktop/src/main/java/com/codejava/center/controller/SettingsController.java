@@ -2,11 +2,12 @@ package com.codejava.center.controller;
 
 import com.codejava.center.core.print.DocumentKind;
 import com.codejava.center.domain.CenterSettings;
-import com.codejava.center.domain.enums.BackupFrequency;
+import com.codejava.center.core.backup.BackupFrequency;
 import com.codejava.center.domain.enums.Currency;
 import com.codejava.center.domain.enums.NotificationChannel;
-import com.codejava.center.service.BackupRetention;
-import com.codejava.center.service.BackupSchedule;
+import com.codejava.center.core.backup.BackupRetention;
+import com.codejava.center.core.backup.BackupSchedule;
+import com.codejava.center.service.BackupSchedules;
 import com.codejava.center.service.BackupService;
 import com.codejava.center.service.NotificationService;
 import com.codejava.center.service.SettingsService;
@@ -429,7 +430,7 @@ public class SettingsController {
         backupFrequencyCombo.setConverter(new StringConverter<>() {
             @Override
             public String toString(BackupFrequency frequency) {
-                return frequency == null ? "" : frequency.getDisplayName();
+                return BackupSchedules.frequencyName(frequency);
             }
 
             @Override
@@ -446,7 +447,7 @@ public class SettingsController {
         backupDayOfWeekCombo.setConverter(new StringConverter<>() {
             @Override
             public String toString(Integer day) {
-                return day == null ? "" : BackupSchedule.dayOfWeekName(day);
+                return day == null ? "" : BackupSchedules.dayOfWeekName(day);
             }
 
             @Override
@@ -534,7 +535,7 @@ public class SettingsController {
     private void updateNextRunPreview() {
         BackupSchedule schedule = scheduleFromFields();
         backupNextRunLabel.setText(I18n.format("settings.nextRunAt",
-                schedule.describe(), schedule.nextRunAfter(LocalDateTime.now()).format(MOMENT)));
+                BackupSchedules.describe(schedule), schedule.nextRunAfter(LocalDateTime.now()).format(MOMENT)));
     }
 
     private BackupSchedule scheduleFromFields() {
@@ -839,7 +840,7 @@ public class SettingsController {
      * يعرض البرنامج موعداً ويجدول غيره.
      */
     private void showBackupSchedule(CenterSettings settings) {
-        BackupSchedule schedule = BackupSchedule.from(settings);
+        BackupSchedule schedule = BackupSchedules.from(settings);
 
         // التعبئة من المحفوظ ليست تعديلاً من المستخدم، فلا تُظهر تنبيه "لم يُحفظ بعد"
         loadingSchedule = true;

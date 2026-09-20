@@ -1,5 +1,7 @@
 package com.codejava.center.util;
 
+import com.codejava.center.core.backup.BackupRetention;
+
 import javax.crypto.AEADBadTagException;
 import javax.crypto.Cipher;
 import javax.crypto.SecretKeyFactory;
@@ -55,7 +57,7 @@ public final class BackupCrypto {
     private static final int BUFFER_BYTES = 64 * 1024;
 
     /** لاحقة ملف النسخة المشفَّرة: {@code backup_2026-08-04_02-00-00.sql.enc} */
-    public static final String ENCRYPTED_SUFFIX = ".enc";
+    public static final String ENCRYPTED_SUFFIX = BackupRetention.ENCRYPTED_SUFFIX;
 
     private BackupCrypto() {
     }

@@ -1,6 +1,4 @@
-package com.codejava.center.service;
-
-import com.codejava.center.util.BackupCrypto;
+package com.codejava.center.core.backup;
 
 import java.util.Comparator;
 import java.util.List;
@@ -11,7 +9,8 @@ import java.util.stream.Stream;
  *
  * <p>صنف خالٍ من Spring ومن نظام الملفات عن قصد، تماماً كـ {@link BackupSchedule} وكـ
  * {@code Printing.pageBreaks}: هذا هو القرار الذي يحذف ملفات، وخطؤه لا يُكتشف إلا يوم
- * تُطلب نسخة لم تعد موجودة. {@code BackupRetentionTest} يغطّيه بلا قرص ولا سياق تطبيق.</p>
+ * تُطلب نسخة لم تعد موجودة. {@code BackupRetentionTest} يغطّيه بلا قرص ولا سياق تطبيق —
+ * وهو في النواة الآن، حيث لا Spring ولا JPA أصلاً ليتسرّبا إليه.</p>
  *
  * <h2>لماذا الافتراضي هنا لا في الشاشة</h2>
  *
@@ -35,8 +34,20 @@ public final class BackupRetention {
 
     public static final int MAX_COUNT = 999;
 
-    static final String FILE_PREFIX = "backup_";
-    static final String SQL_SUFFIX = ".sql";
+    /**
+     * أسماء ملفات النسخ يملكها هذا الصنف وحده.
+     *
+     * <p>من يكتب الاسم ({@code BackupService}) ومن يشفّره ({@code BackupCrypto}) ومن
+     * يحذف القديم (هنا) يجب أن يتفقوا حرفاً بحرف: لاحقةٌ تختلف بحرف تعني أن الحذف لا
+     * يرى ما كُتب، فيمتلئ المجلد بينما الشاشة تَعِد بثلاثين. قائمةٌ ثانية قائمةٌ
+     * تنحرف، فالقائمة واحدة وهنا.</p>
+     */
+    public static final String FILE_PREFIX = "backup_";
+
+    public static final String SQL_SUFFIX = ".sql";
+
+    /** لاحقة الملف المشفَّر، تُضاف بعد {@link #SQL_SUFFIX} لا بدلاً منه */
+    public static final String ENCRYPTED_SUFFIX = ".enc";
 
     private BackupRetention() {
     }
@@ -103,7 +114,7 @@ public final class BackupRetention {
     /** هل هذا ملف نسخة كتبه البرنامج - مشفَّراً كان أو صريحاً */
     public static boolean isBackupFile(String fileName) {
         return fileName.startsWith(FILE_PREFIX)
-                && Stream.of(SQL_SUFFIX, SQL_SUFFIX + BackupCrypto.ENCRYPTED_SUFFIX)
+                && Stream.of(SQL_SUFFIX, SQL_SUFFIX + ENCRYPTED_SUFFIX)
                 .anyMatch(fileName::endsWith);
     }
 }

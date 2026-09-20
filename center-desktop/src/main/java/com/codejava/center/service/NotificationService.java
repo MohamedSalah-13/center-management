@@ -14,7 +14,7 @@ import com.codejava.center.service.dto.GroupAttendanceReport;
 import com.codejava.center.service.dto.NotificationCandidate;
 import com.codejava.center.service.dto.StudentBalance;
 import com.codejava.center.service.notification.MessageSender;
-import com.codejava.center.service.notification.PhoneNumbers;
+import com.codejava.center.core.phone.PhoneNumbers;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
 import lombok.RequiredArgsConstructor;

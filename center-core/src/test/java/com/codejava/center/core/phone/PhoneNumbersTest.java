@@ -1,6 +1,8 @@
-package com.codejava.center.service.notification;
+package com.codejava.center.core.phone;
 
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -46,5 +48,23 @@ class PhoneNumbersTest {
     void rejectsNull() {
         assertThat(PhoneNumbers.toInternational(null)).isEmpty();
         assertThat(PhoneNumbers.isValid(null)).isFalse();
+    }
+
+    /**
+     * بلد آخر: نفس القواعد بأرقام أخرى.
+     *
+     * <p>كانت مصر مكتوبة في الكود، فرقمٌ سعودي صحيح يُرفض بلا سبب يفهمه أحد - ووليُّ أمرٍ
+     * لا يصله شيء. ما يُفحص هنا أن البلد صار قيمةً تُمرَّر فعلاً، لا أن مصر أُعيدت كتابتها
+     * بشكل آخر: الرقم السعودي يُقبل بقواعد بلده، ويُرفض بقواعد مصر، والعكس.</p>
+     */
+    @Test
+    void appliesTheRulesOfTheCountryItIsGiven() {
+        PhoneCountry saudiArabia = new PhoneCountry("966", 9, List.of("50", "53", "55"));
+
+        assertThat(PhoneNumbers.toInternational("0501234567", saudiArabia)).contains("966501234567");
+        assertThat(PhoneNumbers.toInternational("966501234567", saudiArabia)).contains("966501234567");
+
+        assertThat(PhoneNumbers.toInternational("0501234567")).as("بقواعد مصر").isEmpty();
+        assertThat(PhoneNumbers.toInternational("01012345678", saudiArabia)).as("بقواعد السعودية").isEmpty();
     }
 }

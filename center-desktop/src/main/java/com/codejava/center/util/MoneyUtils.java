@@ -1,14 +1,18 @@
 package com.codejava.center.util;
 
+import com.codejava.center.core.money.Money;
 import com.codejava.center.domain.enums.Currency;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 /**
- * أدوات موحّدة للتعامل مع المبالغ المالية.
- * الهدف: ضمان أن كل مبلغ في النظام له نفس عدد الخانات العشرية ونفس طريقة التقريب،
- * وأن العرض في الواجهة لا يُظهر أرقاماً مثل 99.99000000000001
+ * المبالغ المالية بعملة هذا السنتر.
+ *
+ * <p>الحساب نفسه - الخانتان والتقريب - في {@link Money} بالنواة، وهذا الصنف يضمّ إليه
+ * ما لا تعرفه النواة: عملةَ السنتر المقروءة من إعداداته، ورمزَها المقروء من حزمة نصوص
+ * بلغة هذا الجهاز. الدوال تبقى هنا بأسمائها فلا يتغيّر شيء عند الستين موضعاً التي
+ * تستدعيها.</p>
  *
  * <h2>العملة</h2>
  *
@@ -32,9 +36,9 @@ import java.math.RoundingMode;
  */
 public final class MoneyUtils {
 
-    public static final int SCALE = 2;
-    public static final RoundingMode ROUNDING = RoundingMode.HALF_UP;
-    public static final BigDecimal ZERO = BigDecimal.ZERO.setScale(SCALE, ROUNDING);
+    public static final int SCALE = Money.SCALE;
+    public static final RoundingMode ROUNDING = Money.ROUNDING;
+    public static final BigDecimal ZERO = Money.ZERO;
 
     private static volatile Currency currency = Currency.DEFAULT;
 
@@ -64,12 +68,12 @@ public final class MoneyUtils {
 
     /** ضبط المبلغ على خانتين عشريتين، مع اعتبار null صفراً */
     public static BigDecimal normalize(BigDecimal value) {
-        return value == null ? ZERO : value.setScale(SCALE, ROUNDING);
+        return Money.normalize(value);
     }
 
     /** تنسيق المبلغ للعرض في الواجهة (بدون صيغة أسّية) */
     public static String format(BigDecimal value) {
-        return normalize(value).toPlainString();
+        return Money.format(value);
     }
 
     /**

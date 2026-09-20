@@ -123,7 +123,7 @@ class CourseGroupServiceTest {
         CourseGroup saved = courseGroupService.saveGroup(
                 group(teacher, SchoolLevel.PREP1, Set.of(DayOfWeek.SATURDAY), 16, 18));
 
-        assertThat(saved.getName()).isEqualTo(GroupSchedule.compose(SchoolLevel.PREP1,
+        assertThat(saved.getName()).isEqualTo(GroupSchedules.compose(SchoolLevel.PREP1,
                 teacher.getName(), Set.of(DayOfWeek.SATURDAY), LocalTime.of(16, 0)));
     }
 

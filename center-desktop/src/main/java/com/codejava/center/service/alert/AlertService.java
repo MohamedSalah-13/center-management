@@ -1,5 +1,7 @@
 package com.codejava.center.service.alert;
 
+import com.codejava.center.core.alert.AlertSchedule;
+
 import com.codejava.center.core.security.ActorIdentity;
 import com.codejava.center.core.security.CurrentActor;
 import com.codejava.center.domain.Alert;
@@ -190,7 +192,7 @@ public class AlertService {
     public ScanSettings getScanSettings() {
         CenterSettings settings = settingsService.getSettings();
         return new ScanSettings(settings.isAlertsEnabled(),
-                AlertSchedule.from(settings).time(), settings.getLastAlertScanAt());
+                AlertSchedules.from(settings).time(), settings.getLastAlertScanAt());
     }
 
     /**

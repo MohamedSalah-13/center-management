@@ -1,5 +1,7 @@
 package com.codejava.center.service;
 
+import com.codejava.center.core.group.GroupSchedule;
+
 import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Teacher;
 import com.codejava.center.domain.enums.SchoolLevel;
@@ -19,15 +21,15 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>بلا Spring ولا قاعدة بيانات - نفس منطق {@code BackupScheduleTest}: هذا حساب خالص،
  * وخطأ فيه يعني معلماً محجوزاً في قاعتين أو مجموعتين لا تُحفظان بلا سبب ظاهر.</p>
  */
-class GroupScheduleTest {
+class GroupSchedulesTest {
 
     @Test
     void detectsOverlapOnASharedDay() {
         CourseGroup first = group(Set.of(DayOfWeek.SATURDAY, DayOfWeek.TUESDAY), 16, 18);
         CourseGroup second = group(Set.of(DayOfWeek.TUESDAY), 17, 19);
 
-        assertThat(GroupSchedule.conflicts(first, second)).isTrue();
-        assertThat(GroupSchedule.sharedDays(first, second)).containsExactly(DayOfWeek.TUESDAY);
+        assertThat(GroupSchedules.conflicts(first, second)).isTrue();
+        assertThat(GroupSchedules.sharedDays(first, second)).containsExactly(DayOfWeek.TUESDAY);
     }
 
     @Test
@@ -35,7 +37,7 @@ class GroupScheduleTest {
         CourseGroup saturday = group(Set.of(DayOfWeek.SATURDAY), 16, 18);
         CourseGroup sunday = group(Set.of(DayOfWeek.SUNDAY), 16, 18);
 
-        assertThat(GroupSchedule.conflicts(saturday, sunday)).isFalse();
+        assertThat(GroupSchedules.conflicts(saturday, sunday)).isFalse();
     }
 
     /**
@@ -47,7 +49,7 @@ class GroupScheduleTest {
         CourseGroup earlier = group(Set.of(DayOfWeek.SATURDAY), 16, 18);
         CourseGroup later = group(Set.of(DayOfWeek.SATURDAY), 18, 20);
 
-        assertThat(GroupSchedule.conflicts(earlier, later)).isFalse();
+        assertThat(GroupSchedules.conflicts(earlier, later)).isFalse();
     }
 
     @Test
@@ -55,8 +57,8 @@ class GroupScheduleTest {
         CourseGroup wide = group(Set.of(DayOfWeek.MONDAY), 15, 20);
         CourseGroup narrow = group(Set.of(DayOfWeek.MONDAY), 16, 17);
 
-        assertThat(GroupSchedule.conflicts(wide, narrow)).isTrue();
-        assertThat(GroupSchedule.conflicts(narrow, wide)).isTrue();
+        assertThat(GroupSchedules.conflicts(wide, narrow)).isTrue();
+        assertThat(GroupSchedules.conflicts(narrow, wide)).isTrue();
     }
 
     /** مجموعة أُنشئت قبل هذه الميزة بلا موعد: لا يُحكم عليها بتعارض فتُعطَّل بيانات قائمة */
@@ -65,13 +67,13 @@ class GroupScheduleTest {
         CourseGroup scheduled = group(Set.of(DayOfWeek.SATURDAY), 16, 18);
         CourseGroup legacy = CourseGroup.builder().name("قديمة").build();
 
-        assertThat(GroupSchedule.conflicts(scheduled, legacy)).isFalse();
-        assertThat(GroupSchedule.hasSchedule(legacy)).isFalse();
+        assertThat(GroupSchedules.conflicts(scheduled, legacy)).isFalse();
+        assertThat(GroupSchedules.hasSchedule(legacy)).isFalse();
     }
 
     @Test
     void composesNameFromLevelTeacherDaysAndStartTime() {
-        String name = GroupSchedule.compose(SchoolLevel.PREP1, "أ/ محمد",
+        String name = GroupSchedules.compose(SchoolLevel.PREP1, "أ/ محمد",
                 Set.of(DayOfWeek.TUESDAY, DayOfWeek.SATURDAY), LocalTime.of(16, 0));
 
         assertThat(name).isEqualTo(I18n.format("group.autoName",
@@ -83,7 +85,7 @@ class GroupScheduleTest {
     /** الاسم يُخزَّن في عمود بطول محدود؛ التجاوز كان سيرفضه MySQL عند الحفظ */
     @Test
     void composedNameNeverExceedsTheColumnLength() {
-        String name = GroupSchedule.compose(SchoolLevel.SEC3, "أ".repeat(200),
+        String name = GroupSchedules.compose(SchoolLevel.SEC3, "أ".repeat(200),
                 Set.of(DayOfWeek.values()), LocalTime.of(9, 30));
 
         assertThat(name.length()).isLessThanOrEqualTo(GroupSchedule.MAX_NAME_LENGTH);

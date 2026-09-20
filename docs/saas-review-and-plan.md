@@ -211,9 +211,16 @@ V16 (قد تكون طُبّقت)، لكن لا تبنِ فوق `tenants` داخ�
    `MySqlLocator`. الدوال تُستدعى لحظة النسخ لا عند الإقلاع: البحث عن الأدوات يقرأ القرص.
    وأُضيف `MySqlLocator` إلى ممنوعات `BusinessLayerPurityTest`: فحصُ مجلدات تركيب ويندوز لا
    مكان له في خدمة.
-9. [ ] الكلاسات النقية تنتقل إلى `center-core` مع اختباراتها: `BackupSchedule`, `BackupRetention`,
-   `GroupSchedule`, `AlertSchedule`, `PhoneNumbers` (مع بلد قابل للضبط), `PasswordPolicy`,
-   جزء `MoneyUtils` الحسابي.
+9. [x] الكلاسات النقية تنتقل إلى `center-core` مع اختباراتها: `BackupSchedule` (ومعه
+   `BackupFrequency`), `BackupRetention`, `GroupSchedule`, `AlertSchedule`, `PhoneNumbers`
+   (مع بلد قابل للضبط: `PhoneCountry`, ومصر هي الافتراضي فلا يتغيّر سلوك قائم),
+   `PasswordPolicy`, وجزء `MoneyUtils` الحسابي باسم `Money`. اختبارات النواة صارت 55 بعد أن
+   كانت 4.
+   وكلٌّ منها ترك خلفه شيئاً واحداً: **الصياغة**. النواة لا تعرف لغة، فما احتاج لغةً بقي له
+   شريكٌ رقيق على جهة التطبيق بصيغة الجمع — `BackupSchedules` و`AlertSchedules`
+   و`GroupSchedules` و`Passwords` و`MoneyUtils` — يقرأ كيان الإعدادات ويكتب الجملة. القاعدة:
+   النواة تقرّر، والحافة تتكلّم. ولهذا فقد `BackupFrequency` دالة `getDisplayName` كما فقدها
+   `DocumentKind` في البند 4.
 10. [ ] المنطقة الزمنية: `Clock`/`ZoneId` يُحقنان بدل `now()` المباشر (22 صفاً) — تدريجياً، ابدأ
     بالمجدولين و`TransactionService`.
 

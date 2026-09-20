@@ -1,7 +1,4 @@
-package com.codejava.center.service.alert;
-
-import com.codejava.center.domain.CenterSettings;
-import com.codejava.center.util.I18n;
+package com.codejava.center.core.alert;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -26,8 +23,8 @@ public record AlertSchedule(LocalTime time) {
      */
     public static final LocalTime DEFAULT_TIME = LocalTime.of(8, 0);
 
-    public static AlertSchedule from(CenterSettings settings) {
-        LocalTime configured = settings.getAlertScanTime();
+    /** ساعةٌ قد تكون غير مضبوطة في إعدادات سنترٍ رُقّي ولم يفتح الشاشة */
+    public static AlertSchedule of(LocalTime configured) {
         return new AlertSchedule(configured == null ? DEFAULT_TIME : configured);
     }
 
@@ -57,9 +54,8 @@ public record AlertSchedule(LocalTime time) {
         return lastRun == null || !nextRunAfter(lastRun).isAfter(now);
     }
 
-    /** وصف الموعد بلغة الواجهة، لعرضه في شاشة إدارة التنبيهات */
-    public String describe() {
-        return I18n.format("alerts.scheduleDaily",
-                String.format("%02d:%02d", time.getHour(), time.getMinute()));
+    /** الساعة والدقيقة بصيغة 24، وهي جزء من كل وصف للموعد */
+    public String clock() {
+        return String.format("%02d:%02d", time.getHour(), time.getMinute());
     }
 }

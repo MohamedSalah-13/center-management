@@ -6,7 +6,7 @@ import com.codejava.center.domain.enums.AlertCategory;
 import com.codejava.center.domain.enums.AlertSeverity;
 import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.domain.enums.AuditCategory;
-import com.codejava.center.domain.enums.BackupFrequency;
+import com.codejava.center.core.backup.BackupFrequency;
 import com.codejava.center.domain.enums.Currency;
 import com.codejava.center.domain.enums.NotificationChannel;
 import com.codejava.center.domain.enums.AlertType;
