@@ -11,7 +11,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * تراه، وهو <b>الغرض</b>: طبقة الأعمال تُختبر بلا تطبيق JavaFX خلفها.</p>
  *
  * <p>في نطاق الاختبار لا في {@code src/main}: هذه الوحدة مكتبةٌ تُستهلك، لا برنامجٌ
- * يُقلع. من يقلع هو {@code center-desktop} اليوم، وخادم {@code center-web} غداً.</p>
+ * يُقلع. من يقلع هو {@code center-desktop} على الجهاز و{@code center-web} على خادم.</p>
  */
 @SpringBootApplication
 public class AppTestApplication {

@@ -1,6 +1,7 @@
 package com.codejava.center.tenancy;
 
 import com.codejava.center.config.tenancy.SchemaPerTenantConnectionProvider;
+import com.codejava.center.config.tenancy.TenantSchemaResolver;
 import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,6 +16,7 @@ import java.util.UUID;
 import java.util.logging.Logger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * توجيه الاتصال إلى قاعدة المؤسسة، وإعادتُه إلى حياده.
@@ -92,6 +94,21 @@ class SchemaRoutingTest {
         try (Connection connection = provider.getAnyConnection()) {
             assertThat(currentSchema(connection)).isEqualToIgnoringCase("PUBLIC");
         }
+    }
+
+    /**
+     * والمعرّف المحجوز يُرفض هنا لا عند فتح الجلسة.
+     *
+     * <p>هذا هو النصف الثاني من إزاحة الرفض خطوةً: الجلسة تُفتح بلا مؤسسة - فيُقلع
+     * الخادم - وأوّلُ عبارة تحتاج اتصالاً تسقط. ولولا هذا السطر لَكان الجواب المحجوز
+     * اسمَ قاعدةٍ يُمرَّر إلى {@code setCatalog} فتقرأ عبارةٌ بلا مؤسسة من قاعدةٍ ما:
+     * أي التسرّب الصامت بعينه، بعد إصلاحٍ يبدو كأنه أزاله.</p>
+     */
+    @Test
+    void aConnectionIsRefusedForTheReservedNoTenantIdentifier() {
+        assertThatThrownBy(() -> provider.getConnection(TenantSchemaResolver.NO_TENANT))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("no tenant on this thread");
     }
 
     private String readStudent(String schema) throws SQLException {
