@@ -51,5 +51,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: surefire-reports
-          path: center-desktop/target/surefire-reports/
+          # كلا الوحدتين: فشل في center-core بلا تقرير مرفوع لا يُقرأ منه إلا الاسم
+          path: |
+            center-core/target/surefire-reports/
+            center-desktop/target/surefire-reports/
           retention-days: 7
