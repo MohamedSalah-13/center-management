@@ -1,5 +1,6 @@
 package com.codejava.center.reports;
 
+import com.codejava.center.core.print.DocumentKind;
 import com.codejava.center.service.dto.ArrearsReportRow;
 import com.codejava.center.service.dto.AttendanceLogSheetRow;
 import com.codejava.center.service.dto.AttendanceReportRow;
@@ -7,6 +8,7 @@ import com.codejava.center.service.dto.AuditReportRow;
 import com.codejava.center.service.dto.DayScheduleRow;
 import com.codejava.center.service.dto.EnrollmentReportRow;
 import com.codejava.center.service.dto.ExpenseSheetRow;
+import com.codejava.center.service.dto.Sheet;
 import com.codejava.center.service.dto.ShiftMovementRow;
 import com.codejava.center.service.dto.TeacherListRow;
 import com.codejava.center.service.dto.TeacherSessionRow;
@@ -22,6 +24,7 @@ import com.codejava.center.service.dto.GroupRosterRow;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -84,6 +87,29 @@ class ReportTemplateCompileTest {
                 .contains("مجموعة الأحد")
                 .contains("83%")
                 .contains("COL_GROUP");
+    }
+
+    /**
+     * الورقة تخرج PDF في الذاكرة.
+     *
+     * <p>التسليم خرج من {@code ReportService}: ما تعيده الخدمة هو {@link Sheet} وحدها،
+     * وبايتات الـ PDF هي الوصلة بين الملء وبين كل وجهة — ملفٌ مؤقت يُفتح على Desktop،
+     * أو جسمُ جوابٍ على خادم. وكانت الكتابة تمرّ بـ {@code exportReportToPdfFile} فصارت
+     * {@code exportReportToPdf}، وهو تبديل لا يراه المترجِم: مصفوفةٌ فارغة أو مقطوعة
+     * تُكتب ملفاً لا يفتحه أي عارض، ولا يُرفع خطأ واحد.</p>
+     */
+    @Test
+    void aFilledSheetExportsToPdfBytes() throws Exception {
+        Sheet sheet = new Sheet(fillEnrollments(true), DocumentKind.REPORT, "enrollments_");
+
+        byte[] pdf = sheet.toPdf();
+
+        String head = new String(pdf, 0, 5, StandardCharsets.ISO_8859_1);
+        String tail = new String(pdf, Math.max(0, pdf.length - 32), Math.min(32, pdf.length),
+                StandardCharsets.ISO_8859_1);
+
+        assertThat(head).as("توقيع ملف PDF").isEqualTo("%PDF-");
+        assertThat(tail).as("خاتمة الملف؛ غيابها يعني بايتات مقطوعة").contains("%%EOF");
     }
 
     /**

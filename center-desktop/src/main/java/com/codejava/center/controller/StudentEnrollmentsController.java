@@ -268,7 +268,7 @@ public class StudentEnrollmentsController {
                 student.getParentPhone() == null ? I18n.get("common.none") : student.getParentPhone());
 
         printButton.setDisable(true);
-        FxAsync.supply(() -> reportService.deliverStudentEnrollments(student.getName(), details, rows),
+        FxAsync.supply(() -> Sheets.deliver(reportService.studentEnrollmentsSheet(student.getName(), details, rows)),
                 delivery -> {
                     printButton.setDisable(false);
                     Sheets.show(delivery);

@@ -219,8 +219,8 @@ public class TeacherController {
      * يشترط ذلك، فلا شيء يعود إلى خيط الواجهة إلا نتيجة التسليم.</p>
      */
     private void printStatement(Teacher teacher) {
-        FxAsync.supply(() -> reportService.deliverTeacherStatement(teacher,
-                        teacherService.getPayableSessionsOf(teacher.getId())),
+        FxAsync.supply(() -> Sheets.deliver(reportService.teacherStatementSheet(teacher,
+                        teacherService.getPayableSessionsOf(teacher.getId()))),
                 Sheets::show,
                 error -> Dialogs.error(I18n.format("teacher.printFailed", FxAsync.messageOf(error))));
     }
@@ -238,7 +238,7 @@ public class TeacherController {
         // الجدول الحيّة من هناك تتعارض مع تعديلها من خيط الواجهة
         String filters = describeFilters();
 
-        FxAsync.supply(() -> reportService.deliverTeachersList(shown, filters),
+        FxAsync.supply(() -> Sheets.deliver(reportService.teachersListSheet(shown, filters)),
                 Sheets::show,
                 error -> Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(error)));
     }

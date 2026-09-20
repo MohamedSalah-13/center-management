@@ -110,7 +110,7 @@ public class ArrearsController {
         List<StudentBalance> rows = new ArrayList<>(arrears);
         java.math.BigDecimal total = totalDue(rows);
 
-        FxAsync.supply(() -> reportService.deliverArrearsReport(rows, total),
+        FxAsync.supply(() -> Sheets.deliver(reportService.arrearsSheet(rows, total)),
                 Sheets::show,
                 error -> Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(error)));
     }

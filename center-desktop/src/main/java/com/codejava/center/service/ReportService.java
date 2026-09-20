@@ -1,7 +1,7 @@
 package com.codejava.center.service;
 
 import com.codejava.center.core.print.DocumentKind;
-import com.codejava.center.core.print.PrintTargetResolver;
+import com.codejava.center.core.print.SheetHeaderPolicy;
 import com.codejava.center.domain.CenterSettings;
 import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Student;
@@ -21,7 +21,7 @@ import com.codejava.center.service.dto.GroupListRow;
 import com.codejava.center.service.dto.GroupRosterRow;
 import com.codejava.center.service.dto.IdCardRow;
 import com.codejava.center.service.dto.MembershipRow;
-import com.codejava.center.service.dto.SheetDelivery;
+import com.codejava.center.service.dto.Sheet;
 import com.codejava.center.service.dto.ShiftMovementRow;
 import com.codejava.center.service.dto.TeacherListRow;
 import com.codejava.center.service.dto.TeacherSessionRow;
@@ -35,21 +35,12 @@ import com.codejava.center.util.MoneyUtils;
 import com.codejava.center.util.WeekDays;
 import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
-import net.sf.jasperreports.engine.export.JRPrintServiceExporter;
-import net.sf.jasperreports.export.SimpleExporterInput;
-import net.sf.jasperreports.export.SimplePrintServiceExporterConfiguration;
 import org.springframework.stereotype.Service;
 
-import javax.print.PrintService;
-import javax.print.PrintServiceLookup;
-import javax.sql.DataSource;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.sql.Connection;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -57,11 +48,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * يملأ كشوف جاسبر. <b>ولا يسلّمها.</b>
+ *
+ * <p>كل دالة عامة هنا تعيد {@link Sheet} — ورقةً مملوءة ومعها نوعها وبادئة اسم ملفها —
+ * ولا تعرف ما سيحلّ بها. كانت تطبع أو تكتب ملفاً مؤقتاً بعد الملء مباشرةً، فكانت تحمل
+ * {@code javax.print} ومجلدَ الملفات المؤقتة وعارضَ الـ PDF معها إلى كل من يستدعيها؛
+ * وخادمٌ يطلب نفس الورقة ليردّها في جواب HTTP لا طابعة له ولا مستخدمَ أمام شاشة.</p>
+ *
+ * <p>المسلِّم على Desktop هو {@code util/Sheets}: يقرأ تفضيل الجهاز فيطبع أو يكتب PDF،
+ * أو يحفظ ملفاً باسم يبقى. والشاشة تجمع الاثنين في سطر واحد داخل {@code FxAsync}.</p>
+ *
+ * <p>ولا استعلام يُكتب داخل ملف تصميم: كل ورقة تُملأ من قائمة كائنات جاهزة
+ * ({@code JRBeanCollectionDataSource}) تبنيها الخدمات، ولهذا لا {@code DataSource} في
+ * هذا الصنف أصلاً. ما يُطبع هو ما كان على الشاشة، وسؤالُ قاعدة البيانات مرة أخرى يفتح
+ * باب أن يختلف الاثنان.</p>
+ */
 @Service
 public class ReportService {
-
-    // نستخدم DataSource الخاص بـ Spring Boot للاتصال بقاعدة البيانات مباشرة من التقرير
-    private final DataSource dataSource;
 
     /**
      * ذاكرة مؤقتة للتقارير المترجَمة.
@@ -73,17 +77,15 @@ public class ReportService {
     private final SettingsService settingsService;
 
     /**
-     * وجهة الطباعة وتفضيلاتها. واجهةٌ لا {@code PrintPreferences} مباشرةً: ذاك يستورد
-     * {@code javafx.print} فكانت هذه الخدمة تجرّ الواجهة الرسومية خلفها إلى كل مكان
-     * تُستدعى منه. راجع {@link PrintTargetResolver}.
+     * هل تُملأ الورقة بترويسة السنتر. واجهةٌ لا {@code PrintPreferences} مباشرةً: ذاك
+     * يستورد {@code javafx.print} فكانت هذه الخدمة تجرّ الواجهة الرسومية خلفها إلى كل
+     * مكان تُستدعى منه. راجع {@link SheetHeaderPolicy}.
      */
-    private final PrintTargetResolver printTargets;
+    private final SheetHeaderPolicy headerPolicy;
 
-    public ReportService(DataSource dataSource, SettingsService settingsService,
-                         PrintTargetResolver printTargets) {
-        this.dataSource = dataSource;
+    public ReportService(SettingsService settingsService, SheetHeaderPolicy headerPolicy) {
         this.settingsService = settingsService;
-        this.printTargets = printTargets;
+        this.headerPolicy = headerPolicy;
     }
 
     /** صيغة الوقت في ترويسات المطبوعات وذيولها */
@@ -96,8 +98,8 @@ public class ReportService {
      * تقفيل الدرج ويُدبَّس على النقد المسلَّم، فمكانه الرول الذي أمام الكاشير - لا طابعة
      * A4 في غرفة أخرى. وكان يخرج A4 كاملة لأجل ملخّص من أربعة أسطر.</p>
      */
-    public SheetDelivery deliverShiftSummary(LocalDate day, ShiftSummary summary,
-                                             List<Transaction> movements) {
+    public Sheet shiftSummarySheet(LocalDate day, ShiftSummary summary,
+                                   List<Transaction> movements) {
         Map<String, Object> parameters = withReceiptHeader(new java.util.HashMap<>());
         parameters.put("REPORT_TITLE", I18n.format("report.shift.title", day));
         parameters.put("INCOME_LINE", summaryLine("shift.income", summary.totalIncome()));
@@ -116,13 +118,13 @@ public class ReportService {
                         movement.getDescription()))
                 .toList();
 
-        return deliver(fill("ShiftSummary.jrxml", parameters, rows), "shift_summary_",
+        return sheet(fill("ShiftSummary.jrxml", parameters, rows), "shift_summary_",
                 DocumentKind.RECEIPT);
     }
 
     /** تقرير المتأخرات: قائمة المدينين ومبالغهم مع بيانات التواصل */
-    public SheetDelivery deliverArrearsReport(List<StudentBalance> arrears,
-                                              java.math.BigDecimal totalDue) {
+    public Sheet arrearsSheet(List<StudentBalance> arrears,
+                              java.math.BigDecimal totalDue) {
         String none = I18n.get("common.none");
 
         Map<String, Object> parameters = withSheetFooter(withCenterHeader(new java.util.HashMap<>()));
@@ -147,7 +149,7 @@ public class ReportService {
                         MoneyUtils.formatWithCurrency(row.amountDue())))
                 .toList();
 
-        return deliver(fill("ArrearsReport.jrxml", parameters, rows), "arrears_",
+        return sheet(fill("ArrearsReport.jrxml", parameters, rows), "arrears_",
                 DocumentKind.REPORT);
     }
 
@@ -157,9 +159,9 @@ public class ReportService {
      * <p>كان يُبنى داخل شاشة الخزينة بترويسة نصية ثابتة لا تحمل اسم السنتر ولا شعاره رغم
      * أن الإعدادات تجمعهما، ثم صار مطبوعة JavaFX، وهو الآن ورقة جاسبر كبقية المطبوعات.</p>
      */
-    public SheetDelivery deliverPaymentReceipt(String studentName, String groupName,
-                                               java.math.BigDecimal amount,
-                                               java.math.BigDecimal newBalance, String description) {
+    public Sheet paymentReceiptSheet(String studentName, String groupName,
+                                     java.math.BigDecimal amount,
+                                     java.math.BigDecimal newBalance, String description) {
         Map<String, Object> parameters = withReceiptHeader(new java.util.HashMap<>());
         parameters.put("RECEIPT_TITLE", I18n.get("report.receipt.title"));
         parameters.put("DATE_LINE", I18n.format("report.receipt.date",
@@ -173,13 +175,13 @@ public class ReportService {
                 MoneyUtils.formatWithCurrency(newBalance)));
 
         // سجلّ واحد لا صفر: الإيصال بلا صفوف تفصيل، وفرقة detail هي ما يحمل نصّه
-        return deliver(fill("PaymentReceipt.jrxml", parameters, List.of(new Object())),
+        return sheet(fill("PaymentReceipt.jrxml", parameters, List.of(new Object())),
                 "receipt_", DocumentKind.RECEIPT);
     }
 
     /** تقرير حضور وغياب مجموعة خلال فترة */
-    public SheetDelivery deliverAttendanceReport(GroupAttendanceReport report,
-                                                 LocalDate from, LocalDate to) {
+    public Sheet attendanceReportSheet(GroupAttendanceReport report,
+                                       LocalDate from, LocalDate to) {
         String none = I18n.get("common.none");
 
         Map<String, Object> parameters = withSheetFooter(withCenterHeader(new java.util.HashMap<>()));
@@ -209,14 +211,14 @@ public class ReportService {
                                 : Math.round((row.attended() * 100.0) / report.totalSessions()) + "%"))
                 .toList();
 
-        return deliver(fill("AttendanceReport.jrxml", parameters, rows), "attendance_",
+        return sheet(fill("AttendanceReport.jrxml", parameters, rows), "attendance_",
                 DocumentKind.REPORT);
     }
 
     /**
      * تقرير المصروفات خلال فترة: بندٌ لكل مصروف، وإجماليها في آخر الورقة.
      *
-     * <p>الإجمالي يصل وسيطاً من الشاشة لا يُحسب هنا، كما في {@link #deliverArrearsReport}:
+     * <p>الإجمالي يصل وسيطاً من الشاشة لا يُحسب هنا، كما في {@link #arrearsSheet}:
      * الرقم المطبوع هو الرقم الذي رآه المستخدم قبل أن يضغط الطباعة، وحسابُه مرة ثانية
      * يفتح باب أن يخالف الورقةُ الشاشةَ - وورقة مصروفات تخالف ما على الشاشة تُفقد الثقة
      * في الاثنتين معاً.</p>
@@ -224,8 +226,8 @@ public class ReportService {
      * <p>ووصف التصفية يُطبع ويتكرّر في رأس كل صفحة: ورقةٌ تُقرأ بعد شهرين بلا سطر يقول
      * "من كذا إلى كذا" تُقرأ على أنها مصروفات السنتر كلها.</p>
      */
-    public SheetDelivery deliverExpenseReport(List<Transaction> expenses,
-                                              java.math.BigDecimal total, String filterDescription) {
+    public Sheet expenseReportSheet(List<Transaction> expenses,
+                                    java.math.BigDecimal total, String filterDescription) {
         Map<String, Object> parameters = withSheetFooter(withCenterHeader(new java.util.HashMap<>()));
         parameters.put("REPORT_TITLE", I18n.get("report.expenses.title"));
         parameters.put("SCOPE", I18n.format("report.expenses.scope", filterDescription, expenses.size()));
@@ -249,7 +251,7 @@ public class ReportService {
                         MoneyUtils.format(expense.getAmount())))
                 .toList();
 
-        return deliver(fill("ExpenseReport.jrxml", parameters, rows), "expenses_",
+        return sheet(fill("ExpenseReport.jrxml", parameters, rows), "expenses_",
                 DocumentKind.REPORT);
     }
 
@@ -263,7 +265,7 @@ public class ReportService {
      * <p>الأوقات والمدد تصل نصّاً جاهزاً من {@code Durations} و{@code I18n}: هي بعينها ما
      * كان على الشاشة، فلا يقرأ الموظف رقماً على الورقة يخالف ما رآه قبل لحظة.</p>
      */
-    public SheetDelivery deliverAttendanceLog(List<AttendanceLogRow> log, String filterDescription) {
+    public Sheet attendanceLogSheet(List<AttendanceLogRow> log, String filterDescription) {
         String noTime = I18n.get("common.empty");
 
         Map<String, Object> parameters = withSheetFooter(withCenterHeader(new java.util.HashMap<>()));
@@ -293,7 +295,7 @@ public class ReportService {
                         row.state().getDisplayName()))
                 .toList();
 
-        return deliver(fill("AttendanceLogSheet.jrxml", parameters, rows), "attendance_log_",
+        return sheet(fill("AttendanceLogSheet.jrxml", parameters, rows), "attendance_log_",
                 DocumentKind.REPORT);
     }
 
@@ -303,8 +305,8 @@ public class ReportService {
      * <p>وصف التصفية يُطبع في أعلى الورقة: كشف يقول "مجموعات المعلم فلان يوم السبت"
      * يُقرأ بعد شهر، وكشف بلا وصف يبدو أنه كل مجموعات السنتر وليس كذلك.</p>
      */
-    public SheetDelivery deliverGroupsList(List<CourseGroup> groups, Map<Long, Long> memberCounts,
-                                           String filterDescription) {
+    public Sheet groupsListSheet(List<CourseGroup> groups, Map<Long, Long> memberCounts,
+                                 String filterDescription) {
         String none = I18n.get("common.none");
 
         Map<String, Object> parameters = withSheetFooter(withCenterHeader(new java.util.HashMap<>()));
@@ -332,7 +334,7 @@ public class ReportService {
                         MoneyUtils.format(group.getSessionPrice())))
                 .toList();
 
-        return deliver(fill("GroupsList.jrxml", parameters, rows), "groups_list_", DocumentKind.REPORT);
+        return sheet(fill("GroupsList.jrxml", parameters, rows), "groups_list_", DocumentKind.REPORT);
     }
 
     /**
@@ -345,7 +347,7 @@ public class ReportService {
      * <p>الصفوف تصل جاهزة من {@code DayScheduleService}: هي بعينها صفوف الجدول على
      * الشاشة، فالورقة نسخة ممّا كان أمام الموظف لا حساب ثانٍ قد يخالفه.</p>
      */
-    public SheetDelivery deliverDaySchedule(LocalDate date, List<DayScheduleRow> rows, String summary) {
+    public Sheet dayScheduleSheet(LocalDate date, List<DayScheduleRow> rows, String summary) {
         Map<String, Object> parameters = withSheetFooter(withCenterHeader(new java.util.HashMap<>()));
         parameters.put("REPORT_TITLE", I18n.get("report.daySchedule.title"));
         parameters.put("SCOPE", I18n.format("report.daySchedule.scope",
@@ -360,7 +362,7 @@ public class ReportService {
         parameters.put("COL_ATTENDANCE", I18n.get("daySchedule.col.attendance"));
         parameters.put("NO_ROWS", I18n.get("daySchedule.noRows"));
 
-        return deliver(fill("DaySchedule.jrxml", parameters, rows), "day_schedule_", DocumentKind.REPORT);
+        return sheet(fill("DaySchedule.jrxml", parameters, rows), "day_schedule_", DocumentKind.REPORT);
     }
 
     /**
@@ -372,8 +374,8 @@ public class ReportService {
      * <p>كل حدث كتلة واحدة من سطرين: التقسيم في {@link Printing} يقع بين الكتل لا داخلها،
      * فلا ينتهي وجه الصفحة بنصف حدث - وسطر مراقبة مبتور أسوأ من غيابه.</p>
      */
-    public SheetDelivery deliverAuditReport(List<com.codejava.center.domain.AuditLog> events,
-                                            LocalDate from, LocalDate to) {
+    public Sheet auditReportSheet(List<com.codejava.center.domain.AuditLog> events,
+                                  LocalDate from, LocalDate to) {
         String none = I18n.get("common.none");
 
         Map<String, Object> parameters = withSheetFooter(withCenterHeader(new java.util.HashMap<>()));
@@ -403,21 +405,21 @@ public class ReportService {
                                 ? null : I18n.format("report.audit.details", event.getDetails())))
                 .toList();
 
-        return deliver(fill("AuditReport.jrxml", parameters, rows), "audit_", DocumentKind.REPORT);
+        return sheet(fill("AuditReport.jrxml", parameters, rows), "audit_", DocumentKind.REPORT);
     }
 
     /**
      * كشف المعلمين كما تعرضهم الشاشة بعد التصفية.
      *
      * <p>وصف التصفية يُطبع في أعلى الورقة ويتكرّر في رأس كل صفحة، لنفس سبب
-     * {@link #deliverGroupsList}: كشفٌ يقول "المادة: رياضيات - نوع العمولة: نسبة مئوية"
+     * {@link #groupsListSheet}: كشفٌ يقول "المادة: رياضيات - نوع العمولة: نسبة مئوية"
      * يُقرأ بعد شهر، وكشفٌ بلا وصف يبدو أنه كل معلمي السنتر وليس كذلك.</p>
      *
      * <p>وقيمة العمولة تُكتب بلا رمز عملة: هي نسبة مئوية في اتفاق النسبة ومبلغٌ في اتفاق
      * المبلغ الثابت والإيجار، وإلحاق العملة بها يجعل "50" تُقرأ خمسين جنيهاً وهي خمسون
      * في المئة - وهو الفرق بين حصة معلم وحصة السنتر كلها.</p>
      */
-    public SheetDelivery deliverTeachersList(List<Teacher> teachers, String filterDescription) {
+    public Sheet teachersListSheet(List<Teacher> teachers, String filterDescription) {
         Map<String, Object> parameters = withSheetFooter(withCenterHeader(new java.util.HashMap<>()));
         parameters.put("REPORT_TITLE", I18n.get("report.teachers.title"));
         parameters.put("SCOPE", I18n.format("report.teachers.scope", filterDescription, teachers.size()));
@@ -438,30 +440,13 @@ public class ReportService {
                         MoneyUtils.format(teacher.getCommissionValue())))
                 .toList();
 
-        return deliver(fill("TeachersList.jrxml", parameters, rows), "teachers_list_",
+        return sheet(fill("TeachersList.jrxml", parameters, rows), "teachers_list_",
                 DocumentKind.REPORT);
     }
 
     /** سطر "بند: مبلغ" في الملخّصات، بنصّ عنوانه مترجَماً وعملة السنتر مذيَّلة به */
     private String summaryLine(String labelKey, java.math.BigDecimal value) {
         return I18n.format("report.summaryLine", I18n.get(labelKey), MoneyUtils.formatWithCurrency(value));
-    }
-
-    /**
-     * دالة لتوليد التقرير وحفظه كملف PDF
-     *
-     * @param reportName اسم ملف التقرير (بدون صيغة jrxml)
-     * @param parameters المعاملات الممررة للتقرير (مثل رقم المجموعة)
-     * @param outputPath مسار حفظ ملف الـ PDF الناتج
-     */
-    public void generatePdfReport(String reportName, Map<String, Object> parameters, String outputPath) throws Exception {
-        JasperReport jasperReport = compile(reportName + ".jrxml");
-
-        // تعبئة التقرير بالبيانات عبر تمرير المعاملات واتصال قاعدة البيانات
-        try (Connection connection = dataSource.getConnection()) {
-            JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, connection);
-            JasperExportManager.exportReportToPdfFile(jasperPrint, outputPath);
-        }
     }
 
     /**
@@ -475,7 +460,7 @@ public class ReportService {
      * <p>ونصوص الورقة كلها تُبنى هنا بـ {@code I18n}: عنوانها وسطر بيانات المجموعة وعناوين
      * أعمدتها وذيلها، فلا يكون على الشاشة أن تتذكّر اثني عشر معاملاً ولا أن تعرف أسماءها.</p>
      */
-    public SheetDelivery deliverGroupRoster(CourseGroup group, List<MembershipRow> members) {
+    public Sheet groupRosterSheet(CourseGroup group, List<MembershipRow> members) {
         String none = I18n.get("common.none");
 
         Map<String, Object> parameters = withSheetFooter(withCenterHeader(new java.util.HashMap<>()));
@@ -510,85 +495,32 @@ public class ReportService {
                         member.attendanceRate() == null ? none : member.attendanceRate() + "%"))
                 .toList();
 
-        return deliver(fill("GroupStudents.jrxml", parameters, rows), "group_roster_", DocumentKind.REPORT);
+        return sheet(fill("GroupStudents.jrxml", parameters, rows), "group_roster_", DocumentKind.REPORT);
     }
 
     /**
      * يبني ورقة جاسبر من قائمة كائنات.
-     * الملء وحده هنا، والتسليم في {@link #deliver}: أيّهما تغيّر لا يمسّ الآخر.
+     * الملء وحده هنا، والتسليم عند من يملك جهازاً: {@code util/Sheets} على Desktop.
      */
     private JasperPrint fill(String template, Map<String, Object> parameters, List<?> rows) {
         try {
             return JasperFillManager.fillReport(compile(template), parameters,
                     new JRBeanCollectionDataSource(rows));
         } catch (JRException e) {
-            throw generationFailed(e);
+            throw Sheet.generationFailed(e);
         }
     }
 
     /**
-     * يسلّم الورقة حسب تفضيل هذا الجهاز: إلى الطابعة رأساً، أو ملف PDF مؤقت.
+     * يغلّف الورقة المملوءة بما يحتاجه من يسلّمها: نوعها وبادئة اسم ملفها.
      *
-     * <p>القرار هنا لا في كل شاشة تطبع كشفاً: هو تفضيل واحد
-     * ({@link PrintTargetResolver#printsSheetsDirectly()})، وتكراره في المتحكّمات يعني شاشةً
-     * تنساه فتخالف بقية البرنامج بلا أن يلاحظ أحد.</p>
-     *
-     * <p>الملف مؤقت ويُحذف عند إغلاق البرنامج: الكشوف تحمل أسماء طلاب وأرقام أولياء
-     * أمورهم، فلا تُترك متراكمة في مجلد المستخدم بعد طباعتها.</p>
+     * <p>هنا ينتهي عمل هذه الخدمة. كانت تطبع أو تكتب ملفاً مؤقتاً بعد الملء مباشرةً،
+     * فكانت تحمل {@code javax.print} ومجلد الملفات المؤقتة إلى كل من يستدعيها — وخادمٌ
+     * يطلب نفس الورقة ليردّها في جواب HTTP لا طابعة له ولا مستخدمَ أمام شاشة يفتح له
+     * ملفاً. راجع {@link Sheet}.</p>
      */
-    private SheetDelivery deliver(JasperPrint print, String tempPrefix, DocumentKind kind) {
-        if (printTargets.printsSheetsDirectly()) {
-            return SheetDelivery.printed(sendToPrinter(print, kind));
-        }
-        try {
-            File pdf = File.createTempFile(tempPrefix, ".pdf");
-            pdf.deleteOnExit();
-            JasperExportManager.exportReportToPdfFile(print, pdf.getAbsolutePath());
-            return SheetDelivery.exported(pdf);
-        } catch (JRException e) {
-            throw generationFailed(e);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    /**
-     * دالة لعرض التقرير مباشرة في نافذة معاينة
-     */
-    public void showReportPreview(String reportName, Map<String, Object> parameters) throws Exception {
-        JasperReport jasperReport = compile(reportName + ".jrxml");
-
-        try (Connection connection = dataSource.getConnection()) {
-            JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, connection);
-
-            // ملف مؤقت يُحذف عند إغلاق البرنامج: التقارير تحوي بيانات مالية
-            // وكانت تتراكم في مجلد temp إلى الأبد
-            File tempPdfFile = File.createTempFile("center_report_", ".pdf");
-            tempPdfFile.deleteOnExit();
-            JasperExportManager.exportReportToPdfFile(jasperPrint, tempPdfFile.getAbsolutePath());
-
-            if (java.awt.Desktop.isDesktopSupported()) {
-                java.awt.Desktop.getDesktop().open(tempPdfFile);
-            }
-        }
-    }
-
-    /**
-     * توليد تقرير من قائمة كائنات (بدل الاستعلام من قاعدة البيانات) وحفظه
-     *
-     * @return المسار الفعلي للملف الناتج
-     */
-    public String exportReportToPdf(String jrxmlFileName, Map<String, Object> parameters,
-                                    List<?> data, String outputFileName) throws JRException {
-        JasperReport jasperReport = compile(jrxmlFileName);
-
-        JRBeanCollectionDataSource beanDataSource = new JRBeanCollectionDataSource(data);
-        JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, beanDataSource);
-
-        String outputPath = resolveOutputDirectory().resolve(outputFileName + ".pdf").toString();
-        JasperExportManager.exportReportToPdfFile(jasperPrint, outputPath);
-
-        return outputPath;
+    private Sheet sheet(JasperPrint print, String fileNamePrefix, DocumentKind kind) {
+        return new Sheet(print, kind, fileNamePrefix);
     }
 
     /**
@@ -601,9 +533,11 @@ public class ReportService {
      * <p>الترويسة تصل عبر {@link #withCenterHeader(Map)} كما في كل تقرير جاسبر: ملف
      * التصميم يعلن معاملاتها ويضع عنصر التقرير الفرعي، ولا يرسم شعاراً بنفسه.</p>
      *
-     * @return المسار الفعلي لملف الـ PDF الناتج
+     * <p>وهي الورقة الوحيدة التي <b>تُحفظ</b> لا تُطبع الآن: تُقصّ على ورق كارنيهات بعد
+     * حين، فمكانها ملفٌ باسم يعرفه صاحبه لا ملفٌ مؤقت. والفرق كلّه عند المسلِّم
+     * ({@code Sheets.save} بدل {@code Sheets.deliver})؛ الملء واحد.</p>
      */
-    public String exportStudentIdCards(List<Student> students, String outputFileName) throws JRException {
+    public Sheet studentIdCardsSheet(List<Student> students) {
         Map<String, Object> parameters = withCenterHeader(new java.util.HashMap<>());
         parameters.put("CARD_TITLE", I18n.get("report.idCards.cardTitle"));
 
@@ -614,7 +548,8 @@ public class ReportService {
                         student.getSchoolLevel() == null ? null : student.getSchoolLevel().getDisplayName()))
                 .toList();
 
-        return exportReportToPdf("StudentIdCards.jrxml", parameters, cards, outputFileName);
+        return sheet(fill("StudentIdCards.jrxml", parameters, cards), "student_id_cards_",
+                DocumentKind.REPORT);
     }
 
     /**
@@ -628,70 +563,10 @@ public class ReportService {
      * تراه حزم النصوص، فنصٌّ مكتوب داخله يخرج بلغته مهما كانت لغة البرنامج.</p>
      *
      */
-    public SheetDelivery deliverStudentEnrollments(String studentName, String studentDetails,
-                                                   List<MembershipRow> memberships) {
-        return deliver(fillStudentEnrollments(studentName, studentDetails, memberships),
+    public Sheet studentEnrollmentsSheet(String studentName, String studentDetails,
+                                         List<MembershipRow> memberships) {
+        return sheet(fillStudentEnrollments(studentName, studentDetails, memberships),
                 "student_enrollments_", DocumentKind.REPORT);
-    }
-
-    /**
-     * الورقة مُرسَلةً إلى الطابعة بلا ملف وسيط ولا نافذة.
-     *
-     * <p>الطابعة هي المختارة لـ {@link DocumentKind#REPORT} في الإعدادات، تُلتمس بالاسم بين
-     * خدمات الطباعة: جاسبر يطبع عبر {@code javax.print} بينما تختار الشاشة {@code javafx.print
-     * .Printer}، والاسمان يأتيان من مُخطِّط الطباعة نفسه في ويندوز فيتطابقان. ولولا الالتماس
-     * لذهب الكشف إلى طابعة النظام الافتراضية بينما تعلن شاشة الإعدادات طابعةً أخرى.</p>
-     *
-     * <p>ولا نافذة طابعة تُعرض: نوافذ {@code javax.print} نوافذ AWT، وهذه الدالة تجري على خيط
-     * خلفي - وفتح نافذة AWT منه مقامرة. ومن أراد النافذة يترك الخانة غير معلَّمة فيفتح الـ PDF
-     * ويطبع منه.</p>
-     *
-     * @return اسم الطابعة التي استُلم الكشف عليها، ليُقال للمستخدم أين يذهب ليأخذه
-     */
-    private String sendToPrinter(JasperPrint print, DocumentKind kind) {
-        PrintService service = resolvePrintService(kind);
-
-        SimplePrintServiceExporterConfiguration configuration = new SimplePrintServiceExporterConfiguration();
-        configuration.setPrintService(service);
-        configuration.setDisplayPageDialog(false);
-        configuration.setDisplayPrintDialog(false);
-
-        JRPrintServiceExporter exporter = new JRPrintServiceExporter();
-        exporter.setExporterInput(new SimpleExporterInput(print));
-        exporter.setConfiguration(configuration);
-
-        try {
-            exporter.exportReport();
-        } catch (JRException e) {
-            throw generationFailed(e);
-        }
-        return service.getName();
-    }
-
-    /**
-     * خدمة الطباعة المقابلة للطابعة المختارة لهذا النوع من المستندات، أو الافتراضية.
-     *
-     * <p>النوع لا يُهمَل: الجهاز الواحد في السنتر قد يكون موصولاً بطابعة حرارية للإيصالات
-     * وطابعة A4 للتقارير معاً، وإرسال إيصال إلى طابعة التقارير يعني ورقة A4 كاملة تخرج
-     * لأجل سبعة أسطر - أو العكس: كشف مجموعة يخرج من رول 80mm مقصوصاً من طرفيه.</p>
-     *
-     * <p>وغياب أي طابعة يُقال صراحةً: الطباعة المباشرة بلا طابعة تفشل بصمت في أعماق جاسبر.</p>
-     */
-    private PrintService resolvePrintService(DocumentKind kind) {
-        String chosen = printTargets.printerName(kind);
-        if (chosen != null) {
-            for (PrintService service : PrintServiceLookup.lookupPrintServices(null, null)) {
-                if (service.getName().equals(chosen)) {
-                    return service;
-                }
-            }
-        }
-
-        PrintService fallback = PrintServiceLookup.lookupDefaultPrintService();
-        if (fallback == null) {
-            throw new IllegalStateException(I18n.get("error.report.noPrinter"));
-        }
-        return fallback;
     }
 
     /**
@@ -716,7 +591,7 @@ public class ReportService {
         CenterSettings settings = settingsService.getSettings();
 
         parameters.put("HEADER_REPORT", compile("CenterHeader.jrxml"));
-        parameters.put("SHOW_CENTER", printTargets.printsCenterHeader());
+        parameters.put("SHOW_CENTER", headerPolicy.printsCenterHeader());
         parameters.put("CENTER_NAME", settings != null && settings.getCenterName() != null
                 && !settings.getCenterName().isBlank()
                 ? settings.getCenterName()
@@ -767,11 +642,6 @@ public class ReportService {
         return logo.isFile() ? logo.getAbsolutePath() : null;
     }
 
-    private IllegalStateException generationFailed(JRException e) {
-        return new IllegalStateException(I18n.format("error.report.generateFailed",
-                e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()), e);
-    }
-
     private JasperPrint fillStudentEnrollments(String studentName, String studentDetails,
                                                List<MembershipRow> memberships) {
         String none = I18n.get("common.none");
@@ -807,7 +677,7 @@ public class ReportService {
             return JasperFillManager.fillReport(compile("StudentEnrollments.jrxml"), parameters,
                     new JRBeanCollectionDataSource(rows));
         } catch (JRException e) {
-            throw generationFailed(e);
+            throw Sheet.generationFailed(e);
         }
     }
 
@@ -815,7 +685,7 @@ public class ReportService {
      * كشف حساب معلم يحتوي تفصيل الحصص فعلياً.
      * كان يطبع سطراً واحداً نصه "تفاصيل الحصص المالية ستدرج هنا لاحقاً".
      */
-    public SheetDelivery deliverTeacherStatement(Teacher teacher, List<SessionPayout> sessions) {
+    public Sheet teacherStatementSheet(Teacher teacher, List<SessionPayout> sessions) {
         java.math.BigDecimal total = sessions.stream()
                 .map(SessionPayout::payoutAmount)
                 .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
@@ -846,7 +716,7 @@ public class ReportService {
                         MoneyUtils.format(session.payoutAmount())))
                 .toList();
 
-        return deliver(fill("TeacherStatement.jrxml", parameters, rows), "teacher_statement_",
+        return sheet(fill("TeacherStatement.jrxml", parameters, rows), "teacher_statement_",
                 DocumentKind.REPORT);
     }
 
@@ -866,26 +736,5 @@ public class ReportService {
                 throw new UncheckedIOException(e);
             }
         });
-    }
-
-    /**
-     * مجلد حفظ التقارير: سطح المكتب إن وُجد، وإلا مجلد المستخدم.
-     * المسار "~/Desktop" كان مكتوباً صراحةً فيفشل على ويندوز بلغة غير الإنجليزية
-     * أو حين يكون سطح المكتب منقولاً إلى OneDrive.
-     */
-    private Path resolveOutputDirectory() {
-        Path home = Path.of(System.getProperty("user.home"));
-        Path desktop = home.resolve("Desktop");
-
-        if (Files.isDirectory(desktop)) {
-            return desktop;
-        }
-
-        Path oneDriveDesktop = home.resolve("OneDrive").resolve("Desktop");
-        if (Files.isDirectory(oneDriveDesktop)) {
-            return oneDriveDesktop;
-        }
-
-        return home;
     }
 }

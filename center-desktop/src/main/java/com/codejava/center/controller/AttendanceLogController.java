@@ -198,7 +198,7 @@ public class AttendanceLogController {
         List<AttendanceLogRow> printed = List.copyOf(filtered);
         String description = filterDescription();
 
-        FxAsync.supply(() -> reportService.deliverAttendanceLog(printed, description),
+        FxAsync.supply(() -> Sheets.deliver(reportService.attendanceLogSheet(printed, description)),
                 Sheets::show,
                 error -> Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(error)));
     }

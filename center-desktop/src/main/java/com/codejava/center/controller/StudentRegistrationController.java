@@ -10,6 +10,7 @@ import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.Forms;
+import com.codejava.center.util.Sheets;
 import com.codejava.center.util.ViewLoader;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -23,7 +24,6 @@ import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.util.StringConverter;
 import lombok.RequiredArgsConstructor;
-import net.sf.jasperreports.engine.JRException;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
@@ -452,24 +452,21 @@ public class StudentRegistrationController {
         // تجهيز مسار الحفظ (مثلاً سطح المكتب) بملف يحمل تاريخ اليوم
         String fileName = "Student_ID_Cards_" + java.time.LocalDate.now();
 
-        FxAsync.supply(() -> {
-            try {
-                return reportService.exportStudentIdCards(shown, fileName);
-            } catch (JRException e) {
-                throw new IllegalStateException(FxAsync.messageOf(e), e);
-            }
-        }, outputPath -> {
-            Dialogs.success(I18n.format("student.idCardsExported", outputPath));
-            openExported(outputPath);
-        }, error -> Dialogs.error(I18n.get("common.exportError"),
-                I18n.format("student.idCardsFailed", FxAsync.messageOf(error))));
+        // الملء في الخدمة والحفظ هنا: الورقة نفسها لا تعرف أن على هذا الجهاز سطحَ مكتب
+        FxAsync.supply(() -> Sheets.save(reportService.studentIdCardsSheet(shown), fileName),
+                saved -> {
+                    Dialogs.success(I18n.format("student.idCardsExported", saved.getAbsolutePath()));
+                    openExported(saved);
+                },
+                error -> Dialogs.error(I18n.get("common.exportError"),
+                        I18n.format("student.idCardsFailed", FxAsync.messageOf(error))));
     }
 
     /** فتح الملف بعد إنشائه؛ نظامٌ لا يدعم الفتح لا يعني فشل التصدير، فالمسار مذكور سلفاً */
-    private void openExported(String outputPath) {
+    private void openExported(File saved) {
         try {
             if (Desktop.isDesktopSupported()) {
-                Desktop.getDesktop().open(new File(outputPath));
+                Desktop.getDesktop().open(saved);
             }
         } catch (IOException e) {
             // المسار معروض في رسالة النجاح، فالمستخدم يصل إليه بيده

@@ -56,10 +56,11 @@ system:
 - `center-core` — **pure Java.** No Spring, no JPA, no JavaFX, no Lombok: the pom carries
   only JUnit and AssertJ, so a stray framework import fails to compile. Today it holds the
   identity and tenant contracts (`ActorIdentity`, `CurrentActor`, `TenantContext`, `TenantId`)
-  and the device contracts (`BackupSecretStore`, `MessagingSecretStore`, `PrintTargetResolver`
-  over `DocumentKind`) that both the desktop app and a future SaaS server implement each in
-  its own way — a JavaFX session, the Windows registry and an attached printer on one side; an
-  HTTP request, a secret vault and no printer at all on the other.
+  and the device contracts (`BackupSecretStore`, `MessagingSecretStore`, `SheetHeaderPolicy`,
+  plus `DocumentKind` which labels a filled sheet for whoever delivers it) that both the
+  desktop app and a future SaaS server implement each in its own way — a JavaFX session, the
+  Windows registry and an attached printer on one side; an HTTP request, a secret vault and no
+  printer at all on the other.
 - `center-desktop` — everything else for now: the JavaFX app *and* the whole business layer
   (`domain/`, `repository/`, `service/`). The plan (`docs/saas-review-and-plan.md`) is to carve
   the business layer out into a `center-app` module with no JavaFX dependency; until then the
@@ -82,19 +83,27 @@ them the same way — through a port, never through `java.util.prefs`:**
 | --- | --- | --- |
 | Is the backup encrypted, and with what passphrase | `BackupSecretStore` | `DesktopBackupSecretStore` → `BackupPreferences` |
 | The messaging provider's token | `MessagingSecretStore` | `DesktopMessagingPreferences` → `NotificationPreferences` |
-| Which printer, print sheets directly, print the letterhead | `PrintTargetResolver` | `DesktopPrintTargetResolver` → `PrintPreferences` |
+| Does a filled sheet carry the centre letterhead | `SheetHeaderPolicy` | `DesktopSheetHeaderPolicy` → `PrintPreferences` |
+
+That last one is the *only* printing question left in the business layer, and deliberately so:
+it is asked at fill time, since the condition sits on a band inside the template and a sheet
+filled without the letterhead cannot grow one afterwards. **Which** printer, and whether the
+sheet goes to paper at all, is not asked there any more — `ReportService` returns a `Sheet` and
+`util/Sheets` decides, reading `PrintPreferences` directly like its neighbour `Printing`. A port
+belongs where a boundary is crossed, and there is none between two files in one package.
 
 `MessagingLinkPreferences` (WhatsApp link style and template) is the one port that is **not**
 in `center-core`: it hands back a `WhatsAppLinkStyle`, a business-layer type the core does not
 know — the core knows nothing about messaging channels. It sits beside its consumer in
 `service/notification/` and the same desktop bean implements it.
 
-Two things that look incidental and are not. `DocumentKind` lives in `center-core` because
-`PrintTargetResolver` is written in terms of it, and for that it had to stop calling `I18n` —
-its name is translated at the one screen that shows it (`Printing.printTestPage`), guarded by
-the `documentKind.*` loop in `MessageBundleTest`. And the ports carry the *reason* in their
-javadoc, not just the shape: a passphrase kept inside the database it protects ships inside
-every backup and is lost with the very disk the backups exist for.
+Two things that look incidental and are not. `DocumentKind` lives in `center-core` because it
+crosses the line in the other direction — the filler labels a sheet `REPORT` or `RECEIPT`, the
+deliverer reads the label to pick a printer — and for that it had to stop calling `I18n`; its
+name is translated at the one screen that shows it (`Printing.printTestPage`), guarded by the
+`documentKind.*` loop in `MessageBundleTest`. And the ports carry the *reason* in their javadoc,
+not just the shape: a passphrase kept inside the database it protects ships inside every backup
+and is lost with the very disk the backups exist for.
 
 A pure decision (`BackupSchedule`, `BackupRetention`, `GroupSchedule`, `AlertSchedule`,
 `PhoneNumbers`, `PasswordPolicy`) belongs in `center-core` with its test, once it stops
@@ -427,9 +436,9 @@ document. Nothing else builds a printout from JavaFX nodes; do not add anything 
 (`pageWidth="595"`, paginated, numbered). `RECEIPT` sheets are the 80 mm roll
 (`pageWidth="227"`, `isIgnorePagination="true"` so one continuous page is cut at the last
 line) and they use `ReceiptHeader.jrxml` — logo above the name, not beside it, because a roll
-has no room for a row. `ReportService.deliver` takes the kind and resolves the printer for
-*that* kind, so a receipt goes to the thermal printer while a roster goes to the A4 one on
-the same machine. Two documents are receipts: the payment receipt and the **shift closing
+has no room for a row. The filler stamps the kind onto the `Sheet` and `Sheets.deliver` resolves
+the printer for *that* kind, so a receipt goes to the thermal printer while a roster goes to the
+A4 one on the same machine. Two documents are receipts: the payment receipt and the **shift closing
 summary** — the till "Z" sheet that gets cut and stapled to the cash handed over, which used
 to come out as a full A4 page for a four-line summary.
 
@@ -465,21 +474,37 @@ All ten templates follow the recipe; copy the band from any of them. `CenterHead
 `ReceiptHeader.jrxml` are the two letterheads — a report calls `withCenterHeader`, a receipt
 calls `withReceiptHeader` (which is the same call with the narrow template swapped in).
 
-**Delivery goes through `ReportService.deliver` → `SheetDelivery` → `util/Sheets.show`.** The
-service fills the sheet and then either sends it to the printer or writes a temp PDF, according
-to `PrintTargetResolver.printsSheetsDirectly()` — the port, not `PrintPreferences` itself, which
-is what keeps `javafx.print` out of a service that a server will run; `Sheets.show` turns the
-outcome into either "sent to printer X" or an opened PDF. Both halves are written once because the second screen that
-printed a sheet copied the first, and the third would have copied the second — including the
-chance of forgetting to say anything when the viewer fails to open.
+**Filling and delivery are two sides of a line, and the line is the module boundary.**
+`ReportService` fills and stops: every public method returns a `Sheet` — the filled
+`JasperPrint`, its `DocumentKind`, and a filename prefix — and `Sheet.toPdf()` renders it to
+bytes. Nothing in the service touches a printer, a temp folder or a PDF viewer; that is what
+lets a server ask for the same sheet and put the bytes in an HTTP response.
+
+`util/Sheets` is the delivery side, and it has two halves on two threads. On a **background**
+thread: `deliver(sheet)` reads `PrintPreferences.printsSheetsDirectly()` and either sends the
+sheet to the printer chosen for its kind or writes a temp PDF, returning `SheetDelivery`;
+`save(sheet, name)` writes a PDF that is meant to be kept (the ID cards — cut onto card stock
+later, so they need a name their owner recognises, not a temp file). On the **UI** thread:
+`show(delivery)` says "sent to printer X" or opens the PDF. So every screen reads the same:
+
+```java
+FxAsync.supply(() -> Sheets.deliver(reportService.arrearsSheet(rows, total)),
+        Sheets::show,
+        error -> Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(error)));
+```
+
+Both halves are written once because the second screen that printed a sheet copied the first,
+and the third would have copied the second — including the chance of forgetting to say anything
+when the viewer fails to open.
 
 The band carries `<printWhenExpression>$P{SHOW_CENTER}</printWhenExpression>`, **on the band
 and not on the subreport element**: a band collapses to zero height and everything below
 moves up, while a hidden element leaves its 78 points of white space at the top of every page.
 `PrintPreferences.printsCenterHeader()` (per machine, default on, read by the service through
-`PrintTargetResolver`) is the checkbox behind it —
-per machine because the reason to switch it off is that *this* printer is loaded with
-pre-printed letterhead paper, which is a property of the paper tray, not of the centre.
+`SheetHeaderPolicy`) is the checkbox behind it — per machine because the reason to switch it
+off is that *this* printer is loaded with pre-printed letterhead paper, which is a property of
+the paper tray, not of the centre. It is the one printing question asked at *fill* time, which
+is why it stayed a port while the rest of the printing moved to `util/Sheets`.
 
 Three more rules that are not obvious from the existing files:
 
@@ -510,8 +535,8 @@ too: one forgotten parameter means a header missing from every page with no erro
 does not, so it shows every word reversed while the real PDF is correct. Positions in that
 image are trustworthy, letter order is not.
 
-**Delivery is a per-machine checkbox: `PrintPreferences.printsSheetsDirectly()`, reaching the
-service as `PrintTargetResolver.printsSheetsDirectly()`.** Unticked
+**Delivery is a per-machine checkbox: `PrintPreferences.printsSheetsDirectly()`, read by
+`Sheets.deliver`.** Unticked
 (the default) exports a temp PDF and opens it in the system viewer; ticked sends the sheet
 straight to the printer through `JRPrintServiceExporter`, no window. It is a *second* setting
 beside `PrintMode` and not a duplicate of it — `PrintMode` governs the `Printing` path drawn
@@ -1118,7 +1143,9 @@ The test classes below exist because these failure modes are invisible to the co
 - `@Query` JPQL is parsed at runtime.
 - `.jrxml` report templates are compiled at runtime too, and a wrong field name prints an
   empty column rather than failing — `ReportTemplateCompileTest` compiles them all and fills
-  one with values it then asserts are on the page.
+  one with values it then asserts are on the page, then renders that one to PDF bytes:
+  `Sheet.toPdf()` is what every delivery path now writes, and a truncated array is a file no
+  viewer opens with no exception anywhere.
 - Derived query names resolve against property names — the field is `isActive` while the
   getter is `isActive()`, a classic spot for resolution to fail.
 - AOP advice silently does not run if the starter is missing or the call is self-invocation,

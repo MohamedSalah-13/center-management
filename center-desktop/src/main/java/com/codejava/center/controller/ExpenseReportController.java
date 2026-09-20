@@ -227,7 +227,7 @@ public class ExpenseReportController {
         BigDecimal total = totalOfVisible();
         String description = filterDescription();
 
-        FxAsync.supply(() -> reportService.deliverExpenseReport(printed, total, description),
+        FxAsync.supply(() -> Sheets.deliver(reportService.expenseReportSheet(printed, total, description)),
                 Sheets::show,
                 error -> Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(error)));
     }

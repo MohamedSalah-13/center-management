@@ -252,7 +252,7 @@ public class AuditLogController {
         LocalDate from = fromPicker.getValue();
         LocalDate to = toPicker.getValue();
 
-        FxAsync.supply(() -> reportService.deliverAuditReport(rows, from, to),
+        FxAsync.supply(() -> Sheets.deliver(reportService.auditReportSheet(rows, from, to)),
                 Sheets::show,
                 error -> Dialogs.error(I18n.get("common.printError"), FxAsync.messageOf(error)));
     }
