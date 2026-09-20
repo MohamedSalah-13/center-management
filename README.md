@@ -33,6 +33,10 @@
 $env:DB_USERNAME = "center_app"; $env:DB_PASSWORD = "your-password"; mvn -pl center-desktop spring-boot:run
 ```
 
+> قبل أول أمر `-pl center-desktop` على نسخة جديدة نفّذ `mvn install -DskipTests` مرة واحدة
+> في جذر المستودع، وأعده كلما تغيّرت وحدة `center-core`: الأمر بـ `-pl` لا يبني الوحدة
+> الشقيقة ويبحث عنها في `~/.m2`، وبدونها يفشل برسالة `Could not resolve dependencies`.
+
 بدلاً من ذلك يمكن إنشاء ملف `center-desktop/src/main/resources/application-local.properties` (مستثنى من git تلقائياً) وتشغيل التطبيق بالبروفايل `local`.
 
 > يُنصح بإنشاء مستخدم MySQL مخصّص بصلاحيات محدودة على `center_db` بدلاً من استخدام `root`.
@@ -159,6 +163,8 @@ mvn -o clean test
 ```bash
 mvn -o -pl center-desktop test -Dtest=SchemaScriptGenerator
 ```
+
+(يحتاج `mvn -o install -DskipTests` مرة واحدة قبله، كأي أمر `-pl center-desktop` — انظر التشغيل أعلاه.)
 
 ---
 

@@ -437,6 +437,9 @@ powershell -ExecutionPolicy Bypass -File packaging\build-installer.ps1 -Type msi
 mvn -o -pl center-desktop test -Dtest=SchemaScriptGenerator
 ```
 
+(على نسخة جديدة يسبقه `mvn -o install -DskipTests` مرة واحدة في الجذر، وإلا لم يجد
+`-pl` وحدة `center-core` في `~/.m2` وفشل بـ `Could not resolve dependencies`.)
+
 يكتب `center-desktop/target/schema-mysql.sql` من الكيانات نفسها؛ قارنه بالترحيلات الحالية وأضف
 الفروق في ملف `V` جديد. المخطط المكتوب يدوياً يختلف عمّا يتوقعه Hibernate بفروق دقيقة
 لا تظهر إلا عند رفض `validate` بدء التشغيل على جهاز العميل.

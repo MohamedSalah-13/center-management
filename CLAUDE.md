@@ -14,8 +14,17 @@ commit-adjacent docs.
 ```bash
 mvn -o clean test          # build + run all tests (offline works; everything is cached)
 mvn -o compile             # compile only
+mvn -o install -DskipTests # once, and again after touching center-core — see below
 mvn -pl center-desktop spring-boot:run # run the app (needs DB credentials, see below)
 ```
+
+**Every `-pl center-desktop` command needs `center-core` in `~/.m2` first.** The reactor
+resolves the sibling only when it is part of the build, and `-pl` leaves it out: on a fresh
+clone the command dies with "Could not resolve dependencies … center-core". `-am` is not the
+fix here — it drags the parent and core into the goal, and `spring-boot:run` then fails on
+the parent ("Unable to find a suitable main class") while `-Dtest=X` fails on core ("No tests
+matching pattern"). So run `mvn -o install -DskipTests` once, and repeat it whenever
+`center-core` changes; root-level commands (`mvn -o clean test`) never need it.
 
 `.github/workflows/build.yml` runs the same suite on every PR and push to `main`, but
 **without `-o`** — the runner's `~/.m2` starts empty, so offline mode fails there. It needs
@@ -38,6 +47,34 @@ path. See `docs/first-install.md` for the full setup, including the Docker/`loca
 trap when MySQL runs in a container.
 
 ## Architecture
+
+### Modules, and which side of the line a class belongs on
+
+Three Maven modules under one parent `pom.xml`, and the split is a boundary, not a filing
+system:
+
+- `center-core` — **pure Java.** No Spring, no JPA, no JavaFX, no Lombok: the pom carries
+  only JUnit and AssertJ, so a stray framework import fails to compile. Today it holds the
+  identity and tenant contracts (`ActorIdentity`, `CurrentActor`, `TenantContext`, `TenantId`)
+  that both the desktop app and a future SaaS server implement each in its own way — a JavaFX
+  session on one side, an HTTP request on the other.
+- `center-desktop` — everything else for now: the JavaFX app *and* the whole business layer
+  (`domain/`, `repository/`, `service/`). The plan (`docs/saas-review-and-plan.md`) is to carve
+  the business layer out into a `center-app` module with no JavaFX dependency; until then the
+  rule below is what keeps that possible.
+
+**Nothing in `service/`, `domain/`, `repository/`, `security/` may import `javafx.*`, read
+`java.util.prefs`, touch the host's printers or files, or call `UserSession`.** Those packages
+must work on a server that has no window, no registry and no one printer. The three known
+leaks (`AlertFeed`'s `Platform::runLater` default, `BackupService`/`NotificationConfigProvider`/
+`ReportService` reading `*Preferences`) are listed in the plan as debts to pay, not patterns to
+copy. Services take the actor from `CurrentActor` and the tenant from `TenantContext`; the
+desktop wires both to `UserSession`, which is the only place allowed to know that the tenant
+is `TenantId.DESKTOP`.
+
+A pure decision (`BackupSchedule`, `BackupRetention`, `GroupSchedule`, `AlertSchedule`,
+`PhoneNumbers`, `PasswordPolicy`) belongs in `center-core` with its test, once it stops
+importing `I18n`; the same JavaFX-free discipline `Printing.pageBreaks` already follows.
 
 ### Spring Boot + JavaFX wiring
 

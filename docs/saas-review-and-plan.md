@@ -150,10 +150,11 @@ V16 (قد تكون طُبّقت)، لكن لا تبنِ فوق `tenants` داخ�
       تم في worktree `claude/wonderful-morse-944198` (غير مُلتزم بعد): الإصدار المتوقع يُشتق من
       ملفات `db/migration`، وأُضيف فحص `tenants`/`branches`/`fk_branch_tenant`. نجح على MySQL 8
       الحقيقي: 3 اختبارات، 0 فشل.
-- [ ] إضافة `-am` إلى كل أمر `-pl center-desktop` في الوثائق الأربع.
-- [ ] `build.yml`: رفع `center-core/target/surefire-reports/` أيضاً.
-- [ ] `CLAUDE.md`/`AGENTS.md`: فقرة عن حدود الوحدات (ما يدخل `center-core`، وقاعدة "لا `javafx` خارج الواجهة").
-- [ ] حذف `sqlite-jdbc` و`hibernate-community-dialects`.
+- [x] أوامر `-pl center-desktop` في الوثائق: تبيّن أن `-am` ليس الحل (يُفشل `spring-boot:run` على الأب
+      و`-Dtest` على core)، فوُثّق بدلاً منه شرط `mvn -o install -DskipTests` مرة واحدة وبعد كل تغيير في core.
+- [x] `build.yml`: رفع `center-core/target/surefire-reports/` أيضاً.
+- [x] `CLAUDE.md`/`AGENTS.md`: فقرة عن حدود الوحدات (ما يدخل `center-core`، وقاعدة "لا `javafx` خارج الواجهة").
+- [x] حذف `sqlite-jdbc` و`hibernate-community-dialects`.
 - [ ] حسم §3 كتابةً في `docs/` (ADR قصير) — كل ما بعده يعتمد عليه.
 - [ ] قرار بشأن `students.name` الفريد: إبقاؤه أم إزالته بترحيل V17 (توصية: إزالته؛ الباركود هو الهوية).
 
