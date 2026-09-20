@@ -52,6 +52,8 @@ class BusinessLayerPurityTest {
                     "تفضيلات الجهاز: تصل عبر واجهة يركّبها الطرف الذي يملكها"),
             new Rule(Pattern.compile("^\\s*import\\s+com\\.codejava\\.center\\.util\\.UserSession\\s*;"),
                     "جلسة JavaFX: المنفّذ يأتي من CurrentActor والمؤسسة من TenantContext"),
+            new Rule(Pattern.compile("^\\s*import\\s+com\\.codejava\\.center\\.util\\.MySqlLocator\\s*;"),
+                    "فحصُ قرصٍ لمجلدات تركيب ويندوز: مسار الأدوات يصل عبر BackupTarget"),
             new Rule(Pattern.compile("^\\s*import\\s+com\\.codejava\\.center\\.controller\\."),
                     "متحكّم شاشة: الاتجاه من الشاشة إلى الخدمة، لا العكس"));
 

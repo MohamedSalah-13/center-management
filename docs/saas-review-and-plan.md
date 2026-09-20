@@ -204,8 +204,13 @@ V16 (قد تكون طُبّقت)، لكن لا تبنِ فوق `tenants` داخ�
    الاستثناءات من `BusinessLayerPurityTest` كلّها. واجهةٌ لا `Executor` من الـ JDK عن قصد:
    Spring Boot يسجّل `applicationTaskExecutor` وهو `Executor` أيضاً، فالحقن بالنوع يصير
    غامضاً — نفس غموض `@ConditionalOnMissingBean` القديم.
-8. [ ] `BackupService`: مسار الأدوات ومصدر البيانات عبر واجهة `BackupTarget` (Desktop: JDBC URL
-   الحالي؛ الخادم: schema المؤسسة).
+8. [x] `BackupService`: مسار الأدوات ومصدر البيانات عبر واجهة `BackupTarget` (Desktop: JDBC URL
+   الحالي؛ الخادم: schema المؤسسة). الواجهة في النواة تُجيب عن خمس: المضيف والمنفذ واسم القاعدة
+   والمستخدم وكلمة المرور، ومعها مجلد الأدوات. و`DesktopBackupTarget` يركّبها من
+   `spring.datasource.*` عبر `util/JdbcUrl` (خرج تحليلُ الرابط من الخدمة ومعه اختباره) ومن
+   `MySqlLocator`. الدوال تُستدعى لحظة النسخ لا عند الإقلاع: البحث عن الأدوات يقرأ القرص.
+   وأُضيف `MySqlLocator` إلى ممنوعات `BusinessLayerPurityTest`: فحصُ مجلدات تركيب ويندوز لا
+   مكان له في خدمة.
 9. [ ] الكلاسات النقية تنتقل إلى `center-core` مع اختباراتها: `BackupSchedule`, `BackupRetention`,
    `GroupSchedule`, `AlertSchedule`, `PhoneNumbers` (مع بلد قابل للضبط), `PasswordPolicy`,
    جزء `MoneyUtils` الحسابي.
