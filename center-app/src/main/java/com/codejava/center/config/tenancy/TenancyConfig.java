@@ -93,6 +93,20 @@ public class TenancyConfig {
      * أيضاً؛ على خادمٍ لا وجود لها أصلاً، والأولوية هنا تجعل الحالتين تعملان بلا شرط
      * في الوسط.</p>
      */
+    /**
+     * جوابُ الخادم عن {@link com.codejava.center.core.tenant.TenantContext}
+     * و{@link TenantSweep} معاً - bean واحد لا اثنان.
+     *
+     * <p>كان بجواره bean ثانٍ يعيد هذا الكائن نفسه باسم {@code TenantSweep}، وكلاهما
+     * {@code @Primary}: أي مرشَّحان أوّليّان لنوعٍ واحد، وهو ما يرفضه Spring صراحةً
+     * ({@code more than one 'primary' bean found}). والنتيجة أن الخادم متعدّد
+     * المؤسسات لا يُقلع - ولم يظهر ذلك إلا حين أُقلع سياقٌ بتعدّد المؤسسات فعلاً،
+     * لأن الاختبار الذي يفعل ذلك يحتاج Docker.</p>
+     *
+     * <p>ونوعُ الإرجاع {@code ServerTenantContext} لا أحد العقدين: Spring يطابق
+     * بالنوع، فالصنف يلبّي العقدين معاً. وذكرُ عقدٍ واحد في التوقيع يُخفي الآخر عن
+     * الحاقن.</p>
+     */
     @Bean
     @Primary
     public ServerTenantContext serverTenantContext(TenantRegistry tenantRegistry) {
@@ -130,12 +144,6 @@ public class TenancyConfig {
     }
 
     /** لا شيء في الخدمات يعرف أيّ التنفيذين يعمل: كلاهما يجيب عن الواجهة نفسها */
-    @Bean
-    @Primary
-    public TenantSweep serverTenantSweep(ServerTenantContext tenantContext) {
-        return tenantContext;
-    }
-
     /**
      * ترقية مخطط كل مؤسسة عند الإقلاع.
      *

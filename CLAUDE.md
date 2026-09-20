@@ -220,6 +220,13 @@ of one.
 | `ServerTenantContext` | `config/tenancy/` | which centre this thread works for |
 | `SchemaPerTenantConnectionProvider` | `config/tenancy/` | point the connection at that centre's database |
 
+`ServerTenantContext` answers **both** `TenantContext` and `TenantSweep`, and is declared once,
+returned as itself rather than as either contract. A second `@Primary` bean handing the same
+object back under the other name is two primary candidates for one type, which Spring refuses —
+so the multi-tenant server does not start, and only where a tenancy-enabled context is actually
+booted does anyone find out. `TenancyBeanGraphTest` reads the annotations instead, because
+booting that path needs a MySQL platform database and lands back in the container.
+
 **Releasing a connection resets it, and that line is half the feature.** Connections go back
 to the pool, not to the driver; one handed back still pointing at a centre's database is
 handed out moments later to work that may have no tenant at all — which then reads perfectly
@@ -1654,7 +1661,7 @@ Add coverage when touching any of those. `@DataJpaTest` needs `@Import(SecurityC
 because the boot class is itself a bean injecting `PasswordEncoder`.
 
 **A test lives in the module that holds its subject**, which is why the suite is split
-86 / 262 / 52 / 29 — core, app, desktop, web.
+86 / 263 / 52 / 29 — core, app, desktop, web.
 Two classes in `center-app`'s test tree exist only because it is a library and not a program:
 
 - `AppTestApplication` — `@DataJpaTest` searches *upward* for a `@SpringBootConfiguration` to
