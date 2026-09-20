@@ -5,6 +5,8 @@ import com.codejava.center.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -13,7 +15,11 @@ import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -25,11 +31,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Testcontainers(disabledWithoutDocker = true)
 class MySqlMigrationIntegrationTest {
 
+    /** أسماء ملفات الترحيل: {@code V<رقم>__<وصف>.sql}. */
+    private static final Pattern MIGRATION_FILE = Pattern.compile("^V(\\d+)__.+\\.sql$");
+
     @Container
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.0")
             .withDatabaseName("center_db")
             .withUsername("center_test")
-            .withPassword("center_test_password");
+            .withPassword("center_test_password")
+            // تهيئة mysql:8.0 الأولى تتجاوز الدقيقتين الافتراضيتين على جهاز بطيء.
+            .withStartupTimeoutSeconds(300);
 
     @DynamicPropertySource
     static void databaseProperties(DynamicPropertyRegistry properties) {
@@ -50,16 +61,25 @@ class MySqlMigrationIntegrationTest {
     @Autowired
     private UserRepository userRepository;
 
+    /**
+     * المتوقع يُشتق من ملفات الترحيل نفسها، لا من رقم مكتوب هنا: رقم ثابت يتخلف عن
+     * كل ترحيل جديد، والاختبار معطل بلا Docker فلا يلاحظ أحد.
+     */
     @Test
-    void appliesEveryMigrationAndCreatesConcurrentWriteGuards() {
-        String latestVersion = jdbc.queryForObject("""
-                SELECT MAX(CAST(version AS UNSIGNED))
+    void appliesEveryMigrationAndCreatesConcurrentWriteGuards() throws IOException {
+        List<Integer> migrationFiles = migrationVersionsOnClasspath();
+        assertThat(migrationFiles).isNotEmpty();
+
+        List<Integer> applied = jdbc.queryForList("""
+                SELECT CAST(version AS UNSIGNED)
                 FROM flyway_schema_history
                 WHERE success = 1
-                """, String.class);
-        assertThat(latestVersion).isEqualTo("15");
+                  AND version IS NOT NULL
+                """, Integer.class);
 
-        List<String> constraints = jdbc.queryForList("""
+        assertThat(applied).containsExactlyInAnyOrderElementsOf(migrationFiles);
+
+        List<String> uniqueConstraints = jdbc.queryForList("""
                 SELECT constraint_name
                 FROM information_schema.table_constraints
                 WHERE constraint_schema = DATABASE()
@@ -69,15 +89,40 @@ class MySqlMigrationIntegrationTest {
                     'uk_membership_student_group',
                     'uk_session_group_date',
                     'uk_session_active_group',
-                    'uk_transaction_student_session_type')
+                    'uk_transaction_student_session_type',
+                    'uk_tenant_slug',
+                    'uk_branch_tenant_code')
                 """, String.class);
 
-        assertThat(constraints).containsExactlyInAnyOrder(
+        assertThat(uniqueConstraints).containsExactlyInAnyOrder(
                 "uk_attendance_student_session",
                 "uk_membership_student_group",
                 "uk_session_group_date",
                 "uk_session_active_group",
-                "uk_transaction_student_session_type");
+                "uk_transaction_student_session_type",
+                "uk_tenant_slug",
+                "uk_branch_tenant_code");
+    }
+
+    /** أساس المؤسسات والفروع (V16): جدولان، وقيد فريد لكل منهما، ومفتاح أجنبي بينهما. */
+    @Test
+    void createsTenantAndBranchFoundation() {
+        List<String> tables = jdbc.queryForList("""
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema = DATABASE()
+                  AND table_name IN ('tenants', 'branches')
+                """, String.class);
+        assertThat(tables).containsExactlyInAnyOrder("tenants", "branches");
+
+        List<String> foreignKeys = jdbc.queryForList("""
+                SELECT constraint_name
+                FROM information_schema.referential_constraints
+                WHERE constraint_schema = DATABASE()
+                  AND table_name = 'branches'
+                  AND referenced_table_name = 'tenants'
+                """, String.class);
+        assertThat(foreignKeys).containsExactly("fk_branch_tenant");
     }
 
     /** قرار "آخر مدير" يعتمد على هذا القفل، فيجب أن يعمل بلهجة MySQL لا H2 وحدها. */
@@ -90,5 +135,18 @@ class MySqlMigrationIntegrationTest {
         assertThat(userRepository.findAllForUpdate())
                 .extracting(user -> user.getUsername())
                 .containsExactly("mysql-admin");
+    }
+
+    /** أرقام إصدارات كل ملف {@code db/migration/V*__*.sql} على مسار الأصناف. */
+    private static List<Integer> migrationVersionsOnClasspath() throws IOException {
+        Resource[] files = new PathMatchingResourcePatternResolver()
+                .getResources("classpath*:db/migration/V*__*.sql");
+        return Arrays.stream(files)
+                .map(Resource::getFilename)
+                .map(MIGRATION_FILE::matcher)
+                .filter(Matcher::matches)
+                .map(matcher -> Integer.parseInt(matcher.group(1)))
+                .sorted()
+                .toList();
     }
 }
