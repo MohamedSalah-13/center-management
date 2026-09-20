@@ -6,7 +6,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.util.Locale;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -22,26 +22,26 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class MoneyCurrencyTest {
 
-    private final Currency before = MoneyUtils.currency();
+    private final CurrencyProvider before = MoneyUtils.provider();
     private final LocaleProvider localeBefore = I18n.provider();
 
     @AfterEach
     void restore() {
-        MoneyUtils.setCurrency(before);
+        MoneyUtils.install(before);
         I18n.install(localeBefore);
     }
 
     @Test
     void defaultsToTheEgyptianPoundWhenNoCurrencyIsStored() {
         // قاعدة مُرقّاة من نسخة أقدم لا تحمل قيمة في العمود، وكل مبالغها بالجنيه فعلاً
-        MoneyUtils.setCurrency(null);
+        MoneyUtils.install(() -> null);
 
         assertThat(MoneyUtils.currency()).isEqualTo(Currency.EGP);
     }
 
     @Test
     void appendsTheSymbolOfTheChosenCurrency() {
-        MoneyUtils.setCurrency(Currency.SAR);
+        MoneyUtils.install(() -> Currency.SAR);
 
         assertThat(MoneyUtils.formatWithCurrency(new BigDecimal("300")))
                 .isEqualTo("300.00 " + Currency.SAR.getSymbol());
@@ -53,7 +53,7 @@ class MoneyCurrencyTest {
      */
     @Test
     void theSameCurrencyReadsInTheLanguageOfEachTerminal() {
-        MoneyUtils.setCurrency(Currency.EGP);
+        MoneyUtils.install(() -> Currency.EGP);
 
         I18n.install(() -> I18n.ARABIC);
         String arabic = MoneyUtils.formatWithCurrency(BigDecimal.TEN);
@@ -67,13 +67,34 @@ class MoneyCurrencyTest {
     }
 
     /**
+     * العملة تُسأل عند كل مبلغ لا تُلتقط مرة.
+     *
+     * <p>على جهازٍ يخدم سنتراً واحداً لا فرق: تُقرأ عند الإقلاع وتُحدَّث بعد كل حفظ.
+     * وعلى خادمٍ هو الفرق كله - قيمةٌ واحدة في الـ JVM تجعل آخرَ سنترٍ حفظ إعداداته
+     * يذيّل مبالغ السناتر الأخرى برمز عملته، وهو خطأٌ يُقرأ على أنه مبلغ صحيح.</p>
+     */
+    @Test
+    void theCurrencyFollowsWhicheverCentreIsAskingRightNow() {
+        AtomicReference<Currency> asker = new AtomicReference<>(Currency.EGP);
+        MoneyUtils.install(asker::get);
+
+        String egyptian = MoneyUtils.formatWithCurrency(BigDecimal.TEN);
+        asker.set(Currency.SAR);
+        String saudi = MoneyUtils.formatWithCurrency(BigDecimal.TEN);
+
+        assertThat(egyptian).isNotEqualTo(saudi);
+        assertThat(egyptian).endsWith(Currency.EGP.getSymbol());
+        assertThat(saudi).endsWith(Currency.SAR.getSymbol());
+    }
+
+    /**
      * الخانات العشرية شكل التخزين لا خيار عرض: كل عمود مالي {@code DECIMAL(12,2)}،
      * فتبديل العملة لا يصحّ أن يغيّر عدد الخانات ويجعل ما يُعرض مخالفاً لما يُحفظ.
      */
     @Test
     void scaleStaysTheSameWhicheverCurrencyIsChosen() {
         for (Currency currency : Currency.values()) {
-            MoneyUtils.setCurrency(currency);
+            MoneyUtils.install(() -> currency);
 
             assertThat(MoneyUtils.format(new BigDecimal("7.005")))
                     .as(currency.name())
