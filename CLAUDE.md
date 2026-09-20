@@ -57,22 +57,23 @@ system:
   only JUnit and AssertJ, so a stray framework import fails to compile. Today it holds the
   identity and tenant contracts (`ActorIdentity`, `CurrentActor`, `TenantContext`, `TenantId`)
   and the device contracts (`BackupSecretStore`, `MessagingSecretStore`, `SheetHeaderPolicy`,
-  plus `DocumentKind` which labels a filled sheet for whoever delivers it) that both the
-  desktop app and a future SaaS server implement each in its own way — a JavaFX session, the
-  Windows registry and an attached printer on one side; an HTTP request, a secret vault and no
-  printer at all on the other.
+  `UiDispatcher`, plus `DocumentKind` which labels a filled sheet for whoever delivers it) that
+  both the desktop app and a future SaaS server implement each in its own way — a JavaFX
+  session, the Windows registry, an attached printer and the JavaFX thread on one side; an HTTP
+  request, a secret vault, no printer at all and an SSE stream on the other.
 - `center-desktop` — everything else for now: the JavaFX app *and* the whole business layer
   (`domain/`, `repository/`, `service/`). The plan (`docs/saas-review-and-plan.md`) is to carve
   the business layer out into a `center-app` module with no JavaFX dependency; until then the
   rule below is what keeps that possible.
 
-**Nothing in `service/`, `domain/`, `repository/`, `security/` may import `javafx.*`, read
-`java.util.prefs`, touch the host's printers or files, or call `UserSession`.** Those packages
-must work on a server that has no window, no registry and no one printer. That rule is no
-longer a rule someone has to remember: `BusinessLayerPurityTest` reads the imports of those
-four packages and fails the build for any of them. `AlertFeed`'s `Platform::runLater` default
-is the one exemption it names, because it is a debt the plan still owes — a listed debt, not a
-pattern to copy.
+**Nothing in `service/`, `domain/`, `repository/`, `security/` may import `javafx.*`,
+`java.awt.*`, read `java.util.prefs`, touch the host's printers or files, or call
+`UserSession`.** Those packages must work on a server that has no window, no registry and no
+one printer. That rule is no longer a rule someone has to remember: `BusinessLayerPurityTest`
+reads the imports of those four packages and fails the build for any of them — **with no
+exemptions left.** The three that existed (printer preferences, `Desktop.browse`,
+`Platform::runLater`) were paid off in turn, and each rule was added to the test the day its
+debt was cleared: a rule that fails the day it is written gets disabled, not fixed.
 
 Services take the actor from `CurrentActor` and the tenant from `TenantContext`; the desktop
 wires both to `UserSession`, which is the only place allowed to know that the tenant is
@@ -84,6 +85,7 @@ them the same way — through a port, never through `java.util.prefs`:**
 | Is the backup encrypted, and with what passphrase | `BackupSecretStore` | `DesktopBackupSecretStore` → `BackupPreferences` |
 | The messaging provider's token | `MessagingSecretStore` | `DesktopMessagingPreferences` → `NotificationPreferences` |
 | Does a filled sheet carry the centre letterhead | `SheetHeaderPolicy` | `DesktopSheetHeaderPolicy` → `PrintPreferences` |
+| Where does a delivery to a watching screen run | `UiDispatcher` | `DesktopUiDispatcher` → `Platform.runLater` |
 
 That last one is the *only* printing question left in the business layer, and deliberately so:
 it is asked at fill time, since the condition sits on a band inside the template and a sheet
@@ -866,9 +868,13 @@ querying until the app closed. The feed holds one sink, so a new screen register
 the old one; `stopAlertFeed()` also runs on logout, since a card about student balances must
 not float over the login screen.
 
-`Platform.runLater` sits behind an injectable field (`dispatchOn`) so `AlertFeedTest` can
-exercise the duplicate-suppression logic without a JavaFX toolkit — the CI runner has none.
-Same reasoning as `Printing.pageBreaks` being JavaFX-free.
+`Platform.runLater` is **injected, not written here**: `AlertFeed` takes a `UiDispatcher`
+(`center-core`) and the desktop supplies `DesktopUiDispatcher`. One line is the whole of what
+tied the feed to a window — the read, the id guard and the duplicate suppression are the same
+on both sides — so `AlertFeedTest` exercises them with `Runnable::run` and no JavaFX toolkit,
+which the CI runner does not have. Same reasoning as `Printing.pageBreaks` being JavaFX-free.
+The dispatcher promises nothing about *when* the task runs, which is why `deliver` reads the
+sink inside the task and not outside it.
 
 **Which alerts actually pop is a per-machine choice** (`util/AlertPreferences`, `java.util.prefs`,
 no migration). What is alerted on is centre policy; how loudly it appears is not. The reception
@@ -1180,8 +1186,9 @@ The test classes below exist because these failure modes are invisible to the co
   fine and only surfaces the day `center-app` is carved out, by which time it has spread.
   `BusinessLayerPurityTest` reads the imports of `service/`, `domain/`, `repository/` and
   `security/` and fails the build for `javafx.*`, `java.awt.*`, `java.util.prefs`, any
-  `util/*Preferences`, `UserSession` or a controller — naming the one exemption (`AlertFeed`)
-  rather than hiding it.
+  `util/*Preferences`, `UserSession` or a controller. It carries no exemption list any more —
+  the four packages are clean today, so the next import to break them fails the build by file
+  and line.
 
 **Never assert a user-facing string as a literal.** The UI language is stored per machine,
 so a test comparing against Arabic text starts failing the moment someone switches the app

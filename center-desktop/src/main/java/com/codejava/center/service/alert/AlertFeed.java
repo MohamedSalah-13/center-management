@@ -1,8 +1,8 @@
 package com.codejava.center.service.alert;
 
 import com.codejava.center.domain.Alert;
+import com.codejava.center.core.ui.UiDispatcher;
 import com.codejava.center.repository.AlertRepository;
-import javafx.application.Platform;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,19 +69,20 @@ public class AlertFeed {
     private final AlertRepository alertRepository;
     private final TaskScheduler taskScheduler;
 
+    /**
+     * القفزة إلى حيث تُمسّ الشاشة، محقونةً لا مكتوبةً هنا.
+     *
+     * <p>كانت حقلاً قيمته {@code Platform::runLater}، أي أن هذا الصنف يفترض أن خلفه
+     * نافذةً وأدوات JavaFX مُقلعة — وهي ليست كذلك على خادم بلا شاشة ولا في خادم البناء.
+     * Desktop يركّب خيط JavaFX والخادم يركّب ما يناسب SSE، وما بينهما — الحساب الذي لو
+     * أخطأ لَظهر التنبيه مرتين أو لم يظهر أصلاً — واحدٌ يُختبر بلا نافذة، تماماً كما
+     * جُرِّد {@code Printing.pageBreaks} من JavaFX للسبب نفسه.</p>
+     */
+    private final UiDispatcher uiThread;
+
     private volatile Consumer<AlertBatch> sink;
     private final AtomicLong lastSeenId = new AtomicLong(0);
     private ScheduledFuture<?> polling;
-
-    /**
-     * القفزة إلى خيط الواجهة، حقلاً لا استدعاءً مباشراً.
-     *
-     * <p>{@code Platform.runLater} يتطلب أن تكون أدوات JavaFX مُقلعة، وهي ليست كذلك في
-     * الاختبارات ولا في خادم البناء. والحقل هنا هو ما يجعل الحساب الذي لو أخطأ لَظهر
-     * التنبيه مرتين - أو لم يظهر أصلاً - قابلاً للاختبار بلا نافذة، تماماً كما جُرِّد
-     * {@code Printing.pageBreaks} من JavaFX للسبب نفسه.</p>
-     */
-    private volatile Consumer<Runnable> uiThread = Platform::runLater;
 
     /**
      * تسجيل شاشة لاستقبال التنبيهات، وبدء النبض.
@@ -164,16 +165,11 @@ public class AlertFeed {
      * والتسليم إلى مستقبِل مهجور يبني بطاقة فوق نافذة لم تعد موجودة.
      */
     private void deliver(AlertBatch batch) {
-        uiThread.accept(() -> {
+        uiThread.dispatch(() -> {
             Consumer<AlertBatch> current = sink;
             if (current != null) {
                 current.accept(batch);
             }
         });
-    }
-
-    /** يستبدل القفزة إلى خيط الواجهة بتنفيذ مباشر - للاختبار وحده */
-    void dispatchOn(Consumer<Runnable> executor) {
-        this.uiThread = executor;
     }
 }

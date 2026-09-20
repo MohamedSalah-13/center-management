@@ -198,7 +198,12 @@ V16 (قد تكون طُبّقت)، لكن لا تبنِ فوق `tenants` داخ�
    الإشعارات والإعدادات. ومسارُ التنبيهات التلقائي صار يرفض القناة اليدوية صراحةً قبل بناء
    أي رابط: المجدوِل يعمل بلا أحد أمام الشاشة، ورابطٌ لا يفتحه أحد ليس رسالةً وصلت.
    وبخروج `java.awt` من طبقة الأعمال أُضيف سطره إلى `BusinessLayerPurityTest`.
-7. [ ] `AlertFeed`: حقل `Platform::runLater` يصبح حقناً من Desktop؛ الخادم لاحقاً يستبدله بـ SSE.
+7. [x] `AlertFeed`: حقل `Platform::runLater` يصبح حقناً من Desktop؛ الخادم لاحقاً يستبدله بـ SSE.
+   الواجهة `UiDispatcher` في النواة و`DesktopUiDispatcher` يركّبها، فلم يبق في الحزم الأربع
+   (`service/`, `domain/`, `repository/`, `security/`) استيرادُ `javafx` واحد — وحُذفت قائمة
+   الاستثناءات من `BusinessLayerPurityTest` كلّها. واجهةٌ لا `Executor` من الـ JDK عن قصد:
+   Spring Boot يسجّل `applicationTaskExecutor` وهو `Executor` أيضاً، فالحقن بالنوع يصير
+   غامضاً — نفس غموض `@ConditionalOnMissingBean` القديم.
 8. [ ] `BackupService`: مسار الأدوات ومصدر البيانات عبر واجهة `BackupTarget` (Desktop: JDBC URL
    الحالي؛ الخادم: schema المؤسسة).
 9. [ ] الكلاسات النقية تنتقل إلى `center-core` مع اختباراتها: `BackupSchedule`, `BackupRetention`,
@@ -253,4 +258,4 @@ V16 (قد تكون طُبّقت)، لكن لا تبنِ فوق `tenants` داخ�
 
 كل بنود المرحلة 0، والبنود 4 و5 و6 و9 من المرحلة 1 (واجهات الأسرار، فصل التعبئة عن التسليم،
 `WhatsAppLinkSender`، نقل الكلاسات النقية) — كلها تحسّن الـ Desktop نفسه ولا تعتمد على §3.
-البنود 4 و5 و6 منها منجزة.
+البنود 4 و5 و6 منها منجزة (و7 كذلك، وإن لم يكن في هذه القائمة).
