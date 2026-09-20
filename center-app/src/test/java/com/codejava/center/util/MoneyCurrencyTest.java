@@ -1,5 +1,6 @@
 package com.codejava.center.util;
 
+import com.codejava.center.core.i18n.LocaleProvider;
 import com.codejava.center.domain.enums.Currency;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -22,12 +23,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 class MoneyCurrencyTest {
 
     private final Currency before = MoneyUtils.currency();
-    private final Locale localeBefore = I18n.current();
+    private final LocaleProvider localeBefore = I18n.provider();
 
     @AfterEach
     void restore() {
         MoneyUtils.setCurrency(before);
-        I18n.setLocale(localeBefore);
+        I18n.install(localeBefore);
     }
 
     @Test
@@ -54,10 +55,10 @@ class MoneyCurrencyTest {
     void theSameCurrencyReadsInTheLanguageOfEachTerminal() {
         MoneyUtils.setCurrency(Currency.EGP);
 
-        I18n.setLocale(I18n.ARABIC);
+        I18n.install(() -> I18n.ARABIC);
         String arabic = MoneyUtils.formatWithCurrency(BigDecimal.TEN);
 
-        I18n.setLocale(I18n.ENGLISH);
+        I18n.install(() -> I18n.ENGLISH);
         String english = MoneyUtils.formatWithCurrency(BigDecimal.TEN);
 
         assertThat(arabic).isNotEqualTo(english);

@@ -25,6 +25,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * و{@code javax.sound} و{@code java.util.prefs} تُستورد هنا بلا أن يعترض مُترجِم ولا pom.
  * وكلّها تفترض جهازاً أمام إنسان: سطحَ مكتب يفتح ملفاً، وطابعةً موصولة، وسمّاعةً،
  * وسجلَّ ويندوز. هذه هي ما بقي لهذا الاختبار.</p>
+ *
+ * <p><b>وبلا استثناء واحد.</b> كان آخرها {@code util/I18n} يقرأ لغةَ الجهاز من
+ * {@code java.util.prefs}؛ صار المصدر {@code LocaleProvider} في النواة يركّبه سطحُ
+ * المكتب من {@code LanguagePreferences}، فسقط الاستثناء معه. وقاعدةٌ تفشل يوم كتابتها
+ * تُعطَّل ولا تُصلَح: كل سطر هنا أُضيف يوم سُدّد دَينه.</p>
  */
 class BusinessLayerPurityTest {
 
@@ -43,17 +48,6 @@ class BusinessLayerPurityTest {
                     "سمّاعة: الصوت إشعارٌ لمن أمام الشاشة، ولا أحد أمام الخادم"),
             new Rule(Pattern.compile("^\\s*import\\s+java\\.util\\.prefs\\."),
                     "تفضيلات الجهاز: سجلّ ويندوز مصدرٌ لا يملكه الخادم — الواجهات في center-core"));
-
-    /**
-     * الدَّين الوحيد المعروف، وهو مكتوب في الخطة (البند 2 من المرحلة 1): {@code I18n} يقرأ
-     * لغةَ الجهاز من {@code java.util.prefs} لأن شاشة الدخول تحتاجها قبل أن تكون هناك
-     * جلسة. يصير مصدر اللغة {@code LocaleProvider} في النواة، وعندها يسقط هذا السطر.
-     *
-     * <p>مذكورٌ صراحةً حتى يبقى ديناً معدوداً لا سابقةً تُنسخ.</p>
-     */
-    private static final String KNOWN_DEBT_FILE = "util/I18n.java";
-
-    private static final String KNOWN_DEBT_IMPORT = "java.util.prefs";
 
     /**
      * معيار انتهاء فصل الوحدة، منفَّذاً لا موصوفاً.
@@ -84,10 +78,6 @@ class BusinessLayerPurityTest {
         assertThat(violations).as("استيرادات تفترض جهازاً أمام إنسان").isEmpty();
     }
 
-    private boolean isKnownDebt(String relativeFile, String line) {
-        return relativeFile.endsWith(KNOWN_DEBT_FILE) && line.contains(KNOWN_DEBT_IMPORT);
-    }
-
     private void collectViolations(Path file, List<String> violations) throws IOException {
         String relative = SOURCE_ROOT.relativize(file).toString().replace('\\', '/');
         List<String> lines = Files.readAllLines(file);
@@ -99,7 +89,7 @@ class BusinessLayerPurityTest {
                 return;
             }
             for (Rule rule : RULES) {
-                if (rule.anImport().matcher(line).find() && !isKnownDebt(relative, line)) {
+                if (rule.anImport().matcher(line).find()) {
                     violations.add("%s:%d — %s (%s)"
                             .formatted(relative, index + 1, line.trim(), rule.reason()));
                 }

@@ -35,15 +35,15 @@ public final class LanguageSelector {
         });
 
         combo.getItems().setAll(I18n.supportedLocales());
-        combo.setValue(I18n.current());
+        combo.setValue(LanguagePreferences.current());
 
         combo.valueProperty().addListener((observable, oldLocale, newLocale) -> {
             // الحارس ضروري: إعادة بناء المشهد تُنشئ قائمة جديدة وتضبط قيمتها على اللغة
             // الحالية، فبدونه يُطلق ذلك الضبط الحدث من جديد وتدور إعادة البناء بلا نهاية
-            if (newLocale == null || newLocale.equals(I18n.current())) {
+            if (newLocale == null || newLocale.equals(LanguagePreferences.current())) {
                 return;
             }
-            I18n.setLocale(newLocale);
+            LanguagePreferences.set(newLocale);
             onChange.run();
         });
     }

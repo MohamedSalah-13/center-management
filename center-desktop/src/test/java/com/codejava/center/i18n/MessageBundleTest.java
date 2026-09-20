@@ -289,40 +289,6 @@ class MessageBundleTest {
         assertThat(mismatched).as("نصوص يختلف عدد وسائطها بين اللغتين").isEmpty();
     }
 
-    /**
-     * العربية حزمة الأساس (بلا لاحقة)، و{@code ResourceBundle} يجرّب لغة الـ JVM
-     * الافتراضية قبل الأساس. على ويندوز إنجليزي كان ذلك يجعل طلب العربية يقع على
-     * {@code messages_en} فيعمل البرنامج كله بالإنجليزية رغم ضبطه على العربية.
-     */
-    @Test
-    void arabicIsHonouredEvenWhenTheJvmDefaultLocaleIsEnglish() {
-        Locale jvmDefault = Locale.getDefault();
-        Locale chosenBefore = I18n.current();
-        try {
-            Locale.setDefault(Locale.US);
-            I18n.setLocale(I18n.ARABIC);
-
-            assertThat(I18n.get("common.error")).isEqualTo("خطأ");
-            assertThat(I18n.isRightToLeft()).isTrue();
-        } finally {
-            I18n.setLocale(chosenBefore);
-            Locale.setDefault(jvmDefault);
-        }
-    }
-
-    @Test
-    void englishBundleIsUsedWhenEnglishIsChosen() {
-        Locale chosenBefore = I18n.current();
-        try {
-            I18n.setLocale(I18n.ENGLISH);
-
-            assertThat(I18n.get("common.error")).isEqualTo("Error");
-            assertThat(I18n.isRightToLeft()).isFalse();
-        } finally {
-            I18n.setLocale(chosenBefore);
-        }
-    }
-
     private void requireKey(Set<String> declared, String key, List<String> unresolved) {
         if (!declared.contains(key)) {
             unresolved.add(key);

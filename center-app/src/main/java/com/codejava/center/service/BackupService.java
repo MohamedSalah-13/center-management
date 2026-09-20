@@ -27,6 +27,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -61,7 +62,13 @@ public class BackupService {
     private static final Logger log = LoggerFactory.getLogger(BackupService.class);
 
     /** الطابع الزمني كامل في اسم الملف: باسم يحمل التاريخ وحده كانت نسخة اليوم الثانية تمحو الأولى */
-    private static final DateTimeFormatter FILE_STAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
+    /**
+     * {@code Locale.ROOT} لا لغةَ أحد: هذا اسمُ ملف، و{@code BackupRetention} ترتّب
+     * النسخ باسمها. صيغةٌ تتبع لغة القارئ تكتب "٢٠٢٦" بأرقام هندية على جهاز، فلا يعود
+     * الملف نسخةً يعرفها البرنامج ولا يقع دورُه في الترتيب حيث يجب.
+     */
+    private static final DateTimeFormatter FILE_STAMP =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss", Locale.ROOT);
 
     private static final String FILE_PREFIX = BackupRetention.FILE_PREFIX;
     private static final String SQL_SUFFIX = BackupRetention.SQL_SUFFIX;
