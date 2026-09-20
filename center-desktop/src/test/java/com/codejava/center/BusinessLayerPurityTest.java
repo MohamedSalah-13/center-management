@@ -24,9 +24,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>هذا الاختبار هو الفرض الآلي إلى أن يقوم به فصل الوحدات نفسه: يقرأ الاستيرادات نصّاً،
  * لأن ما يُفحص هو ما يستطيع الملف رؤيته لا ما ينفّذه فعلاً.</p>
  *
- * <p>و{@code java.awt} بينها منذ البند 6: كان {@code WhatsAppLinkSender} يفتح الرابط بـ
- * {@code Desktop.browse}، فصار يعيد الرابط وتفتحه الواجهة. القاعدة كُتبت يوم سُدّد الدَّين
- * لا قبله: قاعدةٌ تفشل يوم كتابتها تُعطَّل ولا تُصلَح.</p>
+ * <p>وكل قاعدة هنا كُتبت يوم سُدّد دَينها لا قبله — قاعدةٌ تفشل يوم كتابتها تُعطَّل ولا
+ * تُصلَح: {@code java.awt} يوم صار {@code WhatsAppLinkSender} يعيد الرابط وتفتحه الواجهة
+ * (البند 6)، و{@code javafx} بلا استثناء يوم صارت قفزةُ {@code AlertFeed} إلى خيط الواجهة
+ * محقونةً من Desktop (البند 7). <b>ولم يبق استثناء واحد:</b> الحزم الأربع اليوم خالية،
+ * وأول من يكسر ذلك يجد البناء ساقطاً باسم ملفه وسطره.</p>
  */
 class BusinessLayerPurityTest {
 
@@ -53,15 +55,6 @@ class BusinessLayerPurityTest {
             new Rule(Pattern.compile("^\\s*import\\s+com\\.codejava\\.center\\.controller\\."),
                     "متحكّم شاشة: الاتجاه من الشاشة إلى الخدمة، لا العكس"));
 
-    /**
-     * الدَّين الوحيد المعروف، وهو مكتوب في الخطة (البند 7 من المرحلة 1): حقل
-     * {@code dispatchOn} في {@code AlertFeed} يحمل {@code Platform::runLater} افتراضاً،
-     * ويصير حقناً من Desktop. مذكورٌ هنا صراحةً حتى يبقى ديناً معدوداً لا سابقةً تُنسخ.
-     */
-    private static final String KNOWN_DEBT_FILE = "service/alert/AlertFeed.java";
-
-    private static final String KNOWN_DEBT_IMPORT = "import javafx.application.Platform;";
-
     @Test
     void businessPackagesDoNotReachForTheScreenOrTheMachine() throws IOException {
         List<String> violations = new ArrayList<>();
@@ -82,10 +75,6 @@ class BusinessLayerPurityTest {
                 .isEmpty();
     }
 
-    private boolean isKnownDebt(String relativeFile, String line) {
-        return relativeFile.endsWith(KNOWN_DEBT_FILE) && line.trim().equals(KNOWN_DEBT_IMPORT);
-    }
-
     private void collectViolations(Path file, List<String> violations) throws IOException {
         String relative = SOURCE_ROOT.relativize(file).toString().replace('\\', '/');
         List<String> lines = Files.readAllLines(file);
@@ -97,7 +86,7 @@ class BusinessLayerPurityTest {
                 return;
             }
             for (Rule rule : RULES) {
-                if (rule.anImport().matcher(line).find() && !isKnownDebt(relative, line)) {
+                if (rule.anImport().matcher(line).find()) {
                     violations.add("%s:%d — %s (%s)"
                             .formatted(relative, index + 1, line.trim(), rule.reason()));
                 }

@@ -1,6 +1,7 @@
 package com.codejava.center.service.alert;
 
 import com.codejava.center.config.SecurityConfig;
+import com.codejava.center.core.ui.UiDispatcher;
 import com.codejava.center.domain.Alert;
 import com.codejava.center.domain.enums.AlertSeverity;
 import com.codejava.center.domain.enums.AlertType;
@@ -35,8 +36,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  *   <li>تنبيه عالجه زميلٌ على جهازه يظلّ يقفز على هذا الجهاز.</li>
  * </ul>
  *
- * <p>القفزة إلى خيط الواجهة تُستبدل بتنفيذ مباشر: أدوات JavaFX ليست مُقلعة في خادم
- * البناء، و{@code Platform.runLater} ترمي هناك.</p>
+ * <p>القفزة إلى خيط الواجهة تُحقن تنفيذاً مباشراً: أدوات JavaFX ليست مُقلعة في خادم
+ * البناء، و{@code Platform.runLater} ترمي هناك. ولم تعد حاجةً إلى بابٍ خلفي في الصنف
+ * نفسه - {@link UiDispatcher} معاملُ بناء، وهو نفسه ما يركّبه الخادم لاحقاً لـ SSE.</p>
  */
 @DataJpaTest
 @Import({AlertFeed.class, SecurityConfig.class, AlertFeedTest.SchedulerConfig.class})
@@ -50,7 +52,6 @@ class AlertFeedTest {
     @BeforeEach
     void attachSink() {
         delivered.clear();
-        alertFeed.dispatchOn(Runnable::run);
         alertFeed.attach(delivered::add);
     }
 
@@ -142,6 +143,9 @@ class AlertFeedTest {
     /**
      * {@code @DataJpaTest} شريحة بيانات ولا تحمل مجدوِلاً، و{@link AlertFeed} يحقنه
      * ليملك نبضته بنفسه. الاختبار ينادي {@code poll} مباشرةً فلا يعتمد على توقيته.
+     *
+     * <p>و{@link UiDispatcher} هنا تنفيذٌ مباشر على خيط المُسلِّم: ما يُفحص هو ماذا
+     * يُسلَّم وكم مرة، لا على أي خيط - وذاك سطرٌ واحد على الطرف الآخر.</p>
      */
     @TestConfiguration
     static class SchedulerConfig {
@@ -151,6 +155,11 @@ class AlertFeedTest {
             scheduler.setPoolSize(1);
             scheduler.initialize();
             return scheduler;
+        }
+
+        @Bean
+        UiDispatcher uiDispatcher() {
+            return Runnable::run;
         }
     }
 }
