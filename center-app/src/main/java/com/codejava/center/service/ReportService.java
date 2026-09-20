@@ -45,6 +45,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -88,8 +89,18 @@ public class ReportService {
         this.headerPolicy = headerPolicy;
     }
 
-    /** صيغة الوقت في ترويسات المطبوعات وذيولها */
-    private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    /**
+     * صيغة الوقت في ترويسات المطبوعات وذيولها، ومعها صيغةُ الساعة في أعمدة الحركات.
+     *
+     * <p>نصوصٌ لا ثوابت: {@code ofPattern} بلا لغة تقرأ {@link Locale#getDefault} - وهو
+     * ما كان يصحّ ما دام برنامجُ سطح المكتب هو من يضبطه على لغة الواجهة. طبقةُ الأعمال
+     * لم تعد تضبطه، وخادمٌ يملأ ورقةً لسنترٍ عربي بلغته هو يكتب "04:30 PM" في كشفٍ
+     * عربي، أو أرقاماً هندية في كشفٍ كلُّ أرقامه لاتينية. وحقلٌ ساكن يُبنى مرة يجمّد
+     * اللغة على أوّلِ من لمس الصنف.</p>
+     */
+    private static final String TIMESTAMP = "yyyy-MM-dd HH:mm";
+    private static final String CLOCK = "hh:mm a";
+    private static final String TIMESTAMP_SECONDS = "yyyy-MM-dd HH:mm:ss";
 
     /**
      * جرد الوردية: الملخّص ثم تفصيل الحركات، على رول الكاشير.
@@ -108,9 +119,9 @@ public class ReportService {
         parameters.put("NET_LINE", summaryLine("shift.net", summary.net()));
         parameters.put("DETAILS_TITLE", I18n.format("report.shift.details", movements.size()));
         parameters.put("PRINTED_AT", I18n.format("report.sheet.printedAt",
-                LocalDateTime.now().format(TIMESTAMP)));
+                LocalDateTime.now().format(formatter(TIMESTAMP))));
 
-        DateTimeFormatter clock = DateTimeFormatter.ofPattern("hh:mm a");
+        DateTimeFormatter clock = formatter(CLOCK);
         List<ShiftMovementRow> rows = movements.stream()
                 .map(movement -> new ShiftMovementRow(
                         movement.getTransactionDate().format(clock),
@@ -165,7 +176,7 @@ public class ReportService {
         Map<String, Object> parameters = withReceiptHeader(new java.util.HashMap<>());
         parameters.put("RECEIPT_TITLE", I18n.get("report.receipt.title"));
         parameters.put("DATE_LINE", I18n.format("report.receipt.date",
-                LocalDateTime.now().format(TIMESTAMP)));
+                LocalDateTime.now().format(formatter(TIMESTAMP))));
         parameters.put("STUDENT_LINE", I18n.format("report.receipt.student", studentName));
         parameters.put("GROUP_LINE", I18n.format("report.receipt.group", groupName));
         parameters.put("DESCRIPTION_LINE", I18n.format("report.receipt.description", description));
@@ -240,7 +251,7 @@ public class ReportService {
         parameters.put("COL_AMOUNT", I18n.get("expenseReport.col.amount"));
         parameters.put("NO_ROWS", I18n.get("report.expenses.noRows"));
 
-        DateTimeFormatter clock = DateTimeFormatter.ofPattern("hh:mm a");
+        DateTimeFormatter clock = formatter(CLOCK);
         int[] serial = {0};
         List<ExpenseSheetRow> rows = expenses.stream()
                 .map(expense -> new ExpenseSheetRow(
@@ -281,7 +292,7 @@ public class ReportService {
         parameters.put("COL_STATE", I18n.get("attLog.col.state"));
         parameters.put("NO_ROWS", I18n.get("report.attendanceLog.noRows"));
 
-        DateTimeFormatter clock = DateTimeFormatter.ofPattern("hh:mm a");
+        DateTimeFormatter clock = formatter(CLOCK);
         int[] serial = {0};
         List<AttendanceLogSheetRow> rows = log.stream()
                 .map(row -> new AttendanceLogSheetRow(
@@ -389,7 +400,7 @@ public class ReportService {
         parameters.put("COL_STATUS", I18n.get("audit.col.status"));
         parameters.put("NO_ROWS", I18n.get("report.audit.noRows"));
 
-        DateTimeFormatter seconds = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        DateTimeFormatter seconds = formatter(TIMESTAMP_SECONDS);
         List<AuditReportRow> rows = events.stream()
                 .map(event -> new AuditReportRow(
                         event.getOccurredAt().format(seconds),
@@ -624,7 +635,7 @@ public class ReportService {
      */
     public Map<String, Object> withSheetFooter(Map<String, Object> parameters) {
         parameters.put("PRINTED_AT", I18n.format("report.sheet.printedAt",
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))));
+                LocalDateTime.now().format(formatter(TIMESTAMP))));
         parameters.put("PAGE_LABEL", I18n.get("report.sheet.page"));
         return parameters;
     }
@@ -718,6 +729,11 @@ public class ReportService {
 
         return sheet(fill("TeacherStatement.jrxml", parameters, rows), "teacher_statement_",
                 DocumentKind.REPORT);
+    }
+
+    /** صيغةُ تاريخٍ بلغة من سيقرأ الورقة */
+    private static DateTimeFormatter formatter(String pattern) {
+        return DateTimeFormatter.ofPattern(pattern, I18n.current());
     }
 
     /**

@@ -18,8 +18,16 @@ import java.time.format.DateTimeFormatter;
  */
 public final class Moments {
 
-    private static final DateTimeFormatter TIME_ONLY = DateTimeFormatter.ofPattern("HH:mm");
-    private static final DateTimeFormatter DATE_AND_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    /**
+     * الصيغة تُبنى بلغة القارئ لا بلغة الـ JVM.
+     *
+     * <p>{@code ofPattern} بلا لغة تقرأ {@link java.util.Locale#getDefault} - وهو ما
+     * كان يصحّ ما دام برنامجُ سطح المكتب هو من يضبطه. طبقةُ الأعمال لم تعد تضبطه،
+     * وخادمٌ يعمل بـ {@code ar-EG} يكتب "٠٩:١٥" بأرقام هندية في كشفٍ كلُّ أرقامه
+     * لاتينية.</p>
+     */
+    private static final String TIME_ONLY = "HH:mm";
+    private static final String DATE_AND_TIME = "yyyy-MM-dd HH:mm";
 
     private Moments() {
     }
@@ -34,7 +42,11 @@ public final class Moments {
             return I18n.get("common.empty");
         }
         return instant.toLocalDate().equals(day)
-                ? instant.format(TIME_ONLY)
-                : instant.format(DATE_AND_TIME);
+                ? instant.format(formatter(TIME_ONLY))
+                : instant.format(formatter(DATE_AND_TIME));
+    }
+
+    private static DateTimeFormatter formatter(String pattern) {
+        return DateTimeFormatter.ofPattern(pattern, I18n.current());
     }
 }

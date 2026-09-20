@@ -61,8 +61,9 @@ system:
   only JUnit and AssertJ, so a stray framework import fails to compile. Today it holds the
   identity and tenant contracts (`ActorIdentity`, `CurrentActor`, `TenantContext`, `TenantId`)
   and the device contracts (`BackupSecretStore`, `MessagingSecretStore`, `SheetHeaderPolicy`,
-  `UiDispatcher`, `BackupTarget`, plus `DocumentKind` which labels a filled sheet for whoever
-  delivers it) that both the desktop app and a future SaaS server implement each in its own way
+  `UiDispatcher`, `BackupTarget`, `LocaleProvider`, plus `DocumentKind` which labels a filled
+  sheet for whoever delivers it) that both the desktop app and a future SaaS server implement
+  each in its own way
   — a JavaFX session, the Windows registry, an attached printer, the JavaFX thread and this
   machine's own database on one side; an HTTP request, a secret vault, no printer at all, an SSE
   stream and one tenant's schema on the other. Beside the contracts it holds the **pure
@@ -95,10 +96,10 @@ also asserts that `javafx.application.Platform` is **absent from the test classp
 the pom guarding itself: a `javafx-controls` added back by hand fails that test rather than
 quietly re-opening the door. (It was added by hand once, on purpose, to watch it fail.)
 
-One named debt remains: `util/I18n` reads `java.util.prefs`, and the exemption says so by file
-and by import — that is item 2 of the plan, the locale behind a `LocaleProvider`. Every rule in
-that test was added the day its debt was cleared, and this is the one still owed: a rule that
-fails the day it is written gets disabled, not fixed.
+**It carries no exemption.** The last one was `util/I18n` reading `java.util.prefs` for the
+machine's language; the source became `LocaleProvider` and the exemption went with it. Every
+rule in that test was added the day its debt was cleared — a rule that fails the day it is
+written gets disabled, not fixed — and there is nothing left owed.
 
 Services take the actor from `CurrentActor` and the tenant from `TenantContext`; the desktop
 wires both to `UserSession`, which is the only place allowed to know that the tenant is
@@ -112,6 +113,12 @@ them the same way — through a port, never through `java.util.prefs`:**
 | Does a filled sheet carry the centre letterhead | `SheetHeaderPolicy` | `DesktopSheetHeaderPolicy` → `PrintPreferences` |
 | Where does a delivery to a watching screen run | `UiDispatcher` | `DesktopUiDispatcher` → `Platform.runLater` |
 | Which database does a backup dump, with which tools | `BackupTarget` | `DesktopBackupTarget` → `JdbcUrl` + `MySqlLocator` |
+| What language is being spoken right now | `LocaleProvider` | `LanguagePreferences` → `java.util.prefs` |
+
+`LocaleProvider` is the one port that is **installed statically** (`I18n.install`) rather than
+injected, for the reason `I18n` is static at all: enums expose `getDisplayName()` and cannot be
+injected, and services run on ForkJoinPool threads. It is a port so the answer can come from
+somewhere else one day, not so it can be a bean today.
 
 That last one is the *only* printing question left in the business layer, and deliberately so:
 it is asked at fill time, since the condition sits on a band inside the template and a sheet
@@ -316,15 +323,38 @@ How to reach strings:
   five static methods had no way to set direction or button labels, so its dialogs rendered
   left-to-right with OK/Cancel whatever the language.
 
-`I18n.setLocale` also calls `Locale.setDefault`, which is what localises `DatePicker` month
-names and other strings baked into JavaFX. Arabic uses `ar-EG-u-nu-latn` so amounts and
-dates keep Latin digits.
+**Where the language comes from is not `I18n`'s business.** It asks `LocaleProvider`
+(`center-core`) on every string, and the edge installs the answer: the desktop hands it a
+machine preference, a server will hand it the request's `Accept-Language` or the account's
+own setting. That is why `current()` is a **call and not a field read once** — a value
+captured at startup makes the first request's language the language of every reply after
+it, and the bundles are memoised per locale rather than one "current bundle", because two
+readers in two languages exist at the same instant on a server and do not on a desk.
+Nothing changed at the ~280 `I18n.get`/`format` call sites; only what is behind them.
 
-**The language is stored per machine** (`java.util.prefs`), not in `CenterSettings`: the
-login screen needs it before there is a session, and terminals in one centre may differ.
-That is why this feature has no Flyway migration. Switching rebuilds the current scene via
-`ViewLoader`; the selector lives on the login screen, the sidebar and the settings screen,
-and is wired by `util/LanguageSelector` (whose re-entrancy guard is load-bearing).
+**`I18n` does not call `Locale.setDefault`, and must not.** Setting the default is a
+JVM-wide effect: correct for a program in front of one person, wrong for a server where the
+last request in would decide what language everybody else's month names come out in. The
+desktop owns its JVM, so `util/LanguagePreferences` sets it there — and it has to, because
+`DatePicker` month names, `ButtonType` labels and the `TableView` context menu come from
+JavaFX's own bundles, which read `Locale.getDefault()` and know nothing about ours. Arabic
+uses `ar-EG-u-nu-latn` so amounts and dates keep Latin digits.
+
+The corollary is a trap worth knowing: **`DateTimeFormatter.ofPattern(p)` without a locale
+reads that same default.** It was right in the business layer only because the desktop kept
+the default in step; the ones in `ReportService` and `Moments` now take `I18n.current()`
+explicitly, and `BackupService.FILE_STAMP` takes `Locale.ROOT` — it is a *filename*, sorted
+by `BackupRetention`, and Arabic-Indic digits in it would leave the retention pass with
+nothing it recognises as a backup.
+
+**The language is stored per machine** (`util/LanguagePreferences`, `java.util.prefs`), not
+in `CenterSettings`: the login screen needs it before there is a session, and terminals in
+one centre may differ. That is why this feature has no Flyway migration. It reads the same
+preferences node under the same key the old `I18n` used — `userNodeForPackage` indexes by
+*package*, so a class moved to another package would have silently reset every customer's
+choice back to Arabic. Switching rebuilds the current scene via `ViewLoader`; the selector
+lives on the login screen, the sidebar and the settings screen, and is wired by
+`util/LanguageSelector` (whose re-entrancy guard is load-bearing).
 
 Direction is set on the `Scene` by `ViewLoader`, never hardcoded in FXML.
 
@@ -1268,8 +1298,8 @@ The test classes below exist because these failure modes are invisible to the co
   service does not build. `BusinessLayerPurityTest` covers only what a pom cannot withhold —
   `java.awt`, `javax.print`, `javax.sound`, `java.util.prefs`, all of them JDK — and asserts
   that JavaFX is absent from the test classpath, so the pom cannot be re-opened by accident.
-  It carries one exemption, named by file and import: `util/I18n` and `java.util.prefs`, which
-  is plan item 2.
+  It carries no exemptions: the last one, `util/I18n` reading `java.util.prefs`, was paid off
+  when the locale moved behind `LocaleProvider`.
 
 **Never assert a user-facing string as a literal.** The UI language is stored per machine,
 so a test comparing against Arabic text starts failing the moment someone switches the app
@@ -1279,7 +1309,7 @@ to English. Compare against the key instead — `hasMessage(I18n.get("error.sess
 Add coverage when touching any of those. `@DataJpaTest` needs `@Import(SecurityConfig.class)`
 because the boot class is itself a bean injecting `PasswordEncoder`.
 
-**A test lives in the module that holds its subject**, which is why the suite is split 56 / 224 / 57.
+**A test lives in the module that holds its subject**, which is why the suite is split 56 / 228 / 55.
 Two classes in `center-app`'s test tree exist only because it is a library and not a program:
 
 - `AppTestApplication` — `@DataJpaTest` searches *upward* for a `@SpringBootConfiguration` to
@@ -1290,6 +1320,13 @@ Two classes in `center-app`'s test tree exist only because it is a library and n
 - `TestActor` — one bean implementing `CurrentActor` and `TenantContext`, the two ports the
   services read. `UserSession` is the desktop's answer to them and is not on this side of the
   line, so the tests supply their own — which is the boundary working, not a workaround.
+
+A test that needs a particular language installs a `LocaleProvider` (`I18n.install(() -> …)`)
+and restores the one it found (`I18n.provider()`). It does **not** go through
+`LanguagePreferences`: that writes the developer's registry, and a test must not change the
+language of the machine it ran on. `I18nBundleTest` also clears the bundle memo first, because
+a bundle already loaded is returned whatever the JVM default becomes afterwards — without that
+line the `getFallbackLocale` guard could be deleted and the test would still pass.
 
 ## Schema changes
 

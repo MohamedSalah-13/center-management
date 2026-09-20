@@ -2,7 +2,7 @@ package com.codejava.center;
 
 import com.codejava.center.config.StageReadyEvent;
 import com.codejava.center.util.ApplicationLogs;
-import com.codejava.center.util.I18n;
+import com.codejava.center.util.LanguagePreferences;
 import com.codejava.center.util.UncaughtExceptionReporter;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -19,9 +19,10 @@ public class JavaFxApplication extends Application {
         // قبل إقلاع Spring حتى يُكتب أول سطر إقلاع في ملف يمكن الوصول إليه بلا Console.
         ApplicationLogs.configure();
 
-        // لغة الواجهة المحفوظة تصبح Locale الافتراضي للـ JVM قبل إقلاع أي شيء:
-        // أسماء الشهور في DatePicker ونصوص أزرار JavaFX الداخلية تقرأ الافتراضي وحده
-        I18n.installAsJvmDefault();
+        // تفضيل هذا الجهاز يصير مصدر اللغة لطبقة الأعمال، ويصير معه Locale الافتراضي
+        // للـ JVM: أسماء الشهور في DatePicker ونصوص أزرار JavaFX الداخلية تقرأ الافتراضي
+        // وحده. قبل إقلاع Spring وقبل رسم أول شاشة.
+        LanguagePreferences.install();
 
         // تشغيل Spring Boot
         String[] args = getParameters().getRaw().toArray(new String[0]);
