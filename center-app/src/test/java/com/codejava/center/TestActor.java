@@ -4,8 +4,11 @@ import com.codejava.center.core.security.ActorIdentity;
 import com.codejava.center.core.security.CurrentActor;
 import com.codejava.center.core.tenant.TenantContext;
 import com.codejava.center.core.tenant.TenantId;
+import com.codejava.center.core.tenant.TenantSweep;
 import com.codejava.center.domain.User;
 import org.springframework.stereotype.Component;
+
+import java.util.function.Consumer;
 
 /**
  * من ينفّذ العملية، في الاختبارات.
@@ -19,7 +22,7 @@ import org.springframework.stereotype.Component;
  * أن جلسةً بعينها تعمل. تركيبُ العقد على الخادم يختلف، والحارس لا يعلم.</p>
  */
 @Component
-public class TestActor implements CurrentActor, TenantContext {
+public class TestActor implements CurrentActor, TenantContext, TenantSweep {
 
     private volatile User currentUser;
 
@@ -41,5 +44,21 @@ public class TestActor implements CurrentActor, TenantContext {
     @Override
     public TenantId currentTenant() {
         return TenantId.DESKTOP;
+    }
+
+    /**
+     * مؤسسةٌ واحدة، كما على الجهاز: العمل يُنفَّذ كما هو.
+     *
+     * <p>والاستثناء يصعد ولا يُبتلع: اختبارٌ يبتلع خطأً داخل دورة مجدوِل يمرّ أخضر
+     * على كود مكسور.</p>
+     */
+    @Override
+    public void sweep(Consumer<TenantId> work) {
+        work.accept(currentTenant());
+    }
+
+    @Override
+    public void within(TenantId tenant, Runnable work) {
+        work.run();
     }
 }

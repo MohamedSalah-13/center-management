@@ -1,6 +1,7 @@
 package com.codejava.center.service.alert;
 
 import com.codejava.center.config.SecurityConfig;
+import com.codejava.center.core.tenant.TenantId;
 import com.codejava.center.core.ui.UiDispatcher;
 import com.codejava.center.domain.Alert;
 import com.codejava.center.domain.enums.AlertSeverity;
@@ -41,7 +42,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * نفسه - {@link UiDispatcher} معاملُ بناء، وهو نفسه ما يركّبه الخادم لاحقاً لـ SSE.</p>
  */
 @DataJpaTest
-@Import({AlertFeed.class, SecurityConfig.class, AlertFeedTest.SchedulerConfig.class})
+@Import({AlertFeed.class, SecurityConfig.class, AlertFeedTest.SchedulerConfig.class,
+        com.codejava.center.TestActor.class})
 class AlertFeedTest {
 
     @Autowired private AlertFeed alertFeed;
@@ -69,7 +71,7 @@ class AlertFeedTest {
         persistAlert("قبل الفتح");
         alertFeed.attach(delivered::add); // إعادة التسجيل كما يحدث عند فتح لوحة القيادة
 
-        alertFeed.poll();
+        alertFeed.poll(TenantId.DESKTOP);
 
         assertThat(delivered).hasSize(1);
         assertThat(delivered.get(0).fresh()).isEmpty();
@@ -79,8 +81,8 @@ class AlertFeedTest {
     void anAlertRaisedAfterwardsIsDeliveredOnce() {
         persistAlert("تنبيه جديد");
 
-        alertFeed.poll();
-        alertFeed.poll();
+        alertFeed.poll(TenantId.DESKTOP);
+        alertFeed.poll(TenantId.DESKTOP);
 
         List<Alert> announced = delivered.stream().flatMap(batch -> batch.fresh().stream()).toList();
         assertThat(announced).extracting(Alert::getEntityLabel).containsExactly("تنبيه جديد");
@@ -94,7 +96,7 @@ class AlertFeedTest {
         handled.setAcknowledgedBy("مدير");
         alertRepository.saveAndFlush(handled);
 
-        alertFeed.poll();
+        alertFeed.poll(TenantId.DESKTOP);
 
         assertThat(delivered).hasSize(1);
         assertThat(delivered.get(0).fresh()).isEmpty();
@@ -110,7 +112,7 @@ class AlertFeedTest {
         persistAlert("قائم");
         alertFeed.attach(delivered::add);
 
-        alertFeed.poll();
+        alertFeed.poll(TenantId.DESKTOP);
 
         assertThat(delivered).hasSize(1);
         assertThat(delivered.get(0).hasFresh()).isFalse();
@@ -123,7 +125,7 @@ class AlertFeedTest {
         alertFeed.detach();
         persistAlert("بعد الانسحاب");
 
-        alertFeed.poll();
+        alertFeed.poll(TenantId.DESKTOP);
 
         assertThat(delivered).isEmpty();
     }

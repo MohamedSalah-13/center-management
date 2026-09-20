@@ -1,6 +1,9 @@
 package com.codejava.center.service;
 
 import com.codejava.center.core.backup.BackupSchedule;
+import com.codejava.center.core.tenant.TenantContext;
+import com.codejava.center.core.tenant.TenantId;
+import com.codejava.center.core.tenant.TenantSweep;
 
 import com.codejava.center.domain.CenterSettings;
 import com.codejava.center.domain.enums.AlertType;
@@ -23,6 +26,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 
 /**
@@ -60,7 +65,20 @@ public class BackupScheduler {
     /** ساعة البرنامج: "هل فات موعد النسخة" سؤالٌ لا يُختبر بغير تحريك الوقت */
     private final Clock clock;
 
-    private ScheduledFuture<?> scheduled;
+    /**
+     * المؤسسات التي يعمل لها هذا المجدوِل.
+     *
+     * <p>موعدُ النسخة إعدادٌ يملكه كل سنتر - الساعة التي يُغلق فيها وتهدأ قاعدته - فلا
+     * يوجد موعدٌ واحد لمئة سنتر. ولذلك الجدولة لكل مؤسسة لا دورةٌ واحدة تمرّ عليها:
+     * دورةٌ واحدة تعني إمّا نسخاً في غير موعد أحد، وإمّا مئة قاعدة تُنسخ في اللحظة
+     * نفسها. وعلى جهازٍ في سنتر المؤسسة واحدة، فهذه الخريطة مدخلٌ واحد والسلوك كما كان.</p>
+     */
+    private final TenantSweep tenants;
+
+    /** لمعرفة أيّ مؤسسة حفظت إعداداتها، حين يصل حدث الحفظ على خيطها */
+    private final TenantContext tenantContext;
+
+    private final Map<TenantId, ScheduledFuture<?>> scheduled = new ConcurrentHashMap<>();
 
     @EventListener(ApplicationReadyEvent.class)
     public void onApplicationReady() {
@@ -70,19 +88,34 @@ public class BackupScheduler {
     /**
      * بعد الـ commit لا قبله: الجدولة على موعد لم يُحفظ فعلاً - لأن الحفظ فشل ورجع -
      * تجعل البرنامج يعمل بإعدادات لا يراها المستخدم في الشاشة.
+     *
+     * <p>ويُعاد جدولةُ المؤسسة التي حفظت وحدها: الحدث يُنشر داخل سياقها وهذا المستمع
+     * يعمل على خيطها نفسه بعد الـ commit، فالمؤسسة معروفة. إعادةُ جدولة الجميع لأن
+     * واحدة حفظت تلغي نسخاً كانت على وشك أن تُؤخذ لسناتر لم يمسّها أحد.</p>
      */
     @TransactionalEventListener
     public void onSettingsChanged(SettingsChangedEvent event) {
-        reschedule();
+        rescheduleCurrent();
     }
 
     /**
-     * يلغي الجدولة القائمة ويبني واحدة من الإعدادات الحالية.
+     * يلغي كل الجدولة القائمة ويبنيها من إعدادات كل مؤسسة.
      * {@code synchronized} لأن الإقلاع وحفظ الإعدادات قد يلتقيان على خيطين مختلفين.
      */
     public synchronized void reschedule() {
         cancel();
+        tenants.sweep(this::scheduleFor);
+    }
 
+    /** يعيد جدولة المؤسسة التي يعمل هذا الخيط لأجلها وحدها */
+    public synchronized void rescheduleCurrent() {
+        TenantId tenant = tenantContext.currentTenant();
+        cancel(tenant);
+        scheduleFor(tenant);
+    }
+
+    /** يُستدعى داخل سياق المؤسسة: {@code getSettings} تقرأ قاعدتها هي */
+    private void scheduleFor(TenantId tenant) {
         CenterSettings settings = settingsService.getSettings();
         if (!settings.isAutoBackupEnabled()) {
             return;
@@ -95,14 +128,20 @@ public class BackupScheduler {
         BackupSchedule schedule = BackupSchedules.from(settings);
         LocalDateTime lastRun = settings.getLastAutoBackupAt();
 
-        scheduled = taskScheduler.schedule(this::runBackup, trigger(schedule, lastRun));
+        // العمل يُنفَّذ داخل سياق المؤسسة: خيط المجدوِل يأتي من مجمّع ولا يعرف لمن يعمل
+        scheduled.put(tenant, taskScheduler.schedule(
+                () -> tenants.within(tenant, this::runBackup), trigger(schedule, lastRun)));
         log.info("النسخ الاحتياطي التلقائي مجدول: {}", BackupSchedules.describe(schedule));
     }
 
     public synchronized void cancel() {
-        if (scheduled != null) {
-            scheduled.cancel(false); // false: نسخة جارية الآن تُترك حتى تكتمل
-            scheduled = null;
+        scheduled.keySet().forEach(this::cancel);
+    }
+
+    private void cancel(TenantId tenant) {
+        ScheduledFuture<?> future = scheduled.remove(tenant);
+        if (future != null) {
+            future.cancel(false); // false: نسخة جارية الآن تُترك حتى تكتمل
         }
     }
 

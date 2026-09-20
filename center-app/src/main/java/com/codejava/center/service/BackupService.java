@@ -187,7 +187,12 @@ public class BackupService {
                 plain = temporary;
             }
 
-            run(processBuilder("mysql").redirectInput(plain.toFile()), null, null);
+            // --one-database: أداة mysql تتجاهل كل عبارة تقع بينما القاعدة الحالية ليست
+            // المذكورة في الأمر. ملفُّ نسخةٍ لسنترٍ آخر يحمل USE باسم قاعدته، فلا تُنفَّذ
+            // عباراته هنا - وهو الفرق بين استعادةٍ ترفض وبين سنترٍ يُكتب فوق بياناته
+            // ببيانات جاره. على جهازٍ واحد لا يُحتمل أن يقع ذلك؛ على خادمٍ الملفات
+            // كلها في مكان واحد ويكفي اختيار الخطأ من قائمة
+            run(processBuilder("mysql", "--one-database").redirectInput(plain.toFile()), null, null);
 
             // الاستعادة تكتب فوق كل شيء، بما فيه سجل المراقبة نفسه: السطر الذي يُكتب هنا
             // هو أول ما يبقى بعدها، وبه يُعرف أن ما قبله محتوى ملف لا تاريخ السنتر.
@@ -345,13 +350,16 @@ public class BackupService {
         return processBuilder;
     }
 
-    private ProcessBuilder processBuilder(String tool) {
-        return processBuilder(List.of(mysqlTool(tool),
+    private ProcessBuilder processBuilder(String tool, String... extraFlags) {
+        List<String> command = new ArrayList<>(List.of(mysqlTool(tool),
                 "--host=" + backupTarget.host(),
                 "--port=" + backupTarget.port(),
                 "--user=" + backupTarget.username(),
-                "--default-character-set=utf8mb4",
-                backupTarget.database()));
+                "--default-character-set=utf8mb4"));
+        command.addAll(List.of(extraFlags));
+        // اسم القاعدة آخر الأمر دائماً: أداتا mysql وmysqldump تقرآنه موضعياً لا بعَلَم
+        command.add(backupTarget.database());
+        return processBuilder(command);
     }
 
     /** الاسم المجرّد حين تكون الأداة في {@code PATH}، ومسارها الكامل حين لا تكون */

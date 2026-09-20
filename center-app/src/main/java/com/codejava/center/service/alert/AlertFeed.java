@@ -1,6 +1,9 @@
 package com.codejava.center.service.alert;
 
 import com.codejava.center.domain.Alert;
+import com.codejava.center.core.tenant.TenantContext;
+import com.codejava.center.core.tenant.TenantId;
+import com.codejava.center.core.tenant.TenantSweep;
 import com.codejava.center.core.ui.UiDispatcher;
 import com.codejava.center.repository.AlertRepository;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +17,8 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -80,9 +85,33 @@ public class AlertFeed {
      */
     private final UiDispatcher uiThread;
 
-    private volatile Consumer<AlertBatch> sink;
-    private final AtomicLong lastSeenId = new AtomicLong(0);
+    /**
+     * أيّ مؤسسة تُقرأ تنبيهاتها، وكيف يُدخل إلى سياقها من خيط النبضة.
+     */
+    private final TenantContext tenantContext;
+
+    private final TenantSweep tenants;
+
+    /**
+     * مستقبِلٌ لكل مؤسسة، ولكلٍّ عدّاده.
+     *
+     * <p>كان الاثنان حقلين مفردين، وهو صحيح ما دام البرنامج يخدم سنتراً واحداً أمام
+     * إنسان واحد. على خادمٍ يجعل ذلك بطاقةَ تنبيهٍ عن رصيد طالبٍ في سنتر تقفز على شاشة
+     * سنترٍ آخر - وهي بيانات صحيحة تماماً معروضة لمن لا يملكها، وهو أسوأ أشكال
+     * الخلل لأن لا شيء فيه يبدو معطوباً.</p>
+     *
+     * <p>و<b>المفتاح مؤسسةٌ اليوم وسيصير مؤسسةً وجلسة</b> يوم تكون هناك جلسات: على
+     * الجهاز شاشةٌ واحدة لكل برنامج فلا معنى لمفتاح ثانٍ، وعلى الويب لكل متصفّح
+     * عدّاده. وحالةُ كل مراقِب معزولةٌ هنا أصلاً، فإضافة المفتاح الثاني تغييرُ مفتاح
+     * لا إعادةُ بناء.</p>
+     */
+    private final Map<TenantId, Watcher> watchers = new ConcurrentHashMap<>();
+
     private ScheduledFuture<?> polling;
+
+    /** شاشةٌ تراقب: أين تُسلَّم التنبيهات، وإلى أين وصلت قراءتها */
+    private record Watcher(Consumer<AlertBatch> sink, AtomicLong lastSeenId) {
+    }
 
     /**
      * تسجيل شاشة لاستقبال التنبيهات، وبدء النبض.
@@ -95,20 +124,26 @@ public class AlertFeed {
      * الصندوق لا بطاقة تقفز في الزاوية.</p>
      */
     public synchronized void attach(Consumer<AlertBatch> newSink) {
-        this.sink = newSink;
-        this.lastSeenId.set(alertRepository.findHighestId());
+        TenantId tenant = tenantContext.currentTenant();
+        watchers.put(tenant, new Watcher(newSink, new AtomicLong(alertRepository.findHighestId())));
 
         if (polling == null) {
-            polling = taskScheduler.scheduleWithFixedDelay(this::poll,
+            polling = taskScheduler.scheduleWithFixedDelay(this::pollWatched,
                     Instant.now().plus(POLL_INTERVAL), POLL_INTERVAL);
         }
     }
 
-    /** انسحاب الشاشة: عند تسجيل الخروج، وقبل إعادة بناء لوحة القيادة */
+    /**
+     * انسحاب الشاشة: عند تسجيل الخروج، وقبل إعادة بناء لوحة القيادة.
+     *
+     * <p>والنبضة تتوقف حين لا يبقى مراقِبٌ واحد، لا حين ينسحب أوّل واحد: على الجهاز لا
+     * فرق لأن المراقِب واحد، وعلى خادمٍ إيقافُها لأن سنتراً سجّل خروجه يُسكت تنبيهات
+     * كل من بقي.</p>
+     */
     public synchronized void detach() {
-        this.sink = null;
+        watchers.remove(tenantContext.currentTenant());
 
-        if (polling != null) {
+        if (watchers.isEmpty() && polling != null) {
             polling.cancel(false);
             polling = null;
         }
@@ -123,8 +158,20 @@ public class AlertFeed {
      */
     @EventListener(AlertRaisedEvent.class)
     public void onAlertRaised() {
-        if (sink != null) {
-            taskScheduler.schedule(this::poll, Instant.now());
+        TenantId tenant = tenantContext.currentTenant();
+        if (watchers.containsKey(tenant)) {
+            taskScheduler.schedule(() -> tenants.within(tenant, () -> poll(tenant)), Instant.now());
+        }
+    }
+
+    /**
+     * النبضة الدورية: مؤقّتٌ واحد يمرّ على المؤسسات <b>المُراقَبة</b> لا المخدومة.
+     *
+     * <p>مئة سنترٍ مشترك لا يعني مئة شاشة مفتوحة؛ القراءة لمن أمامه أحد.</p>
+     */
+    private void pollWatched() {
+        for (TenantId tenant : watchers.keySet()) {
+            tenants.within(tenant, () -> poll(tenant));
         }
     }
 
@@ -138,20 +185,21 @@ public class AlertFeed {
      * <p>ويُسلَّم ولو لم يستجدّ شيء: العدّاد يتغيّر أيضاً حين يعالج زميلٌ تنبيهاً على
      * جهازه، ورقمٌ عالق على قيمة الأمس أسوأ من رقم متأخر بدقيقتين.</p>
      */
-    synchronized void poll() {
-        if (sink == null) {
+    synchronized void poll(TenantId tenant) {
+        Watcher watcher = watchers.get(tenant);
+        if (watcher == null) {
             return;
         }
 
         try {
             List<Alert> fresh = alertRepository.findRaisedAfter(
-                    lastSeenId.get(), PageRequest.of(0, MAX_PER_POLL));
+                    watcher.lastSeenId().get(), PageRequest.of(0, MAX_PER_POLL));
 
             if (!fresh.isEmpty()) {
-                lastSeenId.set(fresh.get(fresh.size() - 1).getId());
+                watcher.lastSeenId().set(fresh.get(fresh.size() - 1).getId());
             }
 
-            deliver(new AlertBatch(fresh, alertRepository.countByAcknowledgedAtIsNull()));
+            deliver(watcher, new AlertBatch(fresh, alertRepository.countByAcknowledgedAtIsNull()));
         } catch (RuntimeException e) {
             // قاعدة بيانات مقطوعة لحظياً: النبضة التالية تصلح الأمر، ونافذة خطأ كل
             // دقيقتين فوق شاشة يعمل عليها أحد أسوأ من عدّاد متأخر
@@ -164,11 +212,12 @@ public class AlertFeed {
      * قد تكون الشاشة انسحبت بين جدولة التسليم وتنفيذه - تسجيل خروج، أو تبديل لغة -
      * والتسليم إلى مستقبِل مهجور يبني بطاقة فوق نافذة لم تعد موجودة.
      */
-    private void deliver(AlertBatch batch) {
+    private void deliver(Watcher watcher, AlertBatch batch) {
         uiThread.dispatch(() -> {
-            Consumer<AlertBatch> current = sink;
-            if (current != null) {
-                current.accept(batch);
+            // تُقرأ الخريطة داخل المهمة لا خارجها: قد تكون الشاشة انسحبت بين الجدولة
+            // والتنفيذ، والتسليم إلى مستقبِل مهجور يبني بطاقة فوق نافذة لم تعد موجودة
+            if (watchers.containsValue(watcher)) {
+                watcher.sink().accept(batch);
             }
         });
     }

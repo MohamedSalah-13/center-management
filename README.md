@@ -79,6 +79,11 @@ $env:DB_USERNAME = "center_app"; $env:DB_PASSWORD = "your-password"; mvn -pl cen
 خادم الـ SaaS يُضاف لاحقاً فوق `center-app` نفسها: نفس الخدمات بواجهة أخرى، من دون أن يعتمد
 تطبيق سطح المكتب على الويب ولا العكس.
 
+وتعدّد المؤسسات جاهز في `center-app` بقاعدة بيانات لكل سنتر: الاتصال يُوجَّه إلى قاعدة
+المؤسسة قبل أن يُنفَّذ عليه استعلام، فلا استعلام في البرنامج يذكر المؤسسة. وهو **معطّل
+افتراضياً** (`center.tenancy.enabled`)، فتطبيق سطح المكتب يعمل بقاعدة واحدة كما كان بلا أن
+يمرّ بشيء من ذلك.
+
 تم دمج **Spring Boot** مع **JavaFX** باستخدام نمط مراقب الأحداث (`ApplicationListener` / `StageReadyEvent`).
 تُدار جميع كائنات التحكم (`Controllers`) وخدمات البيانات (`Services`) بالكامل بوساطة **Spring IoC Container** عبر الخاصية:
 `fxmlLoader.setControllerFactory(applicationContext::getBean)`
@@ -107,10 +112,13 @@ center-app/
     │   │   ├── alert/                   # محرّك التنبيهات وفاحصوه ومصدر الإشعارات
     │   │   └── notification/            # قنوات مراسلة أولياء الأمور
     │   ├── security/                    # حارس الصلاحيات (@RequiresRole + AOP)
-    │   ├── config/                      # SecurityConfig, TimeConfig, CurrencyInitializer
+    │   ├── platform/                    # سجلّ المؤسسات وتزويدها وترحيل قواعدها
+    │   ├── config/                      # SecurityConfig, TimeConfig
+    │   │   └── tenancy/                 # توجيه الاتصال إلى قاعدة المؤسسة (معطّل على الجهاز)
     │   └── util/                        # ما لا يعرف شاشة: I18n, MoneyUtils, BackupCrypto
     └── resources/
-        ├── db/migration/                # ترحيلات Flyway (المخطط ملكُها وحدها)
+        ├── db/migration/                # ترحيلات Flyway لقاعدة السنتر
+        ├── db/platform/                  # ترحيلات سجلّ المنصة (SaaS وحدها)
         ├── reports/                     # قوالب جاسبر (.jrxml) وترويستاها
         ├── i18n/                        # حزم النصوص: العربية هي الأساس
         └── fonts/                       # الخط العربي المسجَّل لجاسبر
