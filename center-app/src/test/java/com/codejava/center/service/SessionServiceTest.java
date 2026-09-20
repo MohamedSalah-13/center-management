@@ -7,7 +7,7 @@ import com.codejava.center.domain.Teacher;
 import com.codejava.center.repository.CourseGroupRepository;
 import com.codejava.center.repository.TeacherRepository;
 import com.codejava.center.util.I18n;
-import com.codejava.center.util.UserSession;
+import com.codejava.center.TestActor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,7 +30,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * خطأ لا يظهر في الشاشة، إنما في رصيد الطالب ومستحقات المعلم.</p>
  */
 @DataJpaTest
-@Import({SessionService.class, AuditService.class, UserSession.class, SecurityConfig.class})
+@Import({SessionService.class, AuditService.class, TestActor.class, SecurityConfig.class})
 class SessionServiceTest {
 
     @Autowired private SessionService sessionService;

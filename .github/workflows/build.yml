@@ -40,7 +40,7 @@ jobs:
       # أن يحوّل بوابة MySQL في CI إلى نجاح صامت. هنا يجب أن يكون الاختبار قد نُفّذ فعلاً.
       - name: Require MySQL migration gate
         run: |
-          report=center-desktop/target/surefire-reports/TEST-com.codejava.center.MySqlMigrationIntegrationTest.xml
+          report=center-app/target/surefire-reports/TEST-com.codejava.center.MySqlMigrationIntegrationTest.xml
           test -f "$report"
           ! grep -Eq 'skipped="[1-9][0-9]*"' "$report"
 
@@ -51,8 +51,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: surefire-reports
-          # كلا الوحدتين: فشل في center-core بلا تقرير مرفوع لا يُقرأ منه إلا الاسم
+          # الوحدات الثلاث: فشل في وحدة بلا تقرير مرفوع لا يُقرأ منه إلا الاسم
           path: |
             center-core/target/surefire-reports/
+            center-app/target/surefire-reports/
             center-desktop/target/surefire-reports/
           retention-days: 7

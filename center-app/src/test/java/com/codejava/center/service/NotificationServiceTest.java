@@ -14,7 +14,7 @@ import com.codejava.center.service.dto.StudentBalance;
 import com.codejava.center.service.notification.MessageSender;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
-import com.codejava.center.util.UserSession;
+import com.codejava.center.TestActor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,14 +35,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @DataJpaTest
 @Import({NotificationService.class, SettingsService.class, AuditService.class, SecurityConfig.class,
-        UserSession.class, NotificationServiceTest.RecordingSender.class})
+        TestActor.class, NotificationServiceTest.RecordingSender.class})
 @EnableAspectJAutoProxy
 class NotificationServiceTest {
 
     @Autowired private NotificationService notificationService;
     @Autowired private NotificationLogRepository notificationLogRepository;
     @Autowired private StudentRepository studentRepository;
-    @Autowired private UserSession userSession;
+    @Autowired private TestActor userSession;
     @Autowired private RecordingSender sender;
 
     @BeforeEach

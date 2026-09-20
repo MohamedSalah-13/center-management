@@ -19,10 +19,14 @@
 
     <modules>
         <!--
-            النواة لا تعرف Spring أو JPA أو JavaFX. تطبيق JavaFX الحالي يستهلكها،
-            وسيستهلكها خادم SaaS لاحقاً بسياق طلب مختلف.
+            ثلاث طبقات، وكلٌّ منها لا ترى ما فوقها:
+            center-core   — جافا خالصة: العقود والقرارات الخالصة، بلا Spring ولا JPA ولا JavaFX.
+            center-app    — طبقة الأعمال: الكيانات والمستودعات والخدمات، بلا JavaFX في الـ pom.
+            center-desktop— تطبيق JavaFX: الشاشات، وتنفيذاتُ عقود النواة على هذا الجهاز.
+            وخادم SaaS لاحقاً يستهلك الأولَيْن بسياق طلب مختلف، ولا يرى الثالثة.
         -->
         <module>center-core</module>
+        <module>center-app</module>
         <module>center-desktop</module>
     </modules>
 

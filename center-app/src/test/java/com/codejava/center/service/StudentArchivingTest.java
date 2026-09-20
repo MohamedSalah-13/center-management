@@ -32,7 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @DataJpaTest
 @Import({StudentService.class, SettingsService.class, AuditService.class,
-        com.codejava.center.util.UserSession.class, SecurityConfig.class})
+        com.codejava.center.TestActor.class, SecurityConfig.class})
 class StudentArchivingTest {
 
     @Autowired private StudentService studentService;

@@ -4,7 +4,7 @@ import com.codejava.center.config.SecurityConfig;
 import com.codejava.center.domain.User;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.repository.UserRepository;
-import com.codejava.center.util.UserSession;
+import com.codejava.center.TestActor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,12 +16,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest
-@Import({UserService.class, AuditService.class, UserSession.class, SecurityConfig.class})
+@Import({UserService.class, AuditService.class, TestActor.class, SecurityConfig.class})
 class UserServiceTest {
 
     @Autowired private UserService userService;
     @Autowired private UserRepository userRepository;
-    @Autowired private UserSession userSession;
+    @Autowired private TestActor userSession;
     @Autowired private PasswordEncoder passwordEncoder;
 
     private User builtInAdmin;

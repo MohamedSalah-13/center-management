@@ -15,39 +15,20 @@
     <name>Center Management Desktop</name>
 
     <!--
-        كل الاعتمادات هنا تأتي من Maven Central. لا مستودعات إضافية ولا جرّات مُدرجة في
+        تطبيق JavaFX: الشاشات، وتنفيذاتُ عقود النواة على هذا الجهاز. طبقةُ الأعمال كلها
+        تأتي من center-app، ومعها Spring وJPA وجاسبر وFlyway بالتبعية — فلا تُعاد هنا.
+        اسم القطعة يبقى center-management لأن اسم ملف الـ jar مكتوب في سكربت التغليف.
+
+        كل الاعتمادات تأتي من Maven Central. لا مستودعات إضافية ولا جرّات مُدرجة في
         المستودع: كانت fx-commons تُستورد من مجلد lib عبر مستودع file://، ثم لم يبقَ منها
         مستعملاً سوى ثلاث دوال صغيرة، فانتقلت إلى util/Forms.java وحُذفت المكتبة كلها.
     -->
     <dependencies>
-        <!-- عقود مشتركة لا تعتمد على JavaFX أو Spring أو JPA -->
+        <!-- طبقة الأعمال، ومعها النواة وSpring وJPA وجاسبر بالتبعية -->
         <dependency>
             <groupId>com.codejava</groupId>
-            <artifactId>center-core</artifactId>
+            <artifactId>center-app</artifactId>
             <version>${project.version}</version>
-        </dependency>
-
-        <!-- Spring Boot JPA -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa</artifactId>
-        </dependency>
-
-        <!-- MySQL Database (للشبكات) -->
-        <dependency>
-            <groupId>com.mysql</groupId>
-            <artifactId>mysql-connector-j</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <!-- Flyway: إدارة تطوّر مخطط قاعدة البيانات بملفات ترحيل مُرقّمة -->
-        <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-mysql</artifactId>
         </dependency>
 
         <!-- JavaFX -->
@@ -68,49 +49,8 @@
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-security</artifactId>
-        </dependency>
-        <!-- مطلوبة لفرض صلاحيات @RequiresRole على طبقة الخدمات عبر AOP -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-aop</artifactId>
-        </dependency>
-        <!-- مكتبة JasperReports الأساسية -->
-        <dependency>
-            <groupId>net.sf.jasperreports</groupId>
-            <artifactId>jasperreports</artifactId>
-            <version>6.20.6</version>
-        </dependency>
 
-        <!-- مهم جداً لدعم الخطوط العربية عند تصدير ملفات PDF -->
-        <dependency>
-            <groupId>net.sf.jasperreports</groupId>
-            <artifactId>jasperreports-fonts</artifactId>
-            <version>6.20.6</version>
-        </dependency>
-
-        <!-- مكتبة توليد الباركود -->
-        <dependency>
-            <groupId>net.sf.barcode4j</groupId>
-            <artifactId>barcode4j</artifactId>
-            <version>2.1</version>
-        </dependency>
-        <!-- مكتبات Apache Batik لمعالجة ورسم الباركود (SVG) داخل ملفات PDF -->
-        <dependency>
-            <groupId>org.apache.xmlgraphics</groupId>
-            <artifactId>batik-bridge</artifactId>
-            <version>1.17</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.xmlgraphics</groupId>
-            <artifactId>batik-util</artifactId>
-            <version>1.17</version>
-        </dependency>
-
-        <!-- الاختبارات: التحقق من صحة استعلامات JPQL وربط الكيانات دون الحاجة لقاعدة MySQL حقيقية -->
+        <!-- الاختبارات: ربط FXML بالمتحكّمات، وحزم النصوص، وإقلاع السياق كاملاً -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -119,17 +59,6 @@
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <!-- يشغّل ترحيلات Flyway على MySQL حقيقي؛ Spring Boot يدير النسخة المتوافقة. -->
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>mysql</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

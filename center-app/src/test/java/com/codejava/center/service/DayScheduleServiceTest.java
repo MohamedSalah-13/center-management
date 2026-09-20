@@ -39,7 +39,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @DataJpaTest
 @Import({DayScheduleService.class, SessionService.class, AuditService.class,
-        com.codejava.center.util.UserSession.class, SecurityConfig.class})
+        com.codejava.center.TestActor.class, SecurityConfig.class})
 class DayScheduleServiceTest {
 
     @Autowired private DayScheduleService dayScheduleService;

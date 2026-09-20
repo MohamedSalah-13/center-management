@@ -6,7 +6,7 @@ import com.codejava.center.domain.Teacher;
 import com.codejava.center.domain.enums.SchoolLevel;
 import com.codejava.center.repository.TeacherRepository;
 import com.codejava.center.util.I18n;
-import com.codejava.center.util.UserSession;
+import com.codejava.center.TestActor;
 import com.codejava.center.util.WeekDays;
 import org.hibernate.Hibernate;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,7 +32,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * <b>أي المجموعات تُقارَن</b>: مجموعات المعلم نفسه دون الصف الجاري تعديله.</p>
  */
 @DataJpaTest
-@Import({CourseGroupService.class, AuditService.class, UserSession.class, SecurityConfig.class})
+@Import({CourseGroupService.class, AuditService.class, TestActor.class, SecurityConfig.class})
 class CourseGroupServiceTest {
 
     @Autowired private CourseGroupService courseGroupService;

@@ -6,7 +6,7 @@ import com.codejava.center.domain.User;
 import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.repository.AuditLogRepository;
-import com.codejava.center.util.UserSession;
+import com.codejava.center.TestActor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,12 +38,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * في {@code @DataJpaTest} هو ما يقرّر النتيجة.</p>
  */
 @DataJpaTest
-@Import({AuditService.class, UserSession.class, SecurityConfig.class})
+@Import({AuditService.class, TestActor.class, SecurityConfig.class})
 class AuditServiceTest {
 
     @Autowired private AuditService auditService;
     @Autowired private AuditLogRepository auditLogRepository;
-    @Autowired private UserSession userSession;
+    @Autowired private TestActor userSession;
     @Autowired private PlatformTransactionManager transactionManager;
     @Autowired private JdbcTemplate jdbcTemplate;
 
