@@ -5,7 +5,7 @@ import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.service.AuditService;
 import com.codejava.center.util.I18n;
-import com.codejava.center.util.UserSession;
+import com.codejava.center.TestActor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -37,7 +37,7 @@ import static org.mockito.Mockito.verify;
 @SpringBootTest(classes = RoleEnforcementAspectTest.TestConfig.class)
 class RoleEnforcementAspectTest {
 
-    @Autowired private UserSession userSession;
+    @Autowired private TestActor userSession;
     @Autowired private GuardedService guardedService;
     @Autowired private AuditService auditService;
 
@@ -138,7 +138,7 @@ class RoleEnforcementAspectTest {
 
     @Configuration
     @EnableAspectJAutoProxy
-    @Import({UserSession.class, RoleEnforcementAspect.class, GuardedService.class})
+    @Import({TestActor.class, RoleEnforcementAspect.class, GuardedService.class})
     static class TestConfig {
 
         /**

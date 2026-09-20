@@ -49,10 +49,22 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class MessageBundleTest {
 
-    private static final Path ARABIC = Path.of("src/main/resources/i18n/messages.properties");
-    private static final Path ENGLISH = Path.of("src/main/resources/i18n/messages_en.properties");
+    /**
+     * الحزم في {@code center-app} مع الخدمات التي تقرؤها، والـ FXML هنا مع الشاشات.
+     *
+     * <p>ولهذا يبقى هذا الاختبار في هذه الوحدة وحدها: هي الوحيدة التي ترى الاثنين. لو
+     * سكن مع الحزم لَما رأى شاشةً واحدة، ومفتاحٌ مكتوب خطأً في {@code .fxml} يظهر
+     * {@code !some.key!} على الشاشة بلا شيء يمنعه.</p>
+     */
+    private static final Path APP = Path.of("..", "center-app");
+
+    private static final Path ARABIC = APP.resolve("src/main/resources/i18n/messages.properties");
+    private static final Path ENGLISH = APP.resolve("src/main/resources/i18n/messages_en.properties");
     private static final Path FXML_DIR = Path.of("src/main/resources/fxml");
-    private static final Path JAVA_DIR = Path.of("src/main/java");
+
+    /** شجرتا المصدر: الشاشات هنا، والخدمات والثوابت هناك — وكلتاهما تنادي {@code I18n} */
+    private static final List<Path> JAVA_DIRS =
+            List.of(Path.of("src/main/java"), APP.resolve("src/main/java"));
 
     /** المفاتيح المشار إليها في FXML: text="%key" و promptText="%key" */
     private static final Pattern FXML_KEY = Pattern.compile("=\"%([^\"]+)\"");
@@ -112,13 +124,15 @@ class MessageBundleTest {
         Set<String> declared = keysOf(ARABIC);
         List<String> unresolved = new ArrayList<>();
 
-        try (Stream<Path> files = Files.walk(JAVA_DIR)) {
-            for (Path file : files.filter(p -> p.toString().endsWith(".java")).toList()) {
-                String content = Files.readString(file, StandardCharsets.UTF_8);
-                Matcher matcher = JAVA_KEY.matcher(content);
-                while (matcher.find()) {
-                    if (!declared.contains(matcher.group(1))) {
-                        unresolved.add(file.getFileName() + " -> " + matcher.group(1));
+        for (Path root : JAVA_DIRS) {
+            try (Stream<Path> files = Files.walk(root)) {
+                for (Path file : files.filter(p -> p.toString().endsWith(".java")).toList()) {
+                    String content = Files.readString(file, StandardCharsets.UTF_8);
+                    Matcher matcher = JAVA_KEY.matcher(content);
+                    while (matcher.find()) {
+                        if (!declared.contains(matcher.group(1))) {
+                            unresolved.add(file.getFileName() + " -> " + matcher.group(1));
+                        }
                     }
                 }
             }

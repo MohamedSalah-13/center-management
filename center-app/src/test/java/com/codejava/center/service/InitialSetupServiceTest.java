@@ -4,7 +4,7 @@ import com.codejava.center.config.SecurityConfig;
 import com.codejava.center.domain.User;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.repository.UserRepository;
-import com.codejava.center.util.UserSession;
+import com.codejava.center.TestActor;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest
-@Import({InitialSetupService.class, AuditService.class, UserSession.class, SecurityConfig.class})
+@Import({InitialSetupService.class, AuditService.class, TestActor.class, SecurityConfig.class})
 class InitialSetupServiceTest {
 
     @Autowired private InitialSetupService initialSetupService;

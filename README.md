@@ -34,8 +34,8 @@ $env:DB_USERNAME = "center_app"; $env:DB_PASSWORD = "your-password"; mvn -pl cen
 ```
 
 > قبل أول أمر `-pl center-desktop` على نسخة جديدة نفّذ `mvn install -DskipTests` مرة واحدة
-> في جذر المستودع، وأعده كلما تغيّرت وحدة `center-core`: الأمر بـ `-pl` لا يبني الوحدة
-> الشقيقة ويبحث عنها في `~/.m2`، وبدونها يفشل برسالة `Could not resolve dependencies`.
+> في جذر المستودع، وأعده كلما تغيّرت `center-core` أو `center-app`: الأمر بـ `-pl` لا يبني
+> الوحدات الشقيقة ويبحث عنها في `~/.m2`، وبدونها يفشل برسالة `Could not resolve dependencies`.
 
 بدلاً من ذلك يمكن إنشاء ملف `center-desktop/src/main/resources/application-local.properties` (مستثنى من git تلقائياً) وتشغيل التطبيق بالبروفايل `local`.
 
@@ -66,10 +66,18 @@ $env:DB_USERNAME = "center_app"; $env:DB_PASSWORD = "your-password"; mvn -pl cen
 
 ## 🏛️ البنية المعمارية (Architecture & Integration Design)
 
-المستودع مبني كـ **Maven multi-module**: الملف `pom.xml` في الجذر هو الأب والمجمّع،
-ووحدة `center-core` تحمل عقود الهوية والمؤسسة المستقلة عن أطر التشغيل، بينما التطبيق
-الحالي داخل `center-desktop`. هذا الحد يحافظ على إصدار JavaFX كما هو، ويتيح إضافة
-خادم SaaS كوحدة مستقلة من دون جعل تطبيق سطح المكتب يعتمد على الويب.
+المستودع مبني كـ **Maven multi-module** من ثلاث وحدات، والحدّ بينها هو الفكرة لا الترتيب:
+
+- `center-core` — جافا خالصة، بلا Spring ولا JPA ولا JavaFX: عقود الهوية والمؤسسة والجهاز،
+  ومعها القرارات النقية (جدولة النسخ، تعارض المواعيد، سياسة كلمة المرور، حساب المال).
+- `center-app` — طبقة الأعمال: `domain/` و`repository/` و`service/` و`security/`، ومعها
+  Spring وJPA وFlyway وجاسبر. **لا تعتمد JavaFX في الـ pom**، فاستيراد `javafx.` فيها خطأ
+  ترجمة لا مخالفةُ عُرف.
+- `center-desktop` — الشاشات وحدها: `controller/` والـ FXML/CSS، وتنفيذاتُ عقود النواة على
+  هذا الجهاز (السجلّ، الطابعة، خيط JavaFX).
+
+خادم الـ SaaS يُضاف لاحقاً فوق `center-app` نفسها: نفس الخدمات بواجهة أخرى، من دون أن يعتمد
+تطبيق سطح المكتب على الويب ولا العكس.
 
 تم دمج **Spring Boot** مع **JavaFX** باستخدام نمط مراقب الأحداث (`ApplicationListener` / `StageReadyEvent`).
 تُدار جميع كائنات التحكم (`Controllers`) وخدمات البيانات (`Services`) بالكامل بوساطة **Spring IoC Container** عبر الخاصية:
@@ -82,21 +90,38 @@ $env:DB_USERNAME = "center_app"; $env:DB_PASSWORD = "your-password"; mvn -pl cen
 center-core/
 └── src/main/java/com/codejava/center/core/
     ├── security/                    # هوية المنفّذ المستقلة عن طريقة تسجيل الدخول
-    └── tenant/                      # سياق المؤسسة المشترك بين Desktop وSaaS
+    ├── tenant/                      # سياق المؤسسة المشترك بين Desktop وSaaS
+    ├── secret/                      # أين تُحفظ كلمة سر النسخة ورمز المراسلة
+    ├── print/                       # نوع الورقة وسياسة ترويسة السنتر
+    ├── backup/                      # قاعدةُ النسخ وأدواتها، وجدولتها ومدّة حفظها
+    ├── alert/, group/, phone/       # قرارات نقية: موعد الفحص، تعارض المواعيد، الأرقام
+    ├── money/                       # حساب المال: الدقّة والتقريب
+    └── ui/                          # أين يُنفَّذ تسليمٌ إلى شاشة تراقب
 
-center-desktop/
+center-app/
 └── src/main/
     ├── java/com/codejava/center/
-    │   ├── CenterApplication.java       # نقطة تشغيل Spring Boot وJavaFX
-    │   ├── JavaFxApplication.java       # دورة حياة JavaFX
-    │   ├── config/                      # إعدادات الشاشات والأمان (SecurityConfig, StageReadyEvent)
     │   ├── domain/                      # كيانات قاعدة البيانات (Entities & Enums)
     │   ├── repository/                  # واجهات التعامل مع قاعدة البيانات (Spring Data JPA)
     │   ├── service/                     # طبقة الأعمال والخدمات (Services & DTOs)
     │   │   ├── alert/                   # محرّك التنبيهات وفاحصوه ومصدر الإشعارات
     │   │   └── notification/            # قنوات مراسلة أولياء الأمور
     │   ├── security/                    # حارس الصلاحيات (@RequiresRole + AOP)
-    │   ├── util/                        # فئات المساعدة (UserSession لإدارة الجلسات والصلاحيات)
+    │   ├── config/                      # SecurityConfig, TimeConfig, CurrencyInitializer
+    │   └── util/                        # ما لا يعرف شاشة: I18n, MoneyUtils, BackupCrypto
+    └── resources/
+        ├── db/migration/                # ترحيلات Flyway (المخطط ملكُها وحدها)
+        ├── reports/                     # قوالب جاسبر (.jrxml) وترويستاها
+        ├── i18n/                        # حزم النصوص: العربية هي الأساس
+        └── fonts/                       # الخط العربي المسجَّل لجاسبر
+
+center-desktop/
+└── src/main/
+    ├── java/com/codejava/center/
+    │   ├── CenterApplication.java       # نقطة تشغيل Spring Boot وJavaFX
+    │   ├── JavaFxApplication.java       # دورة حياة JavaFX
+    │   ├── config/                      # تنفيذات عقود النواة على هذا الجهاز + StageReadyEvent
+    │   ├── util/                        # ما يعرف الجهاز: UserSession, *Preferences, الطباعة
     │   └── controller/                  # متحكمات واجهات المستخدم (JavaFX Controllers)
     └── resources/
         ├── application.properties       # إعدادات الاتصال بالداتابيز MySQL
@@ -161,10 +186,10 @@ mvn -o clean test
 وحده:
 
 ```bash
-mvn -o -pl center-desktop test -Dtest=SchemaScriptGenerator
+mvn -o -pl center-app test -Dtest=SchemaScriptGenerator
 ```
 
-(يحتاج `mvn -o install -DskipTests` مرة واحدة قبله، كأي أمر `-pl center-desktop` — انظر التشغيل أعلاه.)
+(يحتاج `mvn -o install -DskipTests` مرة واحدة قبله، كأي أمر بـ `-pl` — انظر التشغيل أعلاه.)
 
 ---
 

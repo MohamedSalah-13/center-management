@@ -422,7 +422,7 @@ powershell -ExecutionPolicy Bypass -File packaging\build-installer.ps1 -Type msi
 
 ## 9. تطوّر المخطط بعد التوزيع
 
-المخطط تديره Flyway: كل تغيير هو ملف `V<رقم>__وصف.sql` في `center-desktop/src/main/resources/db/migration`
+المخطط تديره Flyway: كل تغيير هو ملف `V<رقم>__وصف.sql` في `center-app/src/main/resources/db/migration`
 يُنفَّذ مرة واحدة ويُسجَّل في جدول `flyway_schema_history`. بهذا تعرف أي تركيب على أي
 إصدار، ويرقّي التطبيق نفسه قاعدة العميل عند أول تشغيل بعد التحديث.
 
@@ -434,12 +434,12 @@ powershell -ExecutionPolicy Bypass -File packaging\build-installer.ps1 -Type msi
 **ولّد المخطط ولا تكتبه يدوياً.** بعد تغيير أي كيان:
 
 ```bash
-mvn -o -pl center-desktop test -Dtest=SchemaScriptGenerator
+mvn -o -pl center-app test -Dtest=SchemaScriptGenerator
 ```
 
 (على نسخة جديدة يسبقه `mvn -o install -DskipTests` مرة واحدة في الجذر، وإلا لم يجد
-`-pl` وحدة `center-core` في `~/.m2` وفشل بـ `Could not resolve dependencies`.)
+`-pl` الوحدات الشقيقة في `~/.m2` وفشل بـ `Could not resolve dependencies`.)
 
-يكتب `center-desktop/target/schema-mysql.sql` من الكيانات نفسها؛ قارنه بالترحيلات الحالية وأضف
+يكتب `center-app/target/schema-mysql.sql` من الكيانات نفسها؛ قارنه بالترحيلات الحالية وأضف
 الفروق في ملف `V` جديد. المخطط المكتوب يدوياً يختلف عمّا يتوقعه Hibernate بفروق دقيقة
 لا تظهر إلا عند رفض `validate` بدء التشغيل على جهاز العميل.

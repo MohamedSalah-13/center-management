@@ -6,7 +6,7 @@ import com.codejava.center.domain.User;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.domain.enums.TransactionType;
 import com.codejava.center.repository.TransactionRepository;
-import com.codejava.center.util.UserSession;
+import com.codejava.center.TestActor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @DataJpaTest
 @Import({TransactionService.class, SettingsService.class, AuditService.class,
-        UserSession.class, SecurityConfig.class, TillDayBoundaryTest.FixedClockConfig.class})
+        TestActor.class, SecurityConfig.class, TillDayBoundaryTest.FixedClockConfig.class})
 @EnableAspectJAutoProxy
 class TillDayBoundaryTest {
 
@@ -47,7 +47,7 @@ class TillDayBoundaryTest {
 
     @Autowired private TransactionService transactionService;
     @Autowired private TransactionRepository transactionRepository;
-    @Autowired private UserSession userSession;
+    @Autowired private TestActor userSession;
 
     @BeforeEach
     void loginAsAdmin() {

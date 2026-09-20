@@ -14,32 +14,36 @@ commit-adjacent docs.
 ```bash
 mvn -o clean test          # build + run all tests (offline works; everything is cached)
 mvn -o compile             # compile only
-mvn -o install -DskipTests # once, and again after touching center-core — see below
+mvn -o install -DskipTests # once, and again after touching center-core or center-app — see below
 mvn -pl center-desktop spring-boot:run # run the app (needs DB credentials, see below)
 ```
 
-**Every `-pl center-desktop` command needs `center-core` in `~/.m2` first.** The reactor
-resolves the sibling only when it is part of the build, and `-pl` leaves it out: on a fresh
-clone the command dies with "Could not resolve dependencies … center-core". `-am` is not the
-fix here — it drags the parent and core into the goal, and `spring-boot:run` then fails on
-the parent ("Unable to find a suitable main class") while `-Dtest=X` fails on core ("No tests
-matching pattern"). So run `mvn -o install -DskipTests` once, and repeat it whenever
-`center-core` changes; root-level commands (`mvn -o clean test`) never need it.
+**Every `-pl` command needs its siblings in `~/.m2` first.** The reactor resolves a sibling
+module only when it is part of the build, and `-pl` leaves it out: on a fresh clone
+`-pl center-desktop` dies with "Could not resolve dependencies … center-app". `-am` is not the
+fix here — it drags the parent and the siblings into the goal, and `spring-boot:run` then fails
+on the parent ("Unable to find a suitable main class") while `-Dtest=X` fails on whichever
+module does not hold that test ("No tests matching pattern"). So run `mvn -o install -DskipTests`
+once, and repeat it whenever `center-core` or `center-app` changes; root-level commands
+(`mvn -o clean test`) never need it.
 
 `.github/workflows/build.yml` runs the same suite on every PR and push to `main`, but
 **without `-o`** — the runner's `~/.m2` starts empty, so offline mode fails there. It needs
-no database and no secrets: `center-desktop/src/test/resources/application.properties` shadows the main
-one and uses in-memory H2.
+no database and no secrets: each module's `src/test/resources/application.properties` shadows
+the desktop's main one and uses in-memory H2.
 
-Run a single test class or method:
+Run a single test class or method — **in the module that holds it**, which for anything in
+`service/`, `repository/` or `domain/` is `center-app`:
 
 ```bash
-mvn -o -pl center-desktop test -Dtest=EnrollmentServiceTest
-mvn -o -pl center-desktop test -Dtest=EnrollmentServiceTest#reactivatesPreviousMembershipInsteadOfCreatingDuplicate
+mvn -o -pl center-app test -Dtest=EnrollmentServiceTest
+mvn -o -pl center-app test -Dtest=EnrollmentServiceTest#reactivatesPreviousMembershipInsteadOfCreatingDuplicate
+mvn -o -pl center-desktop test -Dtest=MessageBundleTest   # الشاشات وحزم النصوص
+mvn -o -pl center-core test -Dtest=BackupScheduleTest     # القرارات النقية
 ```
 
-Tests use in-memory H2 (`center-desktop/src/test/resources/application.properties` overrides the dialect)
-and never touch a real database. The app itself needs MySQL 8 plus `DB_USERNAME` /
+Tests use in-memory H2 (`center-app/src/test/resources/application.properties` overrides the
+dialect) and never touch a real database. The app itself needs MySQL 8 plus `DB_USERNAME` /
 `DB_PASSWORD` — there is deliberately **no default password**, so it fails loudly rather
 than falling back to a committed secret. `application-local.properties` is gitignored but
 is only read when the `local` profile is active; environment variables are the simpler
@@ -63,19 +67,38 @@ system:
   machine's own database on one side; an HTTP request, a secret vault, no printer at all, an SSE
   stream and one tenant's schema on the other. Beside the contracts it holds the **pure
   decisions** (see below) with their tests — the calculations that are wrong silently.
-- `center-desktop` — everything else for now: the JavaFX app *and* the whole business layer
-  (`domain/`, `repository/`, `service/`). The plan (`docs/saas-review-and-plan.md`) is to carve
-  the business layer out into a `center-app` module with no JavaFX dependency; until then the
-  rule below is what keeps that possible.
+- `center-app` — **the business layer**: `domain/`, `repository/`, `service/`, `security/`, the
+  non-JavaFX half of `config/` (`SecurityConfig`, `TimeConfig`, `CurrencyInitializer`) and the
+  half of `util/` that does not know a screen (`I18n`, `MoneyUtils`, `BackupCrypto`, `Passwords`,
+  `CommissionTypes`, `PersistenceErrors`, `WeekDays`, `Durations`, `Moments`). With it come
+  Spring, JPA, Flyway and JasperReports — and **its resources**: the migrations, the `.jrxml`
+  templates with their font, and the message bundles. A resource read by code in another module
+  works today only because both land on one classpath, and stops working the day the modules are
+  packaged apart. **Its pom carries no `javafx-*`.**
+- `center-desktop` — the screens and this machine: `controller/`, the FXML/CSS, `JavaFxApplication`,
+  `PrimaryStageInitializer`, the adapters in `config/`, and the `util/` classes that *are* the
+  device — every `*Preferences`, `UserSession`, `Printing`, `Sheets`, `Links`, `JdbcUrl`,
+  `MySqlLocator`, `TrayNotifier`, `Sounds`. It is the module that boots; `center-app` is a library
+  that is consumed, by the desktop today and by a `center-web` tomorrow.
 
-**Nothing in `service/`, `domain/`, `repository/`, `security/` may import `javafx.*`,
-`java.awt.*`, read `java.util.prefs`, touch the host's printers or files, or call
-`UserSession`.** Those packages must work on a server that has no window, no registry and no
-one printer. That rule is no longer a rule someone has to remember: `BusinessLayerPurityTest`
-reads the imports of those four packages and fails the build for any of them — **with no
-exemptions left.** The three that existed (printer preferences, `Desktop.browse`,
-`Platform::runLater`) were paid off in turn, and each rule was added to the test the day its
-debt was cleared: a rule that fails the day it is written gets disabled, not fixed.
+**Nothing in `center-app` may import `javafx.*` — and that is no longer a rule anybody has to
+remember, because JavaFX is not on its compile path.** An `import javafx.print.Printer` inside a
+service is a compilation error now, named by file and line, by the same mechanism that keeps
+Spring out of `center-core`. This is the strongest form the boundary can take: the build refuses
+it rather than a test reporting it.
+
+`BusinessLayerPurityTest` shrank to exactly what that mechanism cannot see — what the **JDK
+itself** offers and the pom therefore cannot withhold: `java.awt`, `javax.print`, `javax.sound`
+and `java.util.prefs`. A server has no window, no attached printer, no speaker and no registry,
+and every one of those imports compiles perfectly in a module with no dependencies at all. It
+also asserts that `javafx.application.Platform` is **absent from the test classpath**, which is
+the pom guarding itself: a `javafx-controls` added back by hand fails that test rather than
+quietly re-opening the door. (It was added by hand once, on purpose, to watch it fail.)
+
+One named debt remains: `util/I18n` reads `java.util.prefs`, and the exemption says so by file
+and by import — that is item 2 of the plan, the locale behind a `LocaleProvider`. Every rule in
+that test was added the day its debt was cleared, and this is the one still owed: a rule that
+fails the day it is written gets disabled, not fixed.
 
 Services take the actor from `CurrentActor` and the tenant from `TenantContext`; the desktop
 wires both to `UserSession`, which is the only place allowed to know that the tenant is
@@ -266,7 +289,9 @@ of 10000 events invites the reader to conclude the rest never happened.
 ### Language and direction
 
 The UI ships in Arabic and English. **No user-facing string belongs in code or FXML** — it
-goes in `center-desktop/src/main/resources/i18n/`:
+goes in `center-app/src/main/resources/i18n/` — beside `I18n` itself, since the services
+throw translated messages too and a bundle in the screens module would be a resource read from
+outside its own jar:
 
 - `messages.properties` — Arabic, and the **base** bundle (no locale suffix).
 - `messages_en.properties` — English.
@@ -478,7 +503,7 @@ printing in another makes the computed page breaks wrong.
 
 #### The other printing path: JasperReports
 
-**Every printout the app produces is now a `.jrxml` under `center-desktop/src/main/resources/reports/`,**
+**Every printout the app produces is now a `.jrxml` under `center-app/src/main/resources/reports/`,**
 filled by `ReportService` and delivered as PDF or straight to a printer. `PrintDocument` /
 `Printing` survive only for the settings screen's test page — `Printing.printTestPage` and
 `describeTarget`, which answer "does this printer work" and belong to the printer, not to any
@@ -1238,15 +1263,13 @@ The test classes below exist because these failure modes are invisible to the co
   both into build failures — it compares the two key sets, scans every FXML `%ref` and
   literal `I18n.get`/`format` call, checks each enum constant has a display name, and
   asserts both languages use the same `{n}` placeholders.
-- The module boundary is a rule until the modules are actually split, and a rule the compiler
-  does not know is a rule that decays: an `import javafx.print.Printer` inside a service builds
-  fine and only surfaces the day `center-app` is carved out, by which time it has spread.
-  `BusinessLayerPurityTest` reads the imports of `service/`, `domain/`, `repository/` and
-  `security/` and fails the build for `javafx.*`, `java.awt.*`, `java.util.prefs`, any
-  `util/*Preferences`, `UserSession`, `MySqlLocator` or a controller. It carries no exemption
-  list any more —
-  the four packages are clean today, so the next import to break them fails the build by file
-  and line.
+- The module boundary used to be a rule the compiler did not know, and such a rule decays.
+  It is now the `center-app` pom: JavaFX is not there, so `import javafx.print.Printer` in a
+  service does not build. `BusinessLayerPurityTest` covers only what a pom cannot withhold —
+  `java.awt`, `javax.print`, `javax.sound`, `java.util.prefs`, all of them JDK — and asserts
+  that JavaFX is absent from the test classpath, so the pom cannot be re-opened by accident.
+  It carries one exemption, named by file and import: `util/I18n` and `java.util.prefs`, which
+  is plan item 2.
 
 **Never assert a user-facing string as a literal.** The UI language is stored per machine,
 so a test comparing against Arabic text starts failing the moment someone switches the app
@@ -1254,11 +1277,23 @@ to English. Compare against the key instead — `hasMessage(I18n.get("error.sess
 `isEqualTo(Role.ADMIN.getDisplayName())`, `contains(MoneyUtils.formatWithCurrency(…))`.
 
 Add coverage when touching any of those. `@DataJpaTest` needs `@Import(SecurityConfig.class)`
-because `CenterApplication` is itself a bean injecting `PasswordEncoder`.
+because the boot class is itself a bean injecting `PasswordEncoder`.
+
+**A test lives in the module that holds its subject**, which is why the suite is split 56 / 224 / 57.
+Two classes in `center-app`'s test tree exist only because it is a library and not a program:
+
+- `AppTestApplication` — `@DataJpaTest` searches *upward* for a `@SpringBootConfiguration` to
+  learn where the entities are, and the class it used to find was `CenterApplication`, which
+  calls `Application.launch`. A library has no boot class, so the tests carry one. It is in
+  `src/test` deliberately: shipping a `@SpringBootApplication` in `src/main` would make the
+  library boot itself in whatever consumes it.
+- `TestActor` — one bean implementing `CurrentActor` and `TenantContext`, the two ports the
+  services read. `UserSession` is the desktop's answer to them and is not on this side of the
+  line, so the tests supply their own — which is the boundary working, not a workaround.
 
 ## Schema changes
 
-The schema is owned by **Flyway** (`center-desktop/src/main/resources/db/migration`), and
+The schema is owned by **Flyway** (`center-app/src/main/resources/db/migration`), and
 `ddl-auto=validate` means Hibernate creates nothing — it refuses to start if the schema and
 the entities disagree. A missing migration is therefore a loud startup failure, not a
 mystery error later.
@@ -1267,9 +1302,9 @@ After changing any entity:
 
 1. Run the generator — it is not part of the normal suite, so name it explicitly:
    ```bash
-   mvn -o -pl center-desktop test -Dtest=SchemaScriptGenerator
+   mvn -o -pl center-app test -Dtest=SchemaScriptGenerator
    ```
-2. Diff `center-desktop/target/schema-mysql.sql` against the existing migrations.
+2. Diff `center-app/target/schema-mysql.sql` against the existing migrations.
 3. Add a **new** `V<n>__*.sql` with just the delta. Never edit a migration that has been
    applied anywhere — Flyway checksums them and will refuse to run.
 

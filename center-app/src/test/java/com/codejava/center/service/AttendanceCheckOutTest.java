@@ -22,7 +22,7 @@ import com.codejava.center.service.dto.AttendanceOutcome;
 import com.codejava.center.service.dto.AttendanceResult;
 import com.codejava.center.service.dto.AttendanceState;
 import com.codejava.center.util.I18n;
-import com.codejava.center.util.UserSession;
+import com.codejava.center.TestActor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,7 +49,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 @DataJpaTest
 @Import({AttendanceService.class, TransactionService.class, SettingsService.class,
-        AuditService.class, UserSession.class, SecurityConfig.class, TimeConfig.class})
+        AuditService.class, TestActor.class, SecurityConfig.class, TimeConfig.class})
 class AttendanceCheckOutTest {
 
     @Autowired private AttendanceService attendanceService;
