@@ -234,10 +234,25 @@ catalog is the file. Remembering one and restoring the other means a restore tha
 a connection quietly closed instead of pooled — the routing bug hiding behind a performance
 cost nobody connects to it.
 
-**There is no default tenant.** A thread with none set throws rather than falling back, and
-`TenantSchemaResolver` lets that through. A session opened outside a tenant is a bug in the
-program; giving it *some* database turns the bug into somebody else's data on the wrong
-screen. A loud failure beats a silent leak — that sentence is the whole phase.
+**There is no default tenant** — and the refusal sits on the *connection*, one step past where
+it first went. A thread with no tenant makes `TenantSchemaResolver` answer a reserved
+`NO_TENANT` identifier (the hyphen is the guarantee: `SchemaName` cannot produce one), and
+`SchemaPerTenantConnectionProvider.getConnection` refuses it. Giving such a thread *some*
+database turns a bug into somebody else's data on a screen, so a loud failure beats a silent
+leak — that sentence is the whole phase.
+
+It throws there and not in the resolver because **the resolver is asked every time a session is
+opened, and one of those times is startup**: Spring Data opens a session per repository just to
+learn which JPA provider is behind it, on a thread that has no tenant and is not supposed to.
+Throwing there stopped the server booting at all. Nothing is given up by moving it: a session
+that runs no statement needs no connection, and the first statement that does need one fails
+with the same message. The connection is also where a leak would actually happen — the isolation
+lives in the connection, not in the queries.
+
+That failure went unseen because the only test that boots a tenancy-enabled context needs
+Docker, and `disabledWithoutDocker` skips it everywhere else. It surfaced the first time the
+suite ran on a machine that had Docker, which is exactly what the CI gate refusing a skip is
+there for.
 
 **`SchemaName` is the only place a human-typed string becomes DDL.** Entity names in SQL
 cannot be bound as parameters, so `CREATE DATABASE <name>` and `USE <name>` are string
@@ -1639,7 +1654,7 @@ Add coverage when touching any of those. `@DataJpaTest` needs `@Import(SecurityC
 because the boot class is itself a bean injecting `PasswordEncoder`.
 
 **A test lives in the module that holds its subject**, which is why the suite is split
-86 / 258 / 52 / 29 — core, app, desktop, web.
+86 / 262 / 52 / 29 — core, app, desktop, web.
 Two classes in `center-app`'s test tree exist only because it is a library and not a program:
 
 - `AppTestApplication` — `@DataJpaTest` searches *upward* for a `@SpringBootConfiguration` to
@@ -1647,9 +1662,18 @@ Two classes in `center-app`'s test tree exist only because it is a library and n
   calls `Application.launch`. A library has no boot class, so the tests carry one. It is in
   `src/test` deliberately: shipping a `@SpringBootApplication` in `src/main` would make the
   library boot itself in whatever consumes it.
-- `TestActor` — one bean implementing `CurrentActor` and `TenantContext`, the two ports the
-  services read. `UserSession` is the desktop's answer to them and is not on this side of the
-  line, so the tests supply their own — which is the boundary working, not a workaround.
+- `TestActor`, `TestPorts` and `TestScheduler` — the ports a program answers, answered by the
+  tests instead. `TestActor` is `CurrentActor` + `TenantContext`; `TestPorts` is the secrets,
+  the letterhead, the dispatcher, the backup target and the link style; `TestScheduler` is the
+  `TaskScheduler` that `@EnableScheduling` creates in each real program. Both edges answer all
+  of these their own way, so the tests supplying their own is the boundary working, not a
+  workaround.
+
+All three are `@Component`s and none is a `@Bean` on `AppTestApplication`, which is not taste:
+a `@DataJpaTest` slice registers the boot class's `@Bean` methods but does **not** scan
+`@Component`s. A bean there is a thread pool in every slice, and it collides by name with a
+slice that builds its own — `AlertFeedTest` does, because it tests the poll and needs a
+scheduler it controls rather than one that runs on the clock.
 
 A test that needs a particular language or currency installs a provider
 (`I18n.install(() -> …)`, `MoneyUtils.install(() -> …)`) and restores the one it found

@@ -71,8 +71,20 @@ public class SchemaPerTenantConnectionProvider implements MultiTenantConnectionP
         connection.close();
     }
 
+    /**
+     * اتصالٌ داخل قاعدة مؤسسة.
+     *
+     * <p>ويُرفض حين يكون المعرّف {@link TenantSchemaResolver#NO_TENANT}: الخيط خارج
+     * نطاق أيّ مؤسسة، وأيّ قاعدةٍ تُعطى له هنا بياناتُ سنترٍ لم يطلبها أحد. الرفض في
+     * هذا الموضع بالذات لأن العزل في الاتصال لا في الاستعلامات - فحيث يُمنح الاتصال
+     * يقع التسرّب، وحيث يُمنع يُمنع.</p>
+     */
     @Override
     public Connection getConnection(String database) throws SQLException {
+        if (TenantSchemaResolver.NO_TENANT.equals(database)) {
+            throw new IllegalStateException(
+                    "no tenant on this thread: every unit of work runs inside one centre");
+        }
         Connection connection = dataSource.getConnection();
         rememberDefault(connection);
         route(connection, database);
