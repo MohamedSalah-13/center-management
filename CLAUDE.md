@@ -158,6 +158,33 @@ before it is drawn, not after.
 re-loads FXML on every navigation; as singletons they accumulated listeners and stale
 `selectedX` state across screen changes.
 
+### Time: the clock is injected, not read
+
+`LocalDateTime.now()` reads the machine's clock *and* its zone from inside the method, so a
+calculation that depends on "now" cannot be put on a boundary in a test — you can only wait for
+one. That is why the till's midnight edge had no test at all and carried an off-by-one-second
+gap for as long as it existed: `endOfDay` was written `23:59:59` while `transaction_date` is
+`datetime(6)`, so a payment taken at 23:59:59.4 was missing from the number the admin
+reconciles against the cash in the drawer.
+
+So `config/TimeConfig` publishes one `Clock` bean and the converted classes take it:
+`LocalDateTime.now(clock)`, `LocalDate.now(clock)`, `clock.instant()`. `TillDayBoundaryTest`
+pins a fixed clock at noon on a named day and asserts both edges.
+
+**The zone is the other half.** On the desktop the machine's zone *is* the centre's zone — the
+computer is in the same building. A server holding centres in several zones cannot assume that,
+and usually runs in UTC itself; when that day comes the bean becomes a per-tenant
+`Clock.withZone(...)` and not one line inside a service changes.
+
+**The conversion is deliberately gradual** (`docs/saas-review-and-plan.md`, phase 1 item 10),
+and the order is by what the value *is*: `BackupScheduler`, `AlertScheduler` and
+`TransactionService` are converted because "now" there is a **decision** — is a backup overdue,
+which day is the drawer counting. The rest are still direct `now()` calls where the value is a
+**timestamp being recorded** (an audit row's `occurredAt`, a transaction's date at the moment of
+sale, a printout's `PRINTED_AT`). They are worth converting too, but they are not what makes a
+test impossible to write. No purity rule guards this yet, and deliberately so: a rule that fails
+the day it is written gets disabled, not fixed.
+
 ### Threading — the rule that governs most UI code
 
 Controllers run on the JavaFX application thread; every service call must not. Use

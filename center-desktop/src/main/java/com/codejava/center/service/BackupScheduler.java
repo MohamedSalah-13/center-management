@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -55,6 +56,9 @@ public class BackupScheduler {
     private final SettingsService settingsService;
     private final BackupService backupService;
     private final AlertEngine alertEngine;
+
+    /** ساعة البرنامج: "هل فات موعد النسخة" سؤالٌ لا يُختبر بغير تحريك الوقت */
+    private final Clock clock;
 
     private ScheduledFuture<?> scheduled;
 
@@ -111,9 +115,9 @@ public class BackupScheduler {
      */
     private Trigger trigger(BackupSchedule schedule, LocalDateTime lastRun) {
         return context -> {
-            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime now = LocalDateTime.now(clock);
             if (context.lastCompletion() == null && schedule.isOverdue(lastRun, now)) {
-                return Instant.now().plus(CATCH_UP_DELAY);
+                return clock.instant().plus(CATCH_UP_DELAY);
             }
             return schedule.nextRunAfter(now).atZone(ZoneId.systemDefault()).toInstant();
         };
@@ -129,7 +133,7 @@ public class BackupScheduler {
         try {
             BackupOutcome outcome = backupService.executeBackup(settings.getBackupPath(),
                     settings.getBackupRetentionCount());
-            settingsService.recordAutoBackupAt(LocalDateTime.now());
+            settingsService.recordAutoBackupAt(LocalDateTime.now(clock));
             log.info("تمت النسخة الاحتياطية التلقائية: {} ({})", outcome.file(), outcome.pruned().details());
         } catch (RuntimeException e) {
             // لا يُعاد الرمي: المشغّل يعتبر المهمة منتهية على أي حال، ورميه يفقد الرسالة المترجمة
@@ -139,7 +143,7 @@ public class BackupScheduler {
             // قبل اليوم الذي تُطلب فيه النسخة. تاريخ المحاولة وحده هو الوسيط: نصّ خطأ
             // الأداة مترجَم بلغة الجهاز الذي فشل، وتخزينه يجمّد السطر على تلك اللغة
             alertEngine.raise(AlertType.BACKUP_FAILED,
-                    AlertDraft.internal(null, null, LocalDate.now().toString()));
+                    AlertDraft.internal(null, null, LocalDate.now(clock).toString()));
         }
     }
 }
