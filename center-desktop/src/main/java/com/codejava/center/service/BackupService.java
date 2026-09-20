@@ -1,10 +1,10 @@
 package com.codejava.center.service;
 
+import com.codejava.center.core.secret.BackupSecretStore;
 import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.security.RequiresRole;
 import com.codejava.center.util.BackupCrypto;
-import com.codejava.center.util.BackupPreferences;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.MySqlLocator;
 import lombok.RequiredArgsConstructor;
@@ -77,6 +77,13 @@ public class BackupService {
      */
     private final AuditService auditService;
 
+    /**
+     * كلمة مرور التشفير. واجهةٌ لا قراءةٌ مباشرة من تفضيلات الجهاز: السرّ يُحفظ خارج
+     * قاعدة البيانات التي يحميها، لكنّ <b>أين</b> يُحفظ يختلف بين طرفٍ له سجلّ ويندوز
+     * وطرفٍ ليس له. راجع {@link BackupSecretStore}.
+     */
+    private final BackupSecretStore backupSecrets;
+
     // بيانات الاتصال تُقرأ من الإعدادات (متغيرات البيئة) بدلاً من كتابتها داخل الكود
     @Value("${spring.datasource.username}")
     private String dbUsername;
@@ -122,8 +129,8 @@ public class BackupService {
                     directory, messageOf(e)), e);
         }
 
-        boolean encrypt = BackupPreferences.encryptionEnabled();
-        char[] passphrase = encrypt ? BackupPreferences.passphrase() : null;
+        boolean encrypt = backupSecrets.encryptionEnabled();
+        char[] passphrase = encrypt ? backupSecrets.passphrase() : null;
         if (encrypt && (passphrase == null || passphrase.length == 0)) {
             throw new IllegalStateException(I18n.get("error.backup.noPassphrase"));
         }

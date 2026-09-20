@@ -1,5 +1,6 @@
 package com.codejava.center.controller;
 
+import com.codejava.center.core.print.DocumentKind;
 import com.codejava.center.domain.CenterSettings;
 import com.codejava.center.domain.enums.BackupFrequency;
 import com.codejava.center.domain.enums.Currency;
@@ -17,7 +18,6 @@ import com.codejava.center.service.notification.WhatsAppLinkStyle;
 import com.codejava.center.util.BackupCrypto;
 import com.codejava.center.util.BackupPreferences;
 import com.codejava.center.util.Dialogs;
-import com.codejava.center.util.DocumentKind;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.LanguageSelector;

@@ -1,5 +1,7 @@
 package com.codejava.center.util;
 
+import com.codejava.center.core.print.DocumentKind;
+
 import javafx.scene.Node;
 
 import java.util.ArrayList;

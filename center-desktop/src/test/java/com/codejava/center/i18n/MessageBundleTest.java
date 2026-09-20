@@ -1,5 +1,6 @@
 package com.codejava.center.i18n;
 
+import com.codejava.center.core.print.DocumentKind;
 import com.codejava.center.domain.enums.AlertAudience;
 import com.codejava.center.domain.enums.AlertCategory;
 import com.codejava.center.domain.enums.AlertSeverity;
@@ -14,7 +15,6 @@ import com.codejava.center.domain.enums.SchoolLevel;
 import com.codejava.center.domain.enums.TransactionType;
 import com.codejava.center.service.dto.AttendanceState;
 import com.codejava.center.service.notification.WhatsAppLinkStyle;
-import com.codejava.center.util.DocumentKind;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.PrintPreferences;
 import com.codejava.center.util.ShortcutAction;

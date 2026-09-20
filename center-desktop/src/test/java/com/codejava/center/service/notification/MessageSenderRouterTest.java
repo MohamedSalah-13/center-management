@@ -91,7 +91,7 @@ class MessageSenderRouterTest {
         private NotificationChannel channel;
 
         MutableProvider(NotificationChannel channel) {
-            super(null);
+            super(null, null, null);
             this.channel = channel;
         }
 

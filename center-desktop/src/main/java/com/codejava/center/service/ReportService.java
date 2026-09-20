@@ -1,5 +1,7 @@
 package com.codejava.center.service;
 
+import com.codejava.center.core.print.DocumentKind;
+import com.codejava.center.core.print.PrintTargetResolver;
 import com.codejava.center.domain.CenterSettings;
 import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Student;
@@ -27,11 +29,9 @@ import com.codejava.center.service.dto.SessionPayout;
 import com.codejava.center.service.dto.ShiftSummary;
 import com.codejava.center.service.dto.StudentBalance;
 import com.codejava.center.util.CommissionTypes;
-import com.codejava.center.util.DocumentKind;
 import com.codejava.center.util.Durations;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
-import com.codejava.center.util.PrintPreferences;
 import com.codejava.center.util.WeekDays;
 import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
@@ -72,9 +72,18 @@ public class ReportService {
 
     private final SettingsService settingsService;
 
-    public ReportService(DataSource dataSource, SettingsService settingsService) {
+    /**
+     * وجهة الطباعة وتفضيلاتها. واجهةٌ لا {@code PrintPreferences} مباشرةً: ذاك يستورد
+     * {@code javafx.print} فكانت هذه الخدمة تجرّ الواجهة الرسومية خلفها إلى كل مكان
+     * تُستدعى منه. راجع {@link PrintTargetResolver}.
+     */
+    private final PrintTargetResolver printTargets;
+
+    public ReportService(DataSource dataSource, SettingsService settingsService,
+                         PrintTargetResolver printTargets) {
         this.dataSource = dataSource;
         this.settingsService = settingsService;
+        this.printTargets = printTargets;
     }
 
     /** صيغة الوقت في ترويسات المطبوعات وذيولها */
@@ -521,14 +530,14 @@ public class ReportService {
      * يسلّم الورقة حسب تفضيل هذا الجهاز: إلى الطابعة رأساً، أو ملف PDF مؤقت.
      *
      * <p>القرار هنا لا في كل شاشة تطبع كشفاً: هو تفضيل واحد
-     * ({@code PrintPreferences.printsSheetsDirectly})، وتكراره في المتحكّمات يعني شاشةً
+     * ({@link PrintTargetResolver#printsSheetsDirectly()})، وتكراره في المتحكّمات يعني شاشةً
      * تنساه فتخالف بقية البرنامج بلا أن يلاحظ أحد.</p>
      *
      * <p>الملف مؤقت ويُحذف عند إغلاق البرنامج: الكشوف تحمل أسماء طلاب وأرقام أولياء
      * أمورهم، فلا تُترك متراكمة في مجلد المستخدم بعد طباعتها.</p>
      */
     private SheetDelivery deliver(JasperPrint print, String tempPrefix, DocumentKind kind) {
-        if (PrintPreferences.printsSheetsDirectly()) {
+        if (printTargets.printsSheetsDirectly()) {
             return SheetDelivery.printed(sendToPrinter(print, kind));
         }
         try {
@@ -669,7 +678,7 @@ public class ReportService {
      * <p>وغياب أي طابعة يُقال صراحةً: الطباعة المباشرة بلا طابعة تفشل بصمت في أعماق جاسبر.</p>
      */
     private PrintService resolvePrintService(DocumentKind kind) {
-        String chosen = PrintPreferences.printerName(kind);
+        String chosen = printTargets.printerName(kind);
         if (chosen != null) {
             for (PrintService service : PrintServiceLookup.lookupPrintServices(null, null)) {
                 if (service.getName().equals(chosen)) {
@@ -707,7 +716,7 @@ public class ReportService {
         CenterSettings settings = settingsService.getSettings();
 
         parameters.put("HEADER_REPORT", compile("CenterHeader.jrxml"));
-        parameters.put("SHOW_CENTER", PrintPreferences.printsCenterHeader());
+        parameters.put("SHOW_CENTER", printTargets.printsCenterHeader());
         parameters.put("CENTER_NAME", settings != null && settings.getCenterName() != null
                 && !settings.getCenterName().isBlank()
                 ? settings.getCenterName()

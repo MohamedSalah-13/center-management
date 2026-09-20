@@ -172,8 +172,14 @@ V16 (قد تكون طُبّقت)، لكن لا تبنِ فوق `tenants` داخ�
    أزل `Locale.setDefault` من المسار المشترك (يبقى في Desktop لتعريب `DatePicker`).
 3. [ ] `MoneyUtils`: نفس النمط — `CurrencyProvider` يقرأ إعدادات المؤسسة الحالية (بذاكرة مؤقتة
    لكل مؤسسة). `CurrencyInitializer` يصبح تنفيذ Desktop.
-4. [ ] الأسرار والتفضيلات خلف واجهات في `center-core`: `BackupSecretStore`, `MessagingSecretStore`,
-   `PrintTargetResolver`. Desktop = `java.util.prefs` كما هو؛ الخادم = جدول مشفر أو Vault.
+4. [x] الأسرار والتفضيلات خلف واجهات في `center-core`: `BackupSecretStore`, `MessagingSecretStore`,
+   `PrintTargetResolver` (ومعه `DocumentKind` انتقل إلى النواة لأن الواجهة معنونة به، فتخلّى عن
+   `I18n`). Desktop يركّبها في `config/` بثلاثة صفوف رقيقة فوق `*Preferences` كما هي؛ الخادم = جدول
+   مشفر أو Vault. وشكل رابط واتساب في `MessagingLinkPreferences` داخل `service/notification/` لا في
+   النواة: نوعه `WhatsAppLinkStyle` من طبقة الأعمال، والنواة لا تعرف قنوات الإرسال.
+   أثرٌ جانبي مقصود: `ReportService` لم يعد يجرّ `javafx.print` خلفه. ويحرس الحدَّ كلَّه الآن
+   `BusinessLayerPurityTest` — يقرأ استيرادات الحزم الأربع ويُسقط البناء، بلا استثناء إلا
+   `AlertFeed` (البند 7) مسمّى صراحةً.
 5. [ ] `ReportService`: فصل "التعبئة" (تعيد `byte[]` PDF أو `JasperPrint`) عن "التسليم" (فتح ملف /
    طابعة) — التسليم ينتقل إلى Desktop.
 6. [ ] `WhatsAppLinkSender`: يعيد الـ URI فقط؛ فتحه مسؤولية الواجهة.
@@ -232,3 +238,4 @@ V16 (قد تكون طُبّقت)، لكن لا تبنِ فوق `tenants` داخ�
 
 كل بنود المرحلة 0، والبنود 4 و5 و6 و9 من المرحلة 1 (واجهات الأسرار، فصل التعبئة عن التسليم،
 `WhatsAppLinkSender`، نقل الكلاسات النقية) — كلها تحسّن الـ Desktop نفسه ولا تعتمد على §3.
+البند 4 منها منجز.
