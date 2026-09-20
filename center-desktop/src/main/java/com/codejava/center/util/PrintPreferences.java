@@ -1,5 +1,7 @@
 package com.codejava.center.util;
 
+import com.codejava.center.core.print.DocumentKind;
+
 import javafx.print.Paper;
 import javafx.print.Printer;
 import javafx.print.PrinterAttributes;

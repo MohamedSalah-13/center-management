@@ -1,5 +1,7 @@
 package com.codejava.center.util;
 
+import com.codejava.center.core.print.DocumentKind;
+
 import javafx.geometry.Insets;
 import javafx.geometry.NodeOrientation;
 import javafx.geometry.Pos;
@@ -513,8 +515,10 @@ public final class Printing {
         Label title = new Label(I18n.get("print.testPageTitle"));
         title.setFont(Font.font("System", FontWeight.BOLD, 18));
 
+        // اسم النوع يُترجَم هنا لا في DocumentKind نفسه: الثابت في النواة، والنواة لا
+        // تعرف حزمة رسائل. المفتاحان مضمونان بحلقة documentKind.* في MessageBundleTest
         Label body = new Label(I18n.format("print.testPageBody",
-                kind.getDisplayName(), describeTarget(kind),
+                I18n.get("documentKind." + kind.name()), describeTarget(kind),
                 LocalDateTime.now().format(TEST_PAGE_STAMP)));
         body.setWrapText(true);
 

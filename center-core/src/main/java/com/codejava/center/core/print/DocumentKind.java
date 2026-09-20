@@ -1,10 +1,14 @@
-package com.codejava.center.util;
+package com.codejava.center.core.print;
 
 /**
  * نوع المستند المطبوع، وهو ما يحدّد الطابعة والورق وأسلوب تقسيم الصفحات.
  *
  * <p>التفريق ليس تجميلياً: الجهاز الواحد في السنتر قد يكون موصولاً بطابعة حرارية للإيصالات
- * وطابعة A4 للتقارير في الوقت نفسه، فلكل نوع طابعته ومقاس ورقه في {@link PrintPreferences}.</p>
+ * وطابعة A4 للتقارير في الوقت نفسه، فلكل نوع طابعته ومقاس ورقه.</p>
+ *
+ * <p>مكانه النواة لا الواجهة لأن {@link PrintTargetResolver} يُعنون به، وهو العقد الذي
+ * تسأل به طبقة الأعمال عن وجهة الطباعة. ولهذا لا يحمل {@code getDisplayName()} كبقية
+ * الثوابت المعروضة: ترجمة الاسم شأن الواجهة، والنواة لا تعرف لغةً ولا حزمة رسائل.</p>
  */
 public enum DocumentKind {
 
@@ -12,9 +16,5 @@ public enum DocumentKind {
     REPORT,
 
     /** إيصال على رول متصل: صفحة واحدة مهما طالت، بلا ترقيم ولا ترويسة مكرَّرة */
-    RECEIPT;
-
-    public String getDisplayName() {
-        return I18n.get("documentKind." + name());
-    }
+    RECEIPT
 }

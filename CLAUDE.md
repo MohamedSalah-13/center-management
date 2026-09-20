@@ -56,8 +56,10 @@ system:
 - `center-core` — **pure Java.** No Spring, no JPA, no JavaFX, no Lombok: the pom carries
   only JUnit and AssertJ, so a stray framework import fails to compile. Today it holds the
   identity and tenant contracts (`ActorIdentity`, `CurrentActor`, `TenantContext`, `TenantId`)
-  that both the desktop app and a future SaaS server implement each in its own way — a JavaFX
-  session on one side, an HTTP request on the other.
+  and the device contracts (`BackupSecretStore`, `MessagingSecretStore`, `PrintTargetResolver`
+  over `DocumentKind`) that both the desktop app and a future SaaS server implement each in
+  its own way — a JavaFX session, the Windows registry and an attached printer on one side; an
+  HTTP request, a secret vault and no printer at all on the other.
 - `center-desktop` — everything else for now: the JavaFX app *and* the whole business layer
   (`domain/`, `repository/`, `service/`). The plan (`docs/saas-review-and-plan.md`) is to carve
   the business layer out into a `center-app` module with no JavaFX dependency; until then the
@@ -65,12 +67,34 @@ system:
 
 **Nothing in `service/`, `domain/`, `repository/`, `security/` may import `javafx.*`, read
 `java.util.prefs`, touch the host's printers or files, or call `UserSession`.** Those packages
-must work on a server that has no window, no registry and no one printer. The three known
-leaks (`AlertFeed`'s `Platform::runLater` default, `BackupService`/`NotificationConfigProvider`/
-`ReportService` reading `*Preferences`) are listed in the plan as debts to pay, not patterns to
-copy. Services take the actor from `CurrentActor` and the tenant from `TenantContext`; the
-desktop wires both to `UserSession`, which is the only place allowed to know that the tenant
-is `TenantId.DESKTOP`.
+must work on a server that has no window, no registry and no one printer. That rule is no
+longer a rule someone has to remember: `BusinessLayerPurityTest` reads the imports of those
+four packages and fails the build for any of them. `AlertFeed`'s `Platform::runLater` default
+is the one exemption it names, because it is a debt the plan still owes — a listed debt, not a
+pattern to copy.
+
+Services take the actor from `CurrentActor` and the tenant from `TenantContext`; the desktop
+wires both to `UserSession`, which is the only place allowed to know that the tenant is
+`TenantId.DESKTOP`. **Anything that belongs to the machine rather than to the centre reaches
+them the same way — through a port, never through `java.util.prefs`:**
+
+| What the business layer asks | Port (`center-core`) | Desktop adapter (`config/`) |
+| --- | --- | --- |
+| Is the backup encrypted, and with what passphrase | `BackupSecretStore` | `DesktopBackupSecretStore` → `BackupPreferences` |
+| The messaging provider's token | `MessagingSecretStore` | `DesktopMessagingPreferences` → `NotificationPreferences` |
+| Which printer, print sheets directly, print the letterhead | `PrintTargetResolver` | `DesktopPrintTargetResolver` → `PrintPreferences` |
+
+`MessagingLinkPreferences` (WhatsApp link style and template) is the one port that is **not**
+in `center-core`: it hands back a `WhatsAppLinkStyle`, a business-layer type the core does not
+know — the core knows nothing about messaging channels. It sits beside its consumer in
+`service/notification/` and the same desktop bean implements it.
+
+Two things that look incidental and are not. `DocumentKind` lives in `center-core` because
+`PrintTargetResolver` is written in terms of it, and for that it had to stop calling `I18n` —
+its name is translated at the one screen that shows it (`Printing.printTestPage`), guarded by
+the `documentKind.*` loop in `MessageBundleTest`. And the ports carry the *reason* in their
+javadoc, not just the shape: a passphrase kept inside the database it protects ships inside
+every backup and is lost with the very disk the backups exist for.
 
 A pure decision (`BackupSchedule`, `BackupRetention`, `GroupSchedule`, `AlertSchedule`,
 `PhoneNumbers`, `PasswordPolicy`) belongs in `center-core` with its test, once it stops
@@ -443,15 +467,17 @@ calls `withReceiptHeader` (which is the same call with the narrow template swapp
 
 **Delivery goes through `ReportService.deliver` → `SheetDelivery` → `util/Sheets.show`.** The
 service fills the sheet and then either sends it to the printer or writes a temp PDF, according
-to `PrintPreferences.printsSheetsDirectly()`; `Sheets.show` turns the outcome into either "sent
-to printer X" or an opened PDF. Both halves are written once because the second screen that
+to `PrintTargetResolver.printsSheetsDirectly()` — the port, not `PrintPreferences` itself, which
+is what keeps `javafx.print` out of a service that a server will run; `Sheets.show` turns the
+outcome into either "sent to printer X" or an opened PDF. Both halves are written once because the second screen that
 printed a sheet copied the first, and the third would have copied the second — including the
 chance of forgetting to say anything when the viewer fails to open.
 
 The band carries `<printWhenExpression>$P{SHOW_CENTER}</printWhenExpression>`, **on the band
 and not on the subreport element**: a band collapses to zero height and everything below
 moves up, while a hidden element leaves its 78 points of white space at the top of every page.
-`PrintPreferences.printsCenterHeader()` (per machine, default on) is the checkbox behind it —
+`PrintPreferences.printsCenterHeader()` (per machine, default on, read by the service through
+`PrintTargetResolver`) is the checkbox behind it —
 per machine because the reason to switch it off is that *this* printer is loaded with
 pre-printed letterhead paper, which is a property of the paper tray, not of the centre.
 
@@ -484,7 +510,8 @@ too: one forgotten parameter means a header missing from every page with no erro
 does not, so it shows every word reversed while the real PDF is correct. Positions in that
 image are trustworthy, letter order is not.
 
-**Delivery is a per-machine checkbox: `PrintPreferences.printsSheetsDirectly()`.** Unticked
+**Delivery is a per-machine checkbox: `PrintPreferences.printsSheetsDirectly()`, reaching the
+service as `PrintTargetResolver.printsSheetsDirectly()`.** Unticked
 (the default) exports a temp PDF and opens it in the system viewer; ticked sends the sheet
 straight to the printer through `JRPrintServiceExporter`, no window. It is a *second* setting
 beside `PrintMode` and not a duplicate of it — `PrintMode` governs the `Printing` path drawn
@@ -595,6 +622,11 @@ it. That is also why there is no Flyway migration for it. The stored value is ob
 which stops someone reading it out of the registry; it is not protection against an attacker
 already running as that user, and the doc comment says so.
 
+`BackupService` does not read that class. It asks **`BackupSecretStore`** (`center-core`), which
+the desktop answers from `BackupPreferences` and a server would answer from a vault: *where* the
+passphrase is kept is the part that differs between the two, and "never inside what it protects"
+is the part that does not.
+
 **The schedule is `CenterSettings`, not per machine** — unlike the printer and the language.
 It is one data-protection policy: the hour at which the centre is closed and the database is
 quiet. `BackupScheduler` builds a `Trigger` over `BackupSchedule` and reschedules on
@@ -638,6 +670,13 @@ backup — next to the very parent phone numbers it can message — while the li
 what is installed on *this* terminal, like the printer. `MachineSecret` holds the obfuscation
 both it and `BackupPreferences` use; its purpose string is part of the key, so changing that
 string invalidates every value saved with it on customers' machines.
+
+`NotificationConfigProvider` reaches both through ports, never through the registry itself: the
+token through **`MessagingSecretStore`** (`center-core`, the same contract as the backup
+passphrase) and the link style through **`MessagingLinkPreferences`** (beside it in
+`service/notification/`, because `WhatsAppLinkStyle` is a business-layer type the core has no
+business knowing). One desktop bean, `DesktopMessagingPreferences`, answers both — they come
+from one prefs file, and two adapters over it would be two files reading one registry key.
 
 Three channel-specific things worth knowing:
 
@@ -1089,6 +1128,12 @@ The test classes below exist because these failure modes are invisible to the co
   both into build failures — it compares the two key sets, scans every FXML `%ref` and
   literal `I18n.get`/`format` call, checks each enum constant has a display name, and
   asserts both languages use the same `{n}` placeholders.
+- The module boundary is a rule until the modules are actually split, and a rule the compiler
+  does not know is a rule that decays: an `import javafx.print.Printer` inside a service builds
+  fine and only surfaces the day `center-app` is carved out, by which time it has spread.
+  `BusinessLayerPurityTest` reads the imports of `service/`, `domain/`, `repository/` and
+  `security/` and fails the build for `javafx.*`, `java.util.prefs`, any `util/*Preferences`,
+  `UserSession` or a controller — naming the one exemption (`AlertFeed`) rather than hiding it.
 
 **Never assert a user-facing string as a literal.** The UI language is stored per machine,
 so a test comparing against Arabic text starts failing the moment someone switches the app
