@@ -5,6 +5,7 @@ import com.codejava.center.domain.enums.Currency;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Objects;
 
 /**
  * المبالغ المالية بعملة هذا السنتر.
@@ -16,12 +17,17 @@ import java.math.RoundingMode;
  *
  * <h2>العملة</h2>
  *
- * <p>عملة السنتر تُختار من شاشة الإعدادات وتُحفظ في {@code CenterSettings}. هي محفوظة
- * هنا في حقل ساكن - لا تُقرأ من قاعدة البيانات عند كل مبلغ - لأن {@link #formatWithCurrency}
- * يُستدعى في كل خلية جدول وكل سطر تقرير، وقراءةٌ لكل واحد منها تعني استعلاماً لكل صفّ
- * على الشاشة. {@code CurrencyInitializer} يملأ الحقل عند الإقلاع ويحدّثه بعد كل حفظ
- * للإعدادات، تماماً كما يفعل {@link I18n} مع اللغة ولنفس السبب: الـ enums وطبقة
- * الخدمات على خيوط ForkJoinPool لا تقبل الحقن.</p>
+ * <p>عملة السنتر تُختار من شاشة الإعدادات وتُحفظ في {@code CenterSettings}، و<b>من أين
+ * تأتي ليس من شأن هذا الصنف</b>: يسأل {@link CurrencyProvider}، ويركّب سطحُ المكتب
+ * جوابه (سنترٌ واحد، قيمةٌ تُقرأ عند الإقلاع وتُحدَّث بعد كل حفظ) بينما يركّب الخادم
+ * جوابه (سنترُ هذا الطلب، بذاكرة مؤقتة لكل مؤسسة). تماماً كما يفعل {@link I18n} مع
+ * {@code LocaleProvider} ولنفس السبب في السكون: الـ enums وطبقة الخدمات على خيوط
+ * ForkJoinPool لا تقبل الحقن.</p>
+ *
+ * <p>والسؤال يُطرح عند كل مبلغ لا مرةً عند الإقلاع. على جهازٍ واحد لا فرق، وعلى خادمٍ
+ * هو الفرق كله: حقلٌ واحد في الـ JVM يجعل آخرَ سنترٍ حفظ إعداداته يذيّل مبالغ السناتر
+ * الأخرى برمز عملته. والتنفيذ - لا هذا الصنف - هو من يملك الذاكرة المؤقتة، لأنه وحده
+ * يعرف بأيّ مفتاح تُحفظ.</p>
  *
  * <p>الرمز نفسه لا يُحفظ هنا بل يُقرأ من حزمة النصوص عند كل عرض: العملة اختيار السنتر
  * واللغة اختيار الجهاز، فالجنيه المصري يُكتب "ج.م" على تيرمينال عربي و"EGP" على آخر
@@ -40,30 +46,47 @@ public final class MoneyUtils {
     public static final RoundingMode ROUNDING = Money.ROUNDING;
     public static final BigDecimal ZERO = Money.ZERO;
 
-    private static volatile Currency currency = Currency.DEFAULT;
+    /**
+     * الجواب الافتراضي: الجنيه، ما لم تركّب الحافةُ مصدراً.
+     *
+     * <p>حتى لا يكون على كل اختبارٍ يلمس مبلغاً أن يركّب شيئاً، ولأن {@link Currency#DEFAULT}
+     * هي بعينها القيمة التي تعنيها قاعدةٌ لم تُختر فيها عملة.</p>
+     */
+    private static volatile CurrencyProvider provider = () -> Currency.DEFAULT;
 
     private MoneyUtils() {
     }
 
-    /** عملة السنتر الحالية */
-    public static Currency currency() {
-        return currency;
+    /**
+     * يركّب مصدر العملة. يُستدعى مرة عند إقلاع الحافة.
+     *
+     * @param source مصدرٌ لا يكون {@code null} هو نفسه - وإن جاز أن يعيد {@code null}
+     */
+    public static void install(CurrencyProvider source) {
+        provider = Objects.requireNonNull(source, "currency provider");
+    }
+
+    /** المصدر المركَّب - موجودة ليعيده اختبارٌ بدّله إلى ما كان */
+    public static CurrencyProvider provider() {
+        return provider;
     }
 
     /**
-     * يضبط عملة السنتر لهذه الجلسة.
+     * عملة السنتر الحالي.
      *
-     * <p>{@code null} يعني عملة غير مضبوطة في القاعدة - قاعدة مُرقّاة أو تركيب جديد -
-     * فتُستعمل {@link Currency#DEFAULT}. لا يُستدعى من الشاشات: مصدر القيمة هو
-     * {@code CenterSettings} وحده، وضبطها من مكانين يجعل جهازاً يعرض غير ما يعرضه جاره.</p>
+     * <p>{@code null} من المصدر يعني عملة غير مضبوطة في القاعدة - قاعدة مُرقّاة أو تركيب
+     * جديد - فتُستعمل {@link Currency#DEFAULT}. وهذا هو الموضع الوحيد الذي يُحلّ فيه ذلك:
+     * تركُه لكل تنفيذ يعيد الخللَ الذي وقع في مدّة حفظ النسخ، حين قرأت الشاشة "غير مضبوط"
+     * على أنه ثلاثون وقرأته الخدمة على أنه "احتفظ بكل شيء".</p>
      */
-    public static void setCurrency(Currency value) {
-        currency = value == null ? Currency.DEFAULT : value;
+    public static Currency currency() {
+        Currency value = provider.current();
+        return value == null ? Currency.DEFAULT : value;
     }
 
     /** رمز العملة الحالية بلغة الواجهة الحالية */
     public static String currencySymbol() {
-        return currency.getSymbol();
+        return currency().getSymbol();
     }
 
     /** ضبط المبلغ على خانتين عشريتين، مع اعتبار null صفراً */

@@ -69,7 +69,7 @@ system:
   stream and one tenant's schema on the other. Beside the contracts it holds the **pure
   decisions** (see below) with their tests — the calculations that are wrong silently.
 - `center-app` — **the business layer**: `domain/`, `repository/`, `service/`, `security/`, the
-  non-JavaFX half of `config/` (`SecurityConfig`, `TimeConfig`, `CurrencyInitializer`) and the
+  non-JavaFX half of `config/` (`SecurityConfig`, `TimeConfig`) and the
   half of `util/` that does not know a screen (`I18n`, `MoneyUtils`, `BackupCrypto`, `Passwords`,
   `CommissionTypes`, `PersistenceErrors`, `WeekDays`, `Durations`, `Moments`). With it come
   Spring, JPA, Flyway and JasperReports — and **its resources**: the migrations, the `.jrxml`
@@ -127,10 +127,14 @@ sheet goes to paper at all, is not asked there any more — `ReportService` retu
 `util/Sheets` decides, reading `PrintPreferences` directly like its neighbour `Printing`. A port
 belongs where a boundary is crossed, and there is none between two files in one package.
 
-`MessagingLinkPreferences` (WhatsApp link style and template) is the one port that is **not**
-in `center-core`: it hands back a `WhatsAppLinkStyle`, a business-layer type the core does not
-know — the core knows nothing about messaging channels. It sits beside its consumer in
-`service/notification/` and the same desktop bean implements it.
+**Two ports are deliberately not in `center-core`, and for the same reason: what they hand
+back is a business-layer type.** `MessagingLinkPreferences` returns a `WhatsAppLinkStyle` — the
+core knows nothing about messaging channels — and sits beside its consumer in
+`service/notification/`, implemented by the same desktop bean. `CurrencyProvider` returns a
+`Currency` — a column in `center_settings` with a translated name — and sits beside `MoneyUtils`
+in `util/`, implemented by `config/DesktopCurrencyProvider`. `LocaleProvider` is the contrast
+that makes the rule readable: it returns a `java.util.Locale` from the JDK, so the core can
+hold it.
 
 Two things that look incidental and are not. `DocumentKind` lives in `center-core` because it
 crosses the line in the other direction — the filler labels a sheet `REPORT` or `RECEIPT`, the
@@ -1021,10 +1025,25 @@ the amounts are the same rows in the same database, and letting each terminal pi
 have two people reading one number as two different sums. Null means `Currency.DEFAULT`
 (EGP) — an upgraded database carries no value and every amount in it really was pounds.
 
-`MoneyUtils` holds it in a static field that `config/CurrencyInitializer` fills at startup
-and refreshes on `SettingsChangedEvent` (after commit). Static for the same reason as
-`I18n`: `formatWithCurrency` is called once per table cell and per report line, so reading
-the settings row each time is one query per row on screen.
+**`MoneyUtils` asks `CurrencyProvider`; it does not hold the value.** The desktop's answer is
+`config/DesktopCurrencyProvider`, which reads the settings row at `ApplicationReadyEvent`,
+refreshes on `SettingsChangedEvent` (after commit) and installs itself into `MoneyUtils`. It
+lives on the desktop side because it is an *answer*, not a bridge, and its answer is true only
+where the program serves one centre: `getSettings()` with no tenant named, one cached value, an
+eager read at startup. A server answers from `TenantContext` with a cache keyed per tenant, and
+one static field there would let the last centre to save its settings stamp its symbol on
+everybody else's amounts.
+
+`MoneyUtils` stays static for the same reason `I18n` does — enums and ForkJoinPool threads take
+no injection — and the *provider*, not `MoneyUtils`, owns the cache, because only the
+implementation knows what to key it by. `formatWithCurrency` is called once per table cell and
+per report line, so an implementation that queries inside `current()` is one query per row on
+screen.
+
+**A `null` from the provider means "no currency stored" and resolves to `Currency.DEFAULT` in
+`MoneyUtils.currency()` — in that one place.** An upgraded database really does carry null, and
+leaving each implementation to remember it is how the backup-retention bug happened: the screen
+read "unset" as 30 while the service read it as keep-everything.
 
 **Changing the currency converts nothing.** 500 pounds becomes 500 riyals with the same
 digits, in balances, in dues, and in receipts already printed. That is why the settings
@@ -1309,7 +1328,7 @@ to English. Compare against the key instead — `hasMessage(I18n.get("error.sess
 Add coverage when touching any of those. `@DataJpaTest` needs `@Import(SecurityConfig.class)`
 because the boot class is itself a bean injecting `PasswordEncoder`.
 
-**A test lives in the module that holds its subject**, which is why the suite is split 56 / 228 / 55.
+**A test lives in the module that holds its subject**, which is why the suite is split 56 / 229 / 56.
 Two classes in `center-app`'s test tree exist only because it is a library and not a program:
 
 - `AppTestApplication` — `@DataJpaTest` searches *upward* for a `@SpringBootConfiguration` to
@@ -1321,12 +1340,19 @@ Two classes in `center-app`'s test tree exist only because it is a library and n
   services read. `UserSession` is the desktop's answer to them and is not on this side of the
   line, so the tests supply their own — which is the boundary working, not a workaround.
 
-A test that needs a particular language installs a `LocaleProvider` (`I18n.install(() -> …)`)
-and restores the one it found (`I18n.provider()`). It does **not** go through
-`LanguagePreferences`: that writes the developer's registry, and a test must not change the
-language of the machine it ran on. `I18nBundleTest` also clears the bundle memo first, because
-a bundle already loaded is returned whatever the JVM default becomes afterwards — without that
-line the `getFallbackLocale` guard could be deleted and the test would still pass.
+A test that needs a particular language or currency installs a provider
+(`I18n.install(() -> …)`, `MoneyUtils.install(() -> …)`) and restores the one it found
+(`I18n.provider()`, `MoneyUtils.provider()`). It does **not** go through `LanguagePreferences`:
+that writes the developer's registry, and a test must not change the language of the machine it
+ran on. `I18nBundleTest` also clears the bundle memo first, because a bundle already loaded is
+returned whatever the JVM default becomes afterwards — without that line the `getFallbackLocale`
+guard could be deleted and the test would still pass.
+
+**A statically installed port needs a test that somebody installs it**, because the default
+answer is the one most customers would see anyway. `ApplicationContextSmokeTest` asserts that
+`MoneyUtils.provider()` is the desktop's after `ApplicationReadyEvent`: a forgotten install
+breaks no build and changes nothing for an Egyptian centre, and surfaces only as a Saudi
+centre's receipts arriving in pounds with every figure on them correct.
 
 ## Schema changes
 

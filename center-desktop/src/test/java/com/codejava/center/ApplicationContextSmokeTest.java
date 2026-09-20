@@ -1,8 +1,10 @@
 package com.codejava.center;
 
+import com.codejava.center.config.DesktopCurrencyProvider;
 import com.codejava.center.domain.enums.NotificationChannel;
 import com.codejava.center.service.notification.ChannelSender;
 import com.codejava.center.service.notification.MessageSender;
+import com.codejava.center.util.MoneyUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -59,6 +61,25 @@ class ApplicationContextSmokeTest {
                 .toList();
 
         assertThat(channels).containsExactlyInAnyOrder(NotificationChannel.values());
+    }
+
+    /**
+     * مصدر العملة مركَّب فعلاً، لا مجرّد bean في السياق.
+     *
+     * <p>{@code MoneyUtils} ساكن وجوابه الافتراضي الجنيه - وهو ما يظهر على شاشة سنترٍ
+     * مصري أصلاً. فتركيبٌ نُسي لا يُسقط إقلاعاً ولا يغيّر شيئاً على أغلب الأجهزة،
+     * ويظهر وحده عند سنترٍ سعودي: كل المبالغ مذيَّلة برمز الجنيه وكل رقم فيها صحيح.
+     * خطأٌ من هذا النوع لا يكتشفه إلا قارئ إيصال، وهذا السطر يسمّيه اليوم.</p>
+     *
+     * <p>يُفحص هنا لأن {@code ApplicationReadyEvent} يقع في هذا الاختبار كما يقع في
+     * التطبيق. أما مصدر اللغة فيُركَّب في {@code JavaFxApplication.init()} خارج سياق
+     * Spring، فلا يراه اختبارُ سياق.</p>
+     */
+    @Test
+    void theCurrencySourceIsInstalledWhenTheApplicationIsReady() {
+        assertThat(MoneyUtils.provider())
+                .as("مصدر العملة")
+                .isInstanceOf(DesktopCurrencyProvider.class);
     }
 
     /** كل شاشة يجب أن تكون قابلة للإنشاء: الشاشة المعطوبة لا تظهر إلا عند فتحها */
