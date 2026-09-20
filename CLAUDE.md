@@ -15,7 +15,8 @@ commit-adjacent docs.
 mvn -o clean test          # build + run all tests (offline works; everything is cached)
 mvn -o compile             # compile only
 mvn -o install -DskipTests # once, and again after touching center-core or center-app — see below
-mvn -pl center-desktop spring-boot:run # run the app (needs DB credentials, see below)
+mvn -pl center-desktop spring-boot:run # run the desktop app (needs DB credentials, see below)
+mvn -pl center-web spring-boot:run     # run the web server (same credentials; http://localhost:8080)
 ```
 
 **Every `-pl` command needs its siblings in `~/.m2` first.** The reactor resolves a sibling
@@ -30,7 +31,7 @@ once, and repeat it whenever `center-core` or `center-app` changes; root-level c
 `.github/workflows/build.yml` runs the same suite on every PR and push to `main`, but
 **without `-o`** — the runner's `~/.m2` starts empty, so offline mode fails there. It needs
 no database and no secrets: each module's `src/test/resources/application.properties` shadows
-the desktop's main one and uses in-memory H2.
+its own main one and uses in-memory H2.
 
 Run a single test class or method — **in the module that holds it**, which for anything in
 `service/`, `repository/` or `domain/` is `center-app`:
@@ -40,6 +41,7 @@ mvn -o -pl center-app test -Dtest=EnrollmentServiceTest
 mvn -o -pl center-app test -Dtest=EnrollmentServiceTest#reactivatesPreviousMembershipInsteadOfCreatingDuplicate
 mvn -o -pl center-desktop test -Dtest=MessageBundleTest   # الشاشات وحزم النصوص
 mvn -o -pl center-core test -Dtest=BackupScheduleTest     # القرارات النقية
+mvn -o -pl center-web test -Dtest=ApiEdgeTest             # حافة HTTP
 ```
 
 Tests use in-memory H2 (`center-app/src/test/resources/application.properties` overrides the
@@ -54,7 +56,7 @@ trap when MySQL runs in a container.
 
 ### Modules, and which side of the line a class belongs on
 
-Three Maven modules under one parent `pom.xml`, and the split is a boundary, not a filing
+Four Maven modules under one parent `pom.xml`, and the split is a boundary, not a filing
 system:
 
 - `center-core` — **pure Java.** No Spring, no JPA, no JavaFX, no Lombok: the pom carries
@@ -70,20 +72,28 @@ system:
   stream and one tenant's schema on the other. Beside the contracts it holds the **pure
   decisions** (see below) with their tests — the calculations that are wrong silently.
 - `center-app` — **the business layer**: `domain/`, `repository/`, `service/`, `security/`,
-  `platform/`, `config/tenancy/` and `config/server/` (the multi-tenant and request-scoped
-  machinery, inert unless switched on), the
+  `platform/` and `config/tenancy/` (the multi-tenant machinery, inert unless switched on), the
   non-JavaFX half of `config/` (`SecurityConfig`, `TimeConfig`) and the
   half of `util/` that does not know a screen (`I18n`, `MoneyUtils`, `BackupCrypto`, `Passwords`,
-  `CommissionTypes`, `PersistenceErrors`, `WeekDays`, `Durations`, `Moments`). With it come
+  `CommissionTypes`, `PersistenceErrors`, `WeekDays`, `Durations`, `Moments`, `JdbcUrl`). With it come
   Spring, JPA, Flyway and JasperReports — and **its resources**: the migrations, the `.jrxml`
   templates with their font, and the message bundles. A resource read by code in another module
   works today only because both land on one classpath, and stops working the day the modules are
   packaged apart. **Its pom carries no `javafx-*`.**
 - `center-desktop` — the screens and this machine: `controller/`, the FXML/CSS, `JavaFxApplication`,
   `PrimaryStageInitializer`, the adapters in `config/`, and the `util/` classes that *are* the
-  device — every `*Preferences`, `UserSession`, `Printing`, `Sheets`, `Links`, `JdbcUrl`,
-  `MySqlLocator`, `TrayNotifier`, `Sounds`. It is the module that boots; `center-app` is a library
-  that is consumed, by the desktop today and by a `center-web` tomorrow.
+  device — every `*Preferences`, `UserSession`, `Printing`, `Sheets`, `Links`,
+  `MySqlLocator`, `TrayNotifier`, `Sounds`. It boots into a window.
+- `center-web` — **the HTTP edge**: `CenterWebApplication`, the security chain, the request's
+  identity and centre, the `api/` controllers, and the static page under `resources/static/`.
+  It boots into a port. No business logic lives here, and none may: a controller calls the same
+  service with the same guard and copies the row into a small record. Its pom carries
+  `spring-boot-starter-web` and `-security`, **and neither `javafx-*` nor `center-desktop`** —
+  the two edges are siblings that do not know each other, and both consume `center-app`.
+
+`center-app` is therefore a **library**, consumed by two programs. That is the sentence that
+decides where a class goes: `JdbcUrl` moved into it the day `center-web` needed to parse the
+same URL, because a class both edges need and that knows no device is not a device class.
 
 **Nothing in `center-app` may import `javafx.*` — and that is no longer a rule anybody has to
 remember, because JavaFX is not on its compile path.** An `import javafx.print.Printer` inside a
@@ -109,14 +119,27 @@ wires both to `UserSession`, which is the only place allowed to know that the te
 `TenantId.DESKTOP`. **Anything that belongs to the machine rather than to the centre reaches
 them the same way — through a port, never through `java.util.prefs`:**
 
-| What the business layer asks | Port (`center-core`) | Desktop adapter (`config/`) |
-| --- | --- | --- |
-| Is the backup encrypted, and with what passphrase | `BackupSecretStore` | `DesktopBackupSecretStore` → `BackupPreferences` |
-| The messaging provider's token | `MessagingSecretStore` | `DesktopMessagingPreferences` → `NotificationPreferences` |
-| Does a filled sheet carry the centre letterhead | `SheetHeaderPolicy` | `DesktopSheetHeaderPolicy` → `PrintPreferences` |
-| Where does a delivery to a watching screen run | `UiDispatcher` | `DesktopUiDispatcher` → `Platform.runLater` |
-| Which database does a backup dump, with which tools | `BackupTarget` | `DesktopBackupTarget` → `JdbcUrl` + `MySqlLocator` |
-| What language is being spoken right now | `LocaleProvider` | `LanguagePreferences` → `java.util.prefs` |
+| What the business layer asks | Port (`center-core`) | Desktop adapter (`config/`) | Web adapter (`center-web`) |
+| --- | --- | --- | --- |
+| Is the backup encrypted, and with what passphrase | `BackupSecretStore` | `DesktopBackupSecretStore` → `BackupPreferences` | `EnvironmentSecrets` |
+| The messaging provider's token | `MessagingSecretStore` | `DesktopMessagingPreferences` → `NotificationPreferences` | `EnvironmentSecrets` |
+| Does a filled sheet carry the centre letterhead | `SheetHeaderPolicy` | `DesktopSheetHeaderPolicy` → `PrintPreferences` | always `true` |
+| Where does a delivery to a watching screen run | `UiDispatcher` | `DesktopUiDispatcher` → `Platform.runLater` | `Runnable::run` |
+| Which database does a backup dump, with which tools | `BackupTarget` | `DesktopBackupTarget` → `JdbcUrl` + `MySqlLocator` | `ServerBackupTarget` → the tenant's schema |
+| What language is being spoken right now | `LocaleProvider` | `LanguagePreferences` → `java.util.prefs` | `ServerLocaleProvider` → `Accept-Language` |
+| Who is doing this | `CurrentActor` | `UserSession` | `ServerCurrentActor` → `SecurityContextHolder` |
+| For which centre | `TenantContext` | `UserSession` → `TenantId.DESKTOP` | the session's `CentreAuthentication` |
+
+**Every one of the web answers is simpler than its desktop twin, and that is the boundary
+reporting back.** What was complicated on the desktop was complicated because it belonged to
+the machine — a registry key, a printer's paper tray, a toolkit thread — not because the
+business layer needed it. `SheetHeaderPolicy` is the clearest: the reason to switch the
+letterhead off is that *this* printer is loaded with pre-printed paper, and a server has no
+paper tray, so the answer is one word.
+
+`UiDispatcher` on the web is `Runnable::run` for a reason worth keeping: `SseEmitter.send` is
+safe from any thread, and hopping to another one would lose the tenant scope the request bound
+— delivering one centre's alerts to a screen watching another.
 
 `LocaleProvider` is the one port that is **installed statically** (`I18n.install`) rather than
 injected, for the reason `I18n` is static at all: enums expose `getDisplayName()` and cannot be
@@ -332,14 +355,109 @@ names the variable. And `useSSL=false` was *disabling* encryption in the shipped
 `sslMode=PREFERRED`, with the note that anything crossing a network must set `sslMode=REQUIRED`,
 since PREFERRED accepts plaintext silently.
 
-On the server side of the switch: `ServerCurrentActor` reads `SecurityContextHolder` so identity
+On the other edge (`center-web`): `ServerCurrentActor` reads `SecurityContextHolder` so identity
 is scoped to the request rather than to the process (a singleton `UserSession` on a server means
 the last person to sign in decides what everyone else sees), strips the framework's `ROLE_`
 prefix, and returns `null` with no authentication — which the aspect reads as "no session".
 `EnvironmentSecrets` answers the two secret ports from environment variables instead of the
-Windows registry. The task *executor* is wrapped so background work keeps the context; the task
-*scheduler* deliberately is not, or the nightly backup would run as whoever saved settings that
-evening and the audit trail would say so.
+Windows registry. The task *executor* is wrapped (`WebAsyncConfig`) so background work keeps the
+context; the task *scheduler* deliberately is not, or the nightly backup would run as whoever
+saved settings that evening and the audit trail would say so.
+
+**None of the three sits behind the tenancy switch any more, and that was a real mistake.** They
+were written under `center.tenancy.enabled` on the theory that "server" and "multi-tenant" are
+the same question. They are not: a single centre that wants its screens on its own network runs
+a server with one database, and it needs a request-scoped identity exactly as much as a platform
+does — the trap is in the pool's threads, not in the number of centres. They live in `center-web`
+now, where "is this a server" is answered by which module booted.
+
+### The HTTP edge: `center-web`
+
+The module boots into a port the way `center-desktop` boots into a window, and it holds exactly
+what belongs to a request: who sent it, which centre it works for, and how a service's result
+becomes JSON, a PDF or a stream. **No business logic is here and none may be** — a controller
+calls the same service, under the same `@RequiresRole` guard, and copies the row into a small
+record.
+
+**Session, not JWT.** What the credential carries here is not the role alone but the role *and
+the centre*, and both change: a clerk is promoted, a centre's subscription stops. A signed token
+stays valid until it expires, so someone dismissed keeps reading and a stopped centre keeps
+writing — until a revocation list is consulted on every request, which is a session under
+another name. A session is revoked the instant it is ended, holds an `SseEmitter` open with no
+refresh machinery behind it, and the client is a browser on the same origin, so nothing has to
+carry it by hand.
+
+**And because it is a cookie session, CSRF is real.** The cookie rides every request to our
+origin whoever started it, so a page in another tab can post a receipt in the name of whoever
+is signed in. The token goes in a cookie that JS reads and returns in a header: another origin
+cannot read our cookie, so it cannot build the header. `CsrfTokenRequestAttributeHandler` is set
+explicitly — the default handler masks the token per request (BREACH), so what lands in the
+cookie does not match what is expected in the header and every write comes back `403` with a
+cookie that looks present. And `CsrfCookieFilter` forces the token to resolve, because it is
+deferred in Spring Security 6 and a read that never touches it leaves the browser with no cookie
+at all.
+
+**A refusal is an answer, not a page.** The default is a redirect to a login page, which is right
+for a full-page app. Here the client asks for JSON: a `302` arrives as the login page's HTML with
+status `200` and dies in the JSON parser — which the user reads as "unexpected error" rather than
+"your session ended". `authenticationEntryPoint` and `accessDeniedHandler` write `{status, message}`,
+and `ApiErrors` maps the services' own translated exceptions: `400` for bad input, `409` for a
+state in the database that no input can fix, `403` for a role refusal, and one generic sentence
+for anything unnamed — the raw exception text carries table and column names.
+
+**Which centre a request works for is read from its session, never from the request.** `CentreAuthentication`
+carries the `TenantId` that was resolved at sign-in, and `TenantBindingFilter` wraps the chain in
+`ServerTenantContext.within(...)`. Reading it from a header or a path segment would make swapping a
+number in the URL enough to read another centre's data. A request with no session passes through
+with **no** centre rather than a default one — `TenantContext` then throws, which is the whole point
+of Phase 2: a loud failure beats a silent leak. The filter's one subtlety is that `IOException` and
+`ServletException` are checked and `Runnable` is not, so they cross the boundary wrapped and are
+unwrapped after; swallowing them would hand the container a request that "succeeded" with no
+response written.
+
+**Sign-in is the one request that resolves its own centre**, through `CentreDirectory`, because
+`users` lives *inside* a centre's database and there is no way to look up a username before knowing
+which database to ask. That is why the login form has three fields and not two. On a single-centre
+install the third is ignored; on a platform an unknown slug and a suspended subscription get the
+*same* refusal, since telling them apart says which names are real centres.
+
+**One install, two shapes, and the switch is the same one as everywhere else.** `SingleCentreConfig`
+(`center.tenancy.enabled` absent or `false`) and `PlatformCentreConfig` (`true`) are mirror-image
+conditions — never `@ConditionalOnMissingBean`, whose answer depends on configuration-reading
+order, and an order that shifts with a release means a multi-tenant server booting with one fixed
+tenant, i.e. every centre reading one database. A server for one centre is a real deployment, not
+a test fixture: a centre that wants its screens on its own network without joining a platform.
+
+**The alert stream is `AlertFeed` with a fan-out, not a second reader.** `AlertFeed` holds one sink
+per tenant — right for a desktop with one screen — while one centre on the web has ten tabs open.
+So the first subscriber calls `attach` and the last to leave calls `detach`, and in between the
+controller fans the batch out to that tenant's emitters. If each tab attached, it would displace
+the one before it (`attach` writes into the map) and every screen but the newest would go silent.
+The read, the `lastSeenId` guard and the two-minute poll that picks up another scheduler's writes
+are untouched; not one row of `alerts` is read here.
+
+**The page under `resources/static/` has no build tooling** — no npm, no bundle — for the reason
+the notification chime is synthesised and the tray icon is drawn in code: the project builds with
+one `mvn` command and ships with no second step. **And no Arabic string lives in the HTML or the
+JS.** A `.js` file is code exactly as a `.fxml` file is, and a string typed into it freezes on the
+language of whoever typed it. The page asks `/api/messages` for the `web.*` keys in the request's
+language, and `WebMessageKeysTest` fails the build for a key the bundle does not have, for one
+that does not carry the `web.` prefix the endpoint serves, and for either in this module's Java —
+translation never fails at compile time, it shows `!some.key!` at the customer.
+
+Three smaller decisions that are easy to undo by accident:
+
+- **`open-in-view` is off.** The default keeps a Hibernate session open for the whole request, so
+  a lazy association loads while the response is being serialised — one query per field the
+  serialiser touches, and relations pulled into a response nobody asked for. With it off,
+  forgetting to copy a row into a record is a loud failure instead of a silent query.
+- **`UserDetailsServiceAutoConfiguration` is excluded.** It registers an in-memory user with a
+  random password printed at every startup. Nothing here uses it — authentication happens in
+  `SessionController` through `AuthService` — and a line announcing a password in a server log
+  reads as a live account.
+- **The session id is rotated at sign-in.** Spring rotates it when authentication happens inside
+  its filter; it happens in a controller here, so `changeSessionId()` is ours to call. Without it
+  the browser keeps whatever id it arrived with, which may be one somebody else planted.
 
 ### Spring Boot + JavaFX wiring
 
@@ -1498,6 +1616,13 @@ The test classes below exist because these failure modes are invisible to the co
   that JavaFX is absent from the test classpath, so the pom cannot be re-opened by accident.
   It carries no exemptions: the last one, `util/I18n` reading `java.util.prefs`, was paid off
   when the locale moved behind `LocaleProvider`.
+- An HTTP edge fails in ways no service test sees: a refusal that arrives as an HTML login page
+  with status `200`, a write accepted without a CSRF token, a request that reaches a controller
+  with no centre bound — or with the *previous* request's centre still on the pooled thread.
+  `ApiEdgeTest` and `TenantBindingFilterTest` cover those four. And `center-app` is a library
+  whose ports are deliberately unimplemented, so a forgotten adapter breaks no test there and
+  only fails at startup — `WebContextSmokeTest` is where it fails instead, the same job
+  `ApplicationContextSmokeTest` does on the desktop.
 - Tenant isolation fails silently by construction — a query that reads the wrong centre returns
   perfectly valid rows. `SchemaRoutingTest` covers the routing and the connection reset on H2 so
   it runs on every machine, and `MultiTenantIsolationIntegrationTest` proves end-to-end isolation
@@ -1513,7 +1638,8 @@ to English. Compare against the key instead — `hasMessage(I18n.get("error.sess
 Add coverage when touching any of those. `@DataJpaTest` needs `@Import(SecurityConfig.class)`
 because the boot class is itself a bean injecting `PasswordEncoder`.
 
-**A test lives in the module that holds its subject**, which is why the suite is split 86 / 261 / 56.
+**A test lives in the module that holds its subject**, which is why the suite is split
+86 / 258 / 52 / 29 — core, app, desktop, web.
 Two classes in `center-app`'s test tree exist only because it is a library and not a program:
 
 - `AppTestApplication` — `@DataJpaTest` searches *upward* for a `@SpringBootConfiguration` to
@@ -1577,6 +1703,10 @@ tooling; `-Type msi` needs WiX Toolset 3.x.
 
 The script must stay UTF-8 **with BOM**: Windows PowerShell 5.1 reads `.ps1` as the system
 codepage otherwise, which mangles the Arabic strings and breaks parsing.
+
+It builds `mvn -pl center-desktop -am`, so `center-web` is not in that reactor and the installer
+is unaffected by it. The web side ships as an ordinary Boot jar (`mvn -pl center-web package`,
+then `java -jar`), because a server is deployed, not installed on someone's desktop.
 
 ## Dependencies
 

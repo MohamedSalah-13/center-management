@@ -59,9 +59,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: surefire-reports
-          # الوحدات الثلاث: فشل في وحدة بلا تقرير مرفوع لا يُقرأ منه إلا الاسم
+          # الوحدات الأربع: فشل في وحدة بلا تقرير مرفوع لا يُقرأ منه إلا الاسم
           path: |
             center-core/target/surefire-reports/
             center-app/target/surefire-reports/
             center-desktop/target/surefire-reports/
+            center-web/target/surefire-reports/
           retention-days: 7
