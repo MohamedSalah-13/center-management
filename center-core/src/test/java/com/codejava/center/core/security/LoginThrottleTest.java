@@ -6,6 +6,7 @@ import java.time.Duration;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * القفل بعد تكرار الفشل.
@@ -92,6 +93,34 @@ class LoginThrottleTest {
         }
 
         assertThat(throttle.isLocked("guessed-name", NOON.plus(Duration.ofHours(1)))).isFalse();
+    }
+
+    /**
+     * حاجزٌ بعتبةٍ أخرى لمفتاحٍ من طبيعة أخرى.
+     *
+     * <p>الحافة تقفل بعنوان الشبكة لا بالاسم، وذلك يعدّ شيئاً آخر: خمسٌ من عنوانٍ واحد
+     * هي موظفٌ نسي كلمته ثم زميله، وقفلُ العنوان يقفل الشباك كلّه لا حساباً واحداً.</p>
+     */
+    @Test
+    void aThrottleCanCountToAnotherLimit() {
+        LoginThrottle wider = new LoginThrottle(30, LoginThrottle.LOCKOUT);
+
+        for (int attempt = 0; attempt < 29; attempt++) {
+            wider.recordFailure("196.0.0.1", NOON);
+        }
+        assertThat(wider.isLocked("196.0.0.1", NOON)).isFalse();
+
+        wider.recordFailure("196.0.0.1", NOON);
+        assertThat(wider.isLocked("196.0.0.1", NOON)).isTrue();
+    }
+
+    /** حاجزٌ بعتبةٍ صفر أو سالبة يقفل كل شيء أو لا يقفل شيئاً؛ كلاهما عطلٌ صامت */
+    @Test
+    void aThrottleRefusesToBeBuiltWithoutALimit() {
+        assertThatThrownBy(() -> new LoginThrottle(0, LoginThrottle.LOCKOUT))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new LoginThrottle(5, null))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     private void failTimes(int times) {

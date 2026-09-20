@@ -40,6 +40,30 @@ public final class LoginThrottle {
 
     private final Map<String, Attempts> attempts = new ConcurrentHashMap<>();
 
+    private final int maxFailures;
+
+    private final Duration lockout;
+
+    /** الحاجز على اسم المستخدم: القيمتان أعلاه */
+    public LoginThrottle() {
+        this(MAX_FAILURES, LOCKOUT);
+    }
+
+    /**
+     * حاجزٌ بعتبةٍ أخرى، لمفتاحٍ من طبيعة أخرى.
+     *
+     * <p>الحاجز على الاسم والحاجز على عنوان الشبكة يعدّان شيئين مختلفين، فلا تصلح لهما
+     * عتبةٌ واحدة: خمس محاولات على حسابٍ بعينه تخمينٌ ظاهر، وخمسٌ من عنوانٍ واحد هي
+     * موظفٌ نسي كلمته ثم زميله - وقفلُ العنوان يقفل الشباك كلّه لا حساباً واحداً.</p>
+     */
+    public LoginThrottle(int maxFailures, Duration lockout) {
+        if (maxFailures < 1 || lockout == null || lockout.isNegative()) {
+            throw new IllegalArgumentException("a throttle needs a positive limit and a lockout");
+        }
+        this.maxFailures = maxFailures;
+        this.lockout = lockout;
+    }
+
     /** محاولاتُ مفتاحٍ واحد: كم فشلت، ومتى كان آخر فشل */
     private record Attempts(int failures, Instant lastFailure) {
     }
@@ -57,11 +81,11 @@ public final class LoginThrottle {
      */
     public Duration remaining(String key, Instant now) {
         Attempts current = attempts.get(key);
-        if (current == null || current.failures() < MAX_FAILURES) {
+        if (current == null || current.failures() < maxFailures) {
             return Duration.ZERO;
         }
         Duration passed = Duration.between(current.lastFailure(), now);
-        Duration left = LOCKOUT.minus(passed);
+        Duration left = lockout.minus(passed);
         return left.isNegative() ? Duration.ZERO : left;
     }
 
@@ -89,6 +113,6 @@ public final class LoginThrottle {
     }
 
     private boolean expired(Attempts current, Instant now) {
-        return Duration.between(current.lastFailure(), now).compareTo(LOCKOUT) >= 0;
+        return Duration.between(current.lastFailure(), now).compareTo(lockout) >= 0;
     }
 }

@@ -7,6 +7,7 @@ import com.codejava.center.service.AuthService;
 import com.codejava.center.util.I18n;
 import com.codejava.center.web.CentreAuthentication;
 import com.codejava.center.web.CentreDirectory;
+import com.codejava.center.web.EdgeThrottle;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -44,6 +45,15 @@ public class SessionController {
     private final TenantSweep tenants;
     private final SecurityContextRepository contexts;
 
+    /**
+     * الحاجز على العنوان، بجوار حاجز {@code AuthService} على الاسم.
+     *
+     * <p>الاثنان يمنعان هجومين مختلفين: ذاك كلماتٌ كثيرة على حسابٍ واحد، وهذا حساباتٌ
+     * كثيرة بكلمةٍ واحدة - والثاني لا يُرى من داخل الخدمة أصلاً، لأن كل حساب فيه يرى
+     * محاولةً واحدة.</p>
+     */
+    private final EdgeThrottle edgeThrottle;
+
     public record LoginRequest(
             /* اسمُ السنتر؛ يُتجاهل على تركيبٍ يخدم سنتراً واحداً */
             String centre,
@@ -60,14 +70,32 @@ public class SessionController {
                          HttpServletRequest httpRequest,
                          HttpServletResponse httpResponse) {
 
-        TenantId tenant = centres.resolve(request.centre());
+        // قبل أيّ عمل: عنوانٌ مقفول لا يُسأل عنه السنتر ولا تُقرأ له قاعدة
+        edgeThrottle.refuseIfLocked(httpRequest);
+
+        TenantId tenant;
+        try {
+            tenant = centres.resolve(request.centre());
+        } catch (RuntimeException refused) {
+            // اسمُ سنترٍ مجهول يُعدّ محاولةً فاشلة: من يجرّب الأسماء يجرّبها من هنا،
+            // ولو لم تُحسب لكان تعدادُ السناتر بلا حاجز أصلاً
+            edgeThrottle.recordFailure(httpRequest);
+            throw refused;
+        }
 
         // حاملٌ لأن TenantSweep.within يأخذ Runnable: الإطار كله - الدورة الليلية
         // والمجدوِل - لا يحتاج قيمةً عائدة، وتوسيعُ العقد في النواة لأجل مستدعٍ واحد
         // يفتح باب "أعطني معرّف المؤسسة" الذي أُغلق عمداً
         AtomicReference<User> signedIn = new AtomicReference<>();
-        tenants.within(tenant, () ->
-                signedIn.set(authService.authenticate(request.username(), request.password())));
+        try {
+            tenants.within(tenant, () ->
+                    signedIn.set(authService.authenticate(request.username(), request.password())));
+        } catch (RuntimeException refused) {
+            edgeThrottle.recordFailure(httpRequest);
+            throw refused;
+        }
+
+        edgeThrottle.recordSuccess(httpRequest);
 
         User user = signedIn.get();
         rotateSession(httpRequest);
