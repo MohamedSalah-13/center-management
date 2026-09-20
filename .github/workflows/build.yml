@@ -37,12 +37,20 @@ jobs:
         run: mvn --batch-mode clean test
 
       # disabledWithoutDocker يسمح للمطوّر بتشغيل الاختبارات العادية بلا Docker، لكنه لا يجوز
-      # أن يحوّل بوابة MySQL في CI إلى نجاح صامت. هنا يجب أن يكون الاختبار قد نُفّذ فعلاً.
-      - name: Require MySQL migration gate
+      # أن يحوّل بوابات MySQL في CI إلى نجاح صامت. هنا يجب أن تكون قد نُفّذت فعلاً.
+      #
+      # اثنتان: الأولى تثبت أن ملفات الترحيل تبني قاعدةً يوافق عليها Hibernate، والثانية
+      # تثبت عزل المؤسسات - وهو معيار انتهاء المرحلة 2 ولا يُفحص على H2 أصلاً.
+      - name: Require MySQL integration gates
         run: |
-          report=center-app/target/surefire-reports/TEST-com.codejava.center.MySqlMigrationIntegrationTest.xml
-          test -f "$report"
-          ! grep -Eq 'skipped="[1-9][0-9]*"' "$report"
+          for suite in \
+            com.codejava.center.MySqlMigrationIntegrationTest \
+            com.codejava.center.tenancy.MultiTenantIsolationIntegrationTest
+          do
+            report="center-app/target/surefire-reports/TEST-$suite.xml"
+            test -f "$report"
+            ! grep -Eq 'skipped="[1-9][0-9]*"' "$report"
+          done
 
       # تقارير surefire هي الموضع الوحيد الذي يحمل رسالة الفشل كاملة،
       # وسجل الخطوة يقتصر على أسماء الاختبارات الفاشلة

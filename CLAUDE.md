@@ -59,7 +59,8 @@ system:
 
 - `center-core` — **pure Java.** No Spring, no JPA, no JavaFX, no Lombok: the pom carries
   only JUnit and AssertJ, so a stray framework import fails to compile. Today it holds the
-  identity and tenant contracts (`ActorIdentity`, `CurrentActor`, `TenantContext`, `TenantId`)
+  identity and tenant contracts (`ActorIdentity`, `CurrentActor`, `TenantContext`, `TenantId`,
+  `SchemaName`, `TenantSweep`)
   and the device contracts (`BackupSecretStore`, `MessagingSecretStore`, `SheetHeaderPolicy`,
   `UiDispatcher`, `BackupTarget`, `LocaleProvider`, plus `DocumentKind` which labels a filled
   sheet for whoever delivers it) that both the desktop app and a future SaaS server implement
@@ -68,7 +69,8 @@ system:
   machine's own database on one side; an HTTP request, a secret vault, no printer at all, an SSE
   stream and one tenant's schema on the other. Beside the contracts it holds the **pure
   decisions** (see below) with their tests — the calculations that are wrong silently.
-- `center-app` — **the business layer**: `domain/`, `repository/`, `service/`, `security/`, the
+- `center-app` — **the business layer**: `domain/`, `repository/`, `service/`, `security/`,
+  `platform/` and `config/tenancy/` (the multi-tenant machinery, inert unless switched on), the
   non-JavaFX half of `config/` (`SecurityConfig`, `TimeConfig`) and the
   half of `util/` that does not know a screen (`I18n`, `MoneyUtils`, `BackupCrypto`, `Passwords`,
   `CommissionTypes`, `PersistenceErrors`, `WeekDays`, `Durations`, `Moments`). With it come
@@ -167,6 +169,94 @@ plural and holding exactly what the core cannot say —
 The rule generalises: **the core decides, the edge words it.** A `getDisplayName()` on a core
 enum is the same mistake in miniature, which is why `BackupFrequency` and `DocumentKind` lost
 theirs on the way in.
+
+### Multi-tenancy: one database per centre
+
+The platform serves many centres from one program, and **the isolation lives in the
+connection, not in the queries.** `SchemaPerTenantConnectionProvider` sets the connection's
+database before Hibernate uses it, so not one repository method, not one `@Query`, and not
+one of the six unique constraints mentions a tenant. That was the whole argument for
+schema-per-tenant over a shared `tenant_id` column (`docs/saas-review-and-plan.md` §3): a
+forgotten `tenant_id` predicate is a leak, while a query that cannot see another schema
+cannot leak.
+
+**On the desktop none of this exists.** Everything is behind
+`center.tenancy.enabled`, which is absent by default: no platform database, no
+`MultiTenantConnectionProvider` registered, so Hibernate does not even know tenancy is a
+thing. The desktop path is the path it always was, not the multi-tenant path with a count
+of one.
+
+| Piece | Where | What it answers |
+| --- | --- | --- |
+| `SchemaName` | `center-core` | is this string safe to put in `CREATE DATABASE` |
+| `TenantSweep` | `center-core` | run this once per centre we serve, inside its context |
+| `TenantRegistry` | `platform/` | who the centres are, which database each has, and their subscription |
+| `TenantProvisioning` | `platform/` | open a new centre: database, schema, settings row, invite code |
+| `TenantMigrations` | `platform/` | Flyway over every centre's database at startup |
+| `ServerTenantContext` | `config/tenancy/` | which centre this thread works for |
+| `SchemaPerTenantConnectionProvider` | `config/tenancy/` | point the connection at that centre's database |
+
+**Releasing a connection resets it, and that line is half the feature.** Connections go back
+to the pool, not to the driver; one handed back still pointing at a centre's database is
+handed out moments later to work that may have no tenant at all — which then reads perfectly
+correct data belonging to somebody else. Nothing fails, nothing is logged.
+`SchemaRoutingTest.aReleasedConnectionComesBackNeutral` stands on that, with a stand-in for a
+pool, because the fault only appears when connections are actually reused — under load, at a
+customer, never in a test that opens one per query.
+
+It resets **catalog and schema separately** because they are not the same thing everywhere:
+MySQL has one namespace and calls it a catalog, H2 calls the same level a schema and its
+catalog is the file. Remembering one and restoring the other means a restore that fails, then
+a connection quietly closed instead of pooled — the routing bug hiding behind a performance
+cost nobody connects to it.
+
+**There is no default tenant.** A thread with none set throws rather than falling back, and
+`TenantSchemaResolver` lets that through. A session opened outside a tenant is a bug in the
+program; giving it *some* database turns the bug into somebody else's data on the wrong
+screen. A loud failure beats a silent leak — that sentence is the whole phase.
+
+**`SchemaName` is the only place a human-typed string becomes DDL.** Entity names in SQL
+cannot be bound as parameters, so `CREATE DATABASE <name>` and `USE <name>` are string
+concatenation by necessity. It takes an allow-list (lowercase letter, then letters, digits,
+underscore) rather than a deny-list, and it reserves the server's own databases plus
+`center_platform` — a centre that took that name would be writing into the register of which
+centres exist.
+
+**The platform database is read with `JdbcTemplate`, not JPA.** The `EntityManagerFactory`
+is routed to the current centre; a second one beside it means two transaction managers and
+makes `@Transactional` in every service a question about which database it means. The
+platform side is four queries.
+
+**Schedules are per centre, not per program.** Each centre picks the hour its doors close and
+its database goes quiet, so `BackupScheduler` and `AlertScheduler` keep a `ScheduledFuture`
+per tenant and re-read settings inside each tenant's scope; a settings save reschedules only
+the centre that saved. The alert *frequent tick* is the exception — five minutes is a constant
+in code, not a setting, so it is one timer that sweeps.
+
+**A sweep isolates failures; a single-tenant run does not.** A nightly backup that stops at
+the third centre leaves everyone after it unbacked-up with nobody aware, so `ServerTenantContext.sweep`
+catches per tenant and logs by name. `DesktopTenantSweep` deliberately does not: `BACKUP_FAILED`
+exists because `BackupScheduler` sees its own failure, and an implementation that swallowed
+"for safety" would silence it.
+
+**Invite codes replace "the users table is empty" as proof.** On a machine in a centre,
+whoever sits at the computer holding the database is its owner, so emptiness is proof enough.
+On a server anyone who learns a slug can reach an empty table, so the proof is a code
+delivered out of band: 160 random bits, stored as a SHA-256 fingerprint (not BCrypt — the code
+is random, so nothing is guessed, and a fingerprint has to be indexable). The emptiness check
+stays *as well*, and that ordering is load-bearing: the admin is created first and the invite
+spent second, because "account made, code still live" is closed by the emptiness check while
+"code spent, no account" leaves a centre nobody can enter.
+
+**Restore passes `--one-database`.** `mysql` then ignores statements that run while the
+current database is not the one named, so a dump carrying another centre's `USE` does not
+write into this one. On a single machine that is barely conceivable; on a server every
+centre's files sit in one place and picking the wrong one is a click.
+
+`AlertFeed` keys its watcher and its `lastSeenId` **by tenant** — one screen per program on a
+desktop, one per centre on a server. The second key, the session, arrives with `center-web`,
+because until there are sessions there is nothing to key by; each watcher's state is already
+separate, so that is a key change and not a redesign.
 
 ### Spring Boot + JavaFX wiring
 
@@ -1319,6 +1409,12 @@ The test classes below exist because these failure modes are invisible to the co
   that JavaFX is absent from the test classpath, so the pom cannot be re-opened by accident.
   It carries no exemptions: the last one, `util/I18n` reading `java.util.prefs`, was paid off
   when the locale moved behind `LocaleProvider`.
+- Tenant isolation fails silently by construction — a query that reads the wrong centre returns
+  perfectly valid rows. `SchemaRoutingTest` covers the routing and the connection reset on H2 so
+  it runs on every machine, and `MultiTenantIsolationIntegrationTest` proves end-to-end isolation
+  on a MySQL container: two centres, a student saved in one and absent from the other. CI
+  requires **both** container suites to have actually run, because `disabledWithoutDocker` would
+  otherwise turn the gate into a silent pass.
 
 **Never assert a user-facing string as a literal.** The UI language is stored per machine,
 so a test comparing against Arabic text starts failing the moment someone switches the app
@@ -1328,7 +1424,7 @@ to English. Compare against the key instead — `hasMessage(I18n.get("error.sess
 Add coverage when touching any of those. `@DataJpaTest` needs `@Import(SecurityConfig.class)`
 because the boot class is itself a bean injecting `PasswordEncoder`.
 
-**A test lives in the module that holds its subject**, which is why the suite is split 56 / 229 / 56.
+**A test lives in the module that holds its subject**, which is why the suite is split 64 / 249 / 56.
 Two classes in `center-app`'s test tree exist only because it is a library and not a program:
 
 - `AppTestApplication` — `@DataJpaTest` searches *upward* for a `@SpringBootConfiguration` to

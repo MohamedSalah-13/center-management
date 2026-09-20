@@ -1,6 +1,9 @@
 package com.codejava.center.service.alert;
 
 import com.codejava.center.core.alert.AlertSchedule;
+import com.codejava.center.core.tenant.TenantContext;
+import com.codejava.center.core.tenant.TenantId;
+import com.codejava.center.core.tenant.TenantSweep;
 
 import com.codejava.center.domain.CenterSettings;
 import com.codejava.center.service.SettingsChangedEvent;
@@ -20,6 +23,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 
 /**
@@ -63,7 +68,20 @@ public class AlertScheduler {
     /** ساعة البرنامج: "هل فات موعد الفحص" سؤالٌ لا يُختبر بغير تحريك الوقت */
     private final Clock clock;
 
-    private ScheduledFuture<?> scheduled;
+    /**
+     * المؤسسات التي يعمل لها هذا المجدوِل.
+     *
+     * <p>موعد الفحص اليومي إعدادٌ يملكه كل سنتر، فالجدولة لكل مؤسسة - كما في
+     * {@code BackupScheduler} وللسبب نفسه. أما <b>النبضة القصيرة فواحدة للجميع</b>:
+     * مدّتها ثابتة في الكود لا في الإعدادات، ومئة مؤقّت كل خمس دقائق لا يفعل شيئاً لا
+     * يفعله مؤقّتٌ واحد يمرّ على مئة.</p>
+     */
+    private final TenantSweep tenants;
+
+    /** لمعرفة أيّ مؤسسة حفظت إعداداتها، حين يصل حدث الحفظ على خيطها */
+    private final TenantContext tenantContext;
+
+    private final Map<TenantId, ScheduledFuture<?>> scheduled = new ConcurrentHashMap<>();
     private ScheduledFuture<?> frequent;
 
     @EventListener(ApplicationReadyEvent.class)
@@ -71,43 +89,75 @@ public class AlertScheduler {
         reschedule();
     }
 
-    /** بعد الـ commit لا قبله: الجدولة على موعد لم يُحفظ فعلاً تُخالف ما يراه المستخدم */
+    /**
+     * بعد الـ commit لا قبله: الجدولة على موعد لم يُحفظ فعلاً تُخالف ما يراه المستخدم.
+     * وللمؤسسة التي حفظت وحدها: إلغاءُ فحص سنترٍ آخر لأن جاره بدّل إعداداً لا معنى له.
+     */
     @TransactionalEventListener
     public void onSettingsChanged(SettingsChangedEvent event) {
-        reschedule();
+        rescheduleCurrent();
     }
 
     /** {@code synchronized} لأن الإقلاع وحفظ الإعدادات قد يلتقيان على خيطين مختلفين */
     public synchronized void reschedule() {
         cancel();
+        tenants.sweep(this::scheduleFor);
+        scheduleFrequentTick();
+    }
 
+    /** يعيد جدولة المؤسسة التي يعمل هذا الخيط لأجلها وحدها */
+    public synchronized void rescheduleCurrent() {
+        TenantId tenant = tenantContext.currentTenant();
+        cancel(tenant);
+        scheduleFor(tenant);
+        scheduleFrequentTick();
+    }
+
+    /** يُستدعى داخل سياق المؤسسة: {@code getSettings} تقرأ قاعدتها هي */
+    private void scheduleFor(TenantId tenant) {
         CenterSettings settings = settingsService.getSettings();
         if (!settings.isAlertsEnabled()) {
             return;
         }
 
         AlertSchedule schedule = AlertSchedules.from(settings);
-        scheduled = taskScheduler.schedule(this::runScan,
-                trigger(schedule, settings.getLastAlertScanAt()));
-
-        // النبضة القصيرة بلا موعد ولا تعويض: ما تفحصه لا يُعوَّض أصلاً. تنبيهٌ بأن حصةً
-        // تبدأ بعد ربع ساعة، يصل بعد ساعتين من تشغيل البرنامج، خبرٌ لا تنبيه - وأسوأ من
-        // الصمت لأنه يُقرأ على أنه الآن
-        frequent = taskScheduler.scheduleWithFixedDelay(this::runFrequentScan,
-                clock.instant().plus(FREQUENT_INTERVAL), FREQUENT_INTERVAL);
+        // العمل داخل سياق المؤسسة: خيط المجدوِل يأتي من مجمّع ولا يعرف لمن يعمل
+        scheduled.put(tenant, taskScheduler.schedule(
+                () -> tenants.within(tenant, this::runScan),
+                trigger(schedule, settings.getLastAlertScanAt())));
 
         log.info("فحص التنبيهات التلقائي مجدول: {}", AlertSchedules.describe(schedule));
     }
 
-    public synchronized void cancel() {
-        // false في الاثنين: فحص جارٍ الآن يُترك حتى يكتمل
-        if (scheduled != null) {
-            scheduled.cancel(false);
-            scheduled = null;
+    /**
+     * النبضة القصيرة: واحدة، تبدأ مع أول مؤسسة مفعَّلة وتبقى.
+     *
+     * <p>بلا موعد ولا تعويض: ما تفحصه لا يُعوَّض أصلاً. تنبيهٌ بأن حصةً تبدأ بعد ربع
+     * ساعة، يصل بعد ساعتين من تشغيل البرنامج، خبرٌ لا تنبيه - وأسوأ من الصمت لأنه
+     * يُقرأ على أنه الآن.</p>
+     */
+    private void scheduleFrequentTick() {
+        if (frequent != null || scheduled.isEmpty()) {
+            return;
         }
+        frequent = taskScheduler.scheduleWithFixedDelay(
+                () -> tenants.sweep(tenant -> runFrequentScan()),
+                clock.instant().plus(FREQUENT_INTERVAL), FREQUENT_INTERVAL);
+    }
+
+    public synchronized void cancel() {
+        // false في الجميع: فحص جارٍ الآن يُترك حتى يكتمل
+        scheduled.keySet().forEach(this::cancel);
         if (frequent != null) {
             frequent.cancel(false);
             frequent = null;
+        }
+    }
+
+    private void cancel(TenantId tenant) {
+        ScheduledFuture<?> future = scheduled.remove(tenant);
+        if (future != null) {
+            future.cancel(false);
         }
     }
 
