@@ -1,6 +1,5 @@
-package com.codejava.center.server;
+package com.codejava.center.web;
 
-import com.codejava.center.config.server.EnvironmentSecrets;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
 

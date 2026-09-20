@@ -1,0 +1,233 @@
+/*
+ * كل مقاس حول نصّ مكتوب بـ em، تماماً كما في style.css الخاص بالشاشات: em كسرٌ من
+ * حجم خطّ العقدة نفسها، فسطرٌ واحد على الجذر يكبّر الواجهة كلها. والمتصفّح يمنح
+ * المستخدم ذلك السطر مجاناً (تكبير الصفحة)، فلا يحتاج هنا ما يحتاجه UiScale هناك.
+ *
+ * ولا قاعدة تخصّ اتجاهاً: الاتجاه يُضبط على <html> من جواب الخادم، والمتصفّح يعكس
+ * التخطيط بنفسه. كتابةُ قاعدةٍ لليمين تعني انعكاساً ثانياً يدفع النصّ إلى الحافة
+ * الخطأ - وهو نفس الخطأ الذي كان في -fx-alignment: center-right على أزرار الشريط.
+ */
+
+:root {
+    --ink: #1f2933;
+    --muted: #6b7280;
+    --line: #d7dde3;
+    --bg: #f4f6f8;
+    --card: #ffffff;
+    --accent: #1d6f8b;
+    --bad: #b3261e;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: "Segoe UI", Tahoma, sans-serif;
+    font-size: 15px;
+    color: var(--ink);
+    background: var(--bg);
+}
+
+.hidden {
+    display: none !important;
+}
+
+.centred {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+}
+
+.card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 0.6em;
+    padding: 2em;
+    width: min(26em, 92vw);
+    display: flex;
+    flex-direction: column;
+    gap: 0.4em;
+}
+
+h1, h2, h3 {
+    margin: 0 0 0.6em;
+}
+
+label {
+    font-size: 0.9em;
+    color: var(--muted);
+}
+
+input, select {
+    font: inherit;
+    padding: 0.45em 0.6em;
+    border: 1px solid var(--line);
+    border-radius: 0.35em;
+    background: var(--card);
+    color: inherit;
+}
+
+input:focus, select:focus, button:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+button {
+    font: inherit;
+    padding: 0.5em 1.1em;
+    border: none;
+    border-radius: 0.35em;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+}
+
+button.link {
+    background: none;
+    color: var(--accent);
+    padding: 0.2em 0.4em;
+}
+
+.hint {
+    margin: 0 0 0.6em;
+    font-size: 0.82em;
+    color: var(--muted);
+}
+
+header {
+    display: flex;
+    align-items: center;
+    gap: 0.8em;
+    padding: 0.7em 1.2em;
+    background: var(--card);
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+}
+
+header .spacer {
+    flex: 1;
+}
+
+nav {
+    display: flex;
+    gap: 0.35em;
+}
+
+nav button {
+    background: none;
+    color: var(--ink);
+}
+
+nav button.active {
+    background: var(--accent);
+    color: #fff;
+}
+
+.badge {
+    background: var(--accent);
+    color: #fff;
+    border-radius: 1em;
+    padding: 0.15em 0.7em;
+    font-size: 0.85em;
+}
+
+.view {
+    padding: 1.2em;
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    flex-wrap: wrap;
+    margin-bottom: 0.9em;
+    padding: 0.8em;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 0.5em;
+}
+
+.result {
+    margin: 0.4em 0 1em;
+    min-height: 1.2em;
+}
+
+.error {
+    margin: 0 1.2em;
+    color: var(--bad);
+    min-height: 1.2em;
+}
+
+.bad {
+    color: var(--bad);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 0.5em;
+    overflow: hidden;
+}
+
+caption {
+    padding: 1.2em;
+    color: var(--muted);
+}
+
+th, td {
+    /* start يعني بداية السطر في الاتجاهين: اليمين بالعربية واليسار بالإنجليزية */
+    text-align: start;
+    padding: 0.55em 0.8em;
+    border-bottom: 1px solid var(--line);
+}
+
+th {
+    background: var(--bg);
+    font-weight: 600;
+}
+
+.reports {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5em;
+}
+
+.reports a {
+    color: var(--accent);
+}
+
+aside#alerts {
+    padding: 0 1.2em 2em;
+}
+
+#alertList {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35em;
+}
+
+.alert {
+    padding: 0.5em 0.8em;
+    background: var(--card);
+    border: 1px solid var(--line);
+    /* الحدّ علامة لا مقاس، فيبقى بالبكسل: هو شريط لون لا مسافة حول نص */
+    border-inline-start: 4px solid var(--muted);
+    border-radius: 0.35em;
+}
+
+.alert.WARNING {
+    border-inline-start-color: #c77700;
+}
+
+.alert.CRITICAL {
+    border-inline-start-color: var(--bad);
+}

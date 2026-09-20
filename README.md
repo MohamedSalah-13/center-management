@@ -13,6 +13,7 @@
 - **قاعدة البيانات (Database):** MySQL 8+ مع **Flyway** لإدارة تطوّر المخطط
 - **إدارة التبعيات والمكتبات:** Lombok, Maven
 - **معالجة الواجهات المتزامنة (Asynchronous UI):** `CompletableFuture` & `Platform.runLater()`
+- **واجهة الويب (Web):** Spring MVC + Spring Security (جلسة وCSRF) + SSE، وصفحة ساكنة بلا أدوات بناء
 
 ---
 
@@ -31,6 +32,12 @@
 
 ```bash
 $env:DB_USERNAME = "center_app"; $env:DB_PASSWORD = "your-password"; mvn -pl center-desktop spring-boot:run
+```
+
+ولتشغيل واجهة الويب على نفس القاعدة (ثم افتح `http://localhost:8080`):
+
+```bash
+$env:DB_USERNAME = "center_app"; $env:DB_PASSWORD = "your-password"; mvn -pl center-web spring-boot:run
 ```
 
 > قبل أول أمر `-pl center-desktop` على نسخة جديدة نفّذ `mvn install -DskipTests` مرة واحدة
@@ -66,7 +73,7 @@ $env:DB_USERNAME = "center_app"; $env:DB_PASSWORD = "your-password"; mvn -pl cen
 
 ## 🏛️ البنية المعمارية (Architecture & Integration Design)
 
-المستودع مبني كـ **Maven multi-module** من ثلاث وحدات، والحدّ بينها هو الفكرة لا الترتيب:
+المستودع مبني كـ **Maven multi-module** من أربع وحدات، والحدّ بينها هو الفكرة لا الترتيب:
 
 - `center-core` — جافا خالصة، بلا Spring ولا JPA ولا JavaFX: عقود الهوية والمؤسسة والجهاز،
   ومعها القرارات النقية (جدولة النسخ، تعارض المواعيد، سياسة كلمة المرور، حساب المال).
@@ -74,10 +81,13 @@ $env:DB_USERNAME = "center_app"; $env:DB_PASSWORD = "your-password"; mvn -pl cen
   Spring وJPA وFlyway وجاسبر. **لا تعتمد JavaFX في الـ pom**، فاستيراد `javafx.` فيها خطأ
   ترجمة لا مخالفةُ عُرف.
 - `center-desktop` — الشاشات وحدها: `controller/` والـ FXML/CSS، وتنفيذاتُ عقود النواة على
-  هذا الجهاز (السجلّ، الطابعة، خيط JavaFX).
+  هذا الجهاز (السجلّ، الطابعة، خيط JavaFX). يُقلع إلى نافذة.
+- `center-web` — حافة HTTP: المصادقة بجلسة، وربط الطلب بقاعدة مؤسسته، ومتحكّمات `api/`،
+  وصفحةٌ ساكنة تحت `resources/static/`. يُقلع إلى منفذ. **لا منطق أعمال فيه**: المتحكّم
+  يستدعي الخدمة نفسها بحارسها نفسه وينسخ الصفّ إلى سجلٍّ صغير.
 
-خادم الـ SaaS يُضاف لاحقاً فوق `center-app` نفسها: نفس الخدمات بواجهة أخرى، من دون أن يعتمد
-تطبيق سطح المكتب على الويب ولا العكس.
+الوحدتان الأخيرتان شقيقتان لا تعرف إحداهما الأخرى، وكلتاهما تستهلك `center-app`: نفس الخدمات
+بواجهتين، من دون أن يعتمد تطبيق سطح المكتب على الويب ولا العكس.
 
 وتعدّد المؤسسات جاهز في `center-app` بقاعدة بيانات لكل سنتر: الاتصال يُوجَّه إلى قاعدة
 المؤسسة قبل أن يُنفَّذ عليه استعلام، فلا استعلام في البرنامج يذكر المؤسسة. وهو **معطّل
@@ -122,6 +132,17 @@ center-app/
         ├── reports/                     # قوالب جاسبر (.jrxml) وترويستاها
         ├── i18n/                        # حزم النصوص: العربية هي الأساس
         └── fonts/                       # الخط العربي المسجَّل لجاسبر
+
+center-web/
+└── src/
+    ├── main/java/com/codejava/center/web/
+    │   ├── CenterWebApplication.java    # نقطة تشغيل الخادم
+    │   ├── WebSecurityConfig.java       # من يمرّ، وبأيّ جواب حين لا يمرّ
+    │   ├── CentreAuthentication.java    # هوية الطلب ومؤسسته معاً
+    │   ├── TenantBindingFilter.java     # يربط الطلب بقاعدة مؤسسته من جلسته
+    │   ├── Server*.java, WebPortsConfig # أجوبة الخادم عن منافذ center-core
+    │   └── api/                         # الجلسة، الطلاب، الحضور، الخزينة، التقارير، SSE
+    └── main/resources/static/           # صفحة واحدة بلا أدوات بناء، ونصوصها من /api/messages
 
 center-desktop/
 └── src/main/
@@ -188,7 +209,7 @@ mvn -o clean test
 الاختبارات تعمل على H2 في الذاكرة ولا تلمس قاعدة بيانات حقيقية، ولا تحتاج أي متغيّر بيئة.
 وهي موجودة لأن هذه الأعطال لا يراها المترجم: استعلامات JPQL تُفحص وقت التشغيل، وحارس
 الصلاحيات لا يعمل بصمت إن أُسيء توصيله، والترجمة تفشل بلا خطأ فتظهر بالعربية في واجهة
-إنجليزية.
+إنجليزية، وحافةُ HTTP تردّ صفحةَ دخولٍ بحالة نجاح حيث يُنتظر JSON.
 
 بعد تعديل أي كيان، وَلِّد المخطط وقارنه بالترحيلات القائمة ثم أضف ترحيلاً جديداً بالفرق
 وحده:

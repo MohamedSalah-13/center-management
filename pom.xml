@@ -28,6 +28,7 @@
         <module>center-core</module>
         <module>center-app</module>
         <module>center-desktop</module>
+        <module>center-web</module>
     </modules>
 
     <properties>

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.codejava</groupId>
+        <artifactId>center-management-parent</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>center-web</artifactId>
+    <name>Center Management Web</name>
+
+    <!--
+        خادم HTTP فوق center-app نفسها: نفس الخدمات بواجهة أخرى، ولا منطق أعمال هنا.
+        ما في هذه الوحدة هو ما يخصّ الطلب وحده - المصادقة، ونطاق المؤسسة، وتحويل
+        نتيجة خدمة إلى JSON أو PDF أو تيار SSE.
+
+        ولا javafx ولا center-desktop في الاعتماديات: الوحدتان شقيقتان لا تعرف إحداهما
+        الأخرى، وكلتاهما تستهلك center-app. تطبيق سطح المكتب يبقى عميلاً لقاعدته
+        المحلية؛ جعله عميلاً لهذا الـ API قرارٌ لاحق مستقل.
+    -->
+    <dependencies>
+        <dependency>
+            <groupId>com.codejava</groupId>
+            <artifactId>center-app</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -1,6 +1,5 @@
-package com.codejava.center.server;
+package com.codejava.center.web;
 
-import com.codejava.center.config.server.ServerCurrentActor;
 import com.codejava.center.core.security.ActorIdentity;
 import com.codejava.center.domain.enums.Role;
 import org.junit.jupiter.api.AfterEach;

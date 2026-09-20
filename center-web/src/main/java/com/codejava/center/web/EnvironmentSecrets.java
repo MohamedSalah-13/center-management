@@ -1,4 +1,4 @@
-package com.codejava.center.config.server;
+package com.codejava.center.web;
 
 import com.codejava.center.core.secret.BackupSecretStore;
 import com.codejava.center.core.secret.MessagingSecretStore;

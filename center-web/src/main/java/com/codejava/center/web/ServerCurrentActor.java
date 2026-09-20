@@ -1,4 +1,4 @@
-package com.codejava.center.config.server;
+package com.codejava.center.web;
 
 import com.codejava.center.core.security.ActorIdentity;
 import com.codejava.center.core.security.CurrentActor;
