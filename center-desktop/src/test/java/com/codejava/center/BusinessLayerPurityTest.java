@@ -24,9 +24,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>هذا الاختبار هو الفرض الآلي إلى أن يقوم به فصل الوحدات نفسه: يقرأ الاستيرادات نصّاً،
  * لأن ما يُفحص هو ما يستطيع الملف رؤيته لا ما ينفّذه فعلاً.</p>
  *
- * <p>ما لا يحرسه بعد: {@code java.awt} — {@code WhatsAppLinkSender} يفتح الرابط بـ
- * {@code Desktop.browse}، وهو دَينُ البند 6 من المرحلة 1 (يعيد الـ URI والواجهة تفتحه).
- * يُضاف السطر هنا يوم يُسدَّد، لا قبله: قاعدةٌ تفشل يوم كتابتها تُعطَّل ولا تُصلَح.</p>
+ * <p>و{@code java.awt} بينها منذ البند 6: كان {@code WhatsAppLinkSender} يفتح الرابط بـ
+ * {@code Desktop.browse}، فصار يعيد الرابط وتفتحه الواجهة. القاعدة كُتبت يوم سُدّد الدَّين
+ * لا قبله: قاعدةٌ تفشل يوم كتابتها تُعطَّل ولا تُصلَح.</p>
  */
 class BusinessLayerPurityTest {
 
@@ -44,6 +44,8 @@ class BusinessLayerPurityTest {
                     "JavaFX: طبقة الأعمال تعمل على خادم بلا شاشة"),
             new Rule(Pattern.compile("^\\s*import\\s+java\\.util\\.prefs\\."),
                     "تفضيلات الجهاز: سجلّ ويندوز مصدرٌ لا يملكه الخادم — الواجهات في center-core"),
+            new Rule(Pattern.compile("^\\s*import\\s+java\\.awt\\."),
+                    "سطح المكتب: لا متصفح ولا عارض ملفات على خادم — الواجهة تفتح ما يُعاد إليها"),
             new Rule(Pattern.compile("^\\s*import\\s+com\\.codejava\\.center\\.util\\.\\w*Preferences\\s*;"),
                     "تفضيلات الجهاز: تصل عبر واجهة يركّبها الطرف الذي يملكها"),
             new Rule(Pattern.compile("^\\s*import\\s+com\\.codejava\\.center\\.util\\.UserSession\\s*;"),

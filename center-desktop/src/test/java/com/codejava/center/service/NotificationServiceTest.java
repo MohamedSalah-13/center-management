@@ -120,6 +120,59 @@ class NotificationServiceTest {
         assertThat(notificationLogRepository.count()).isZero();
     }
 
+    /**
+     * قناة الرابط: السطر يُكتب حين تُفتح المحادثة، لا حين يُبنى الرابط.
+     *
+     * <p>هذا هو الفرق كله بعد إخراج الفتح من الخدمة. الرابط يعود إلى الشاشة، فإن فشل
+     * الفتح — تطبيق غير مثبَّت، أو رفض معالج البروتوكول — فلا سطر، والمحاولة تُعاد غداً.
+     * وكتابة السطر عند التجهيز كانت ستمنع الإعادة وتترك وليَّ أمرٍ بلا خبر ولا أحد
+     * يعرف.</p>
+     */
+    @Test
+    void handOffIsLoggedOnlyAfterTheScreenSaysTheChatWasOpened() {
+        Student student = persistStudent("STU-N8", "طالب", "01012345678");
+        sender.handOffTo("https://wa.me/201012345678?text=x");
+
+        var report = new GroupAttendanceReport("مجموعة أ", 2, List.of(
+                new AttendanceSummary(student.getId(), "طالب", "STU-N8", "01012345678", 0)));
+        NotificationCandidate candidate = notificationService.buildAbsenceNotifications(report).get(0);
+
+        var result = notificationService.send(candidate);
+
+        assertThat(result.needsHandOff()).isTrue();
+        assertThat(result.link()).isEqualTo("https://wa.me/201012345678?text=x");
+        assertThat(result.success()).isFalse();
+        assertThat(notificationLogRepository.count()).as("قبل الفتح").isZero();
+
+        notificationService.recordOpened(candidate);
+
+        assertThat(notificationLogRepository.count()).as("بعد الفتح").isEqualTo(1);
+    }
+
+    /**
+     * الفحص التلقائي لا يُسلّم إلى قناة تحتاج إنساناً.
+     *
+     * <p>{@code AlertScheduler} يعمل من خيط المجدوِل، وقد يكون ذلك ليلاً أو على طرفية
+     * الاستقبال. قناة الرابط هناك تجهّز رابطاً لا يفتحه أحد، فالقول إنها لا تصلح أصدق
+     * من نتيجةٍ تبدو إرسالاً ولم تكن - والمزوّد وحده هو ما يُرسل صامتاً.</p>
+     */
+    @Test
+    void automaticSendRefusesAChannelThatNeedsSomebodyAtTheScreen() {
+        Student student = persistStudent("STU-N9", "طالب", "01012345678");
+        sender.manual = true;
+
+        var report = new GroupAttendanceReport("مجموعة أ", 2, List.of(
+                new AttendanceSummary(student.getId(), "طالب", "STU-N9", "01012345678", 0)));
+
+        var result = notificationService.sendAutomatic(
+                notificationService.buildAbsenceNotifications(report).get(0));
+
+        assertThat(result.success()).isFalse();
+        assertThat(result.failureReason()).isEqualTo(I18n.get("error.notification.channelNeedsPerson"));
+        assertThat(sender.sentTo).as("لم يُبنَ رابط أصلاً").isEmpty();
+        assertThat(notificationLogRepository.count()).isZero();
+    }
+
     @Test
     void sendsPhoneInInternationalFormatNotAsStored() {
         Student student = persistStudent("STU-N6", "طالب", "01012345678");
@@ -154,14 +207,24 @@ class NotificationServiceTest {
     static class RecordingSender implements MessageSender {
         final List<String> sentTo = new ArrayList<>();
         private String failureReason;
+        private String handOffLink;
+        boolean manual;
 
         void reset() {
             sentTo.clear();
             failureReason = null;
+            handOffLink = null;
+            manual = false;
         }
 
         void failWith(String reason) {
             this.failureReason = reason;
+        }
+
+        /** يحاكي قناة الرابط: لا يُرسل شيئاً ويعيد ما على الشاشة فتحه */
+        void handOffTo(String link) {
+            this.handOffLink = link;
+            this.manual = true;
         }
 
         @Override
@@ -170,7 +233,7 @@ class NotificationServiceTest {
                 return SendResult.failed(failureReason);
             }
             sentTo.add(internationalPhone);
-            return SendResult.ok();
+            return handOffLink == null ? SendResult.ok() : SendResult.handOff(handOffLink);
         }
 
         @Override
@@ -180,7 +243,7 @@ class NotificationServiceTest {
 
         @Override
         public boolean requiresManualConfirmation() {
-            return false;
+            return manual;
         }
 
         @Override

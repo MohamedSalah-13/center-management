@@ -1,5 +1,7 @@
 package com.codejava.center.service.notification;
 
+import com.codejava.center.util.I18n;
+
 import java.util.Optional;
 
 /**
@@ -40,13 +42,38 @@ public interface MessageSender {
      */
     Optional<String> configurationProblem();
 
-    record SendResult(boolean success, String failureReason) {
+    /**
+     * ما آلت إليه محاولة الإرسال، وهي <b>ثلاث</b> حالات لا اثنتان.
+     *
+     * <p>الثالثة هي {@link #handOff(String)}: قناةٌ لا يرسل فيها البرنامج شيئاً، بل يجهّز
+     * رابطاً يفتحه إنسان أمام الشاشة ثم يضغط "إرسال" بيده. قناة رابط واتساب من هذا النوع،
+     * وهي القناة الافتراضية. ولو جُمعت مع النجاح لكان معنى ذلك أن السطر يُكتب في
+     * {@code notification_logs} قبل أن تُفتح المحادثة أصلاً — وسجلٌّ يقول إن ولي الأمر
+     * رُوسل بينما لم تُفتح له نافذة هو بالضبط ما يمنع إعادة المحاولة.</p>
+     *
+     * <p>لذلك {@code handOff} <b>ليست نجاحاً</b>. من يستدعي يسأل {@link #needsHandOff()}
+     * أولاً؛ ومن نسي يجد سبب فشل مكتوباً يقول إن المحادثة لم تُفتح، لا {@code null}.</p>
+     *
+     * @param success       تمّ الإرسال فعلاً بلا تدخّل أحد
+     * @param failureReason سبب الفشل، أو سبب "لم تُفتح بعد" في حالة التسليم اليدوي
+     * @param link          الرابط الذي على الواجهة فتحه، أو {@code null}
+     */
+    record SendResult(boolean success, String failureReason, String link) {
         public static SendResult ok() {
-            return new SendResult(true, null);
+            return new SendResult(true, null, null);
         }
 
         public static SendResult failed(String reason) {
-            return new SendResult(false, reason);
+            return new SendResult(false, reason, null);
+        }
+
+        /** لا شيء أُرسل: الرابط جاهز وعلى الواجهة فتحه، ثم تسجيل ما حدث */
+        public static SendResult handOff(String link) {
+            return new SendResult(false, I18n.get("error.notification.linkNotOpened"), link);
+        }
+
+        public boolean needsHandOff() {
+            return link != null;
         }
     }
 }
