@@ -467,6 +467,43 @@ language, and `WebMessageKeysTest` fails the build for a key the bundle does not
 that does not carry the `web.` prefix the endpoint serves, and for either in this module's Java —
 translation never fails at compile time, it shows `!some.key!` at the customer.
 
+**The platform has its own surface, and its own kind of identity.** `TenantProvisioning` could
+open a centre from Java and from nowhere else, which is the difference between "works" and "can
+be used". `/api/platform` now exposes opening a centre, listing them and suspending one — and
+whoever calls it is **not a user of any centre**: they are the operator who creates them, so no
+row in any `users` table describes them and no centre session carries them. Their credential is
+`CENTER_PLATFORM_TOKEN` from the environment, compared with `MessageDigest.isEqual` because the
+timing of a `String.equals` is measurable and this one token opens every centre.
+
+**Absence of that token denies rather than allows.** A deployment that forgot the variable opens
+no centre for anybody, instead of opening them for everybody — the second is a door nobody knows
+is open, because everything looks like it works.
+
+The guard is a **filter over the path**, not a check inside each method: a check written in a
+method is one the author of the next method forgets, and the new endpoint is world-readable with
+nothing saying so. Exactly one hole is deliberate — redeeming an invite, because the person doing
+it holds no operator token and has no account yet; the 160-bit code *is* their credential, and
+asking for a second one would mean handing the platform's own token to every customer.
+
+`/api/platform/**` is also exempt from CSRF, and that is not a relaxation. CSRF exists because a
+cookie rides along automatically whoever started the request. A bearer token written into a header
+by the caller, and an invite code in a body, are not ambient — there is no authority to forge.
+
+**Sign-in has a third barrier now, and it is one the service cannot see.** `AuthService` locks an
+account after five failures, which stops many passwords against one account. It does nothing
+against the opposite: one common password against a thousand different usernames, where no account
+ever reaches five. That attack is only visible where the requests are known to share a source, so
+`EdgeThrottle` keys `LoginThrottle` on the client address — the item Phase 3 deferred with
+"keying on the address belongs at the edge that has one".
+
+Its limit is **thirty, deliberately far above the account's five**, for two reasons. Five from one
+address is a clerk who mistyped and then their colleague. And behind a reverse proxy configured
+without `server.forward-headers-strategy` every request appears to come from the proxy, so a tight
+limit would let one attacker lock out a whole centre — a generous one turns that misconfiguration
+into "locks rarely" instead of "locks everyone". `X-Forwarded-For` is never read by hand: a header
+the caller writes turns evading the throttle into editing one line, and lets somebody lock another
+person's address. The framework reads it, when the deployment says a proxy it owns is in front.
+
 Three smaller decisions that are easy to undo by accident:
 
 - **`open-in-view` is off.** The default keeps a Hibernate session open for the whole request, so
@@ -1661,7 +1698,7 @@ Add coverage when touching any of those. `@DataJpaTest` needs `@Import(SecurityC
 because the boot class is itself a bean injecting `PasswordEncoder`.
 
 **A test lives in the module that holds its subject**, which is why the suite is split
-86 / 263 / 52 / 29 — core, app, desktop, web.
+88 / 263 / 52 / 43 — core, app, desktop, web.
 Two classes in `center-app`'s test tree exist only because it is a library and not a program:
 
 - `AppTestApplication` — `@DataJpaTest` searches *upward* for a `@SpringBootConfiguration` to

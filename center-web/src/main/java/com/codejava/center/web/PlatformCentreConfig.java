@@ -43,6 +43,18 @@ public class PlatformCentreConfig {
     }
 
     /**
+     * حارسُ سطح المنصة.
+     *
+     * <p>هنا لا في {@code WebSecurityConfig}: بلا تعدّد مؤسسات لا سطح منصة أصلاً - ولا
+     * {@code TenantProvisioning} يُستدعى - فالشرط على التهيئة أصدق من شرطٍ داخل
+     * الفلتر.</p>
+     */
+    @Bean
+    public PlatformOperatorFilter platformOperatorFilter(PlatformOperator operator) {
+        return new PlatformOperatorFilter(operator);
+    }
+
+    /**
      * يربط كل طلب بقاعدة مؤسسته.
      *
      * <p>يُسجَّل هنا لا في {@code WebSecurityConfig}: بلا {@link ServerTenantContext}

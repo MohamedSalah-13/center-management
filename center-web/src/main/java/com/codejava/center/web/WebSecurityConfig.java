@@ -62,7 +62,8 @@ public class WebSecurityConfig {
     @Bean
     public SecurityFilterChain apiFilterChain(HttpSecurity http,
                                               SecurityContextRepository contexts,
-                                              ObjectProvider<TenantBindingFilter> tenantBinding)
+                                              ObjectProvider<TenantBindingFilter> tenantBinding,
+                                              ObjectProvider<PlatformOperatorFilter> platformGuard)
             throws Exception {
 
         CsrfTokenRequestAttributeHandler csrf = new CsrfTokenRequestAttributeHandler();
@@ -71,13 +72,21 @@ public class WebSecurityConfig {
                 .securityContext(context -> context.securityContextRepository(contexts))
                 .csrf(protection -> protection
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                        .csrfTokenRequestHandler(csrf))
+                        .csrfTokenRequestHandler(csrf)
+                        // سطح المنصة معفى، وليس ذلك تساهلاً: الحماية من CSRF وُجدت لأن
+                        // الكوكي يُرسَل تلقائياً مع كل طلب إلى نطاقنا أياً كان من بدأه.
+                        // ولا شيء تلقائيّ هنا - رمزُ المشغّل يُكتب في ترويسة بيد من
+                        // يطلب، ورمزُ الدعوة في جسم الطلب - فلا سلطةَ عابرة تُزوَّر
+                        .ignoringRequestMatchers("/api/platform/**"))
                 .authorizeHttpRequests(requests -> requests
                         // الواجهة الساكنة وشاشة الدخول: لا تسأل القاعدة عن شيء
                         .requestMatchers("/", "/index.html", "/app.js", "/style.css",
                                 "/favicon.ico").permitAll()
                         // كلمات الشاشة تسبق الجلسة: شاشة الدخول نفسها تحتاجها
                         .requestMatchers("/api/messages").permitAll()
+                        // سطح المنصة لا يُحرس بجلسة سنتر - مشغّل المنصة ليس في أيّ
+                        // سنتر. يحرسه PlatformOperatorFilter برمزه، وهو يعمل قبل هذا
+                        .requestMatchers("/api/platform/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/session")
                         .permitAll()
                         .anyRequest().authenticated())
@@ -101,6 +110,9 @@ public class WebSecurityConfig {
         // المؤسسة، وبعد فلتر التصريح يكون المتحكّم قد بدأ عمله خارج أيّ نطاق
         tenantBinding.ifAvailable(filter ->
                 http.addFilterAfter(filter, SecurityContextHolderFilter.class));
+
+        // قبل فلتر التصريح: الرفض هنا يجب أن يقع قبل أن يُسأل عن جلسةٍ لا وجود لها
+        platformGuard.ifAvailable(filter -> http.addFilterBefore(filter, CsrfFilter.class));
 
         return http.build();
     }
@@ -127,8 +139,9 @@ public class WebSecurityConfig {
         write(response, HttpStatus.UNAUTHORIZED, I18n.get("error.access.noSession"));
     }
 
-    private static void write(jakarta.servlet.http.HttpServletResponse response,
-                              HttpStatus status, String message) {
+    /** شكلُ الرفض، مكتوبٌ مرة: يقرؤه العميل نفسه سواء جاء من هنا أو من حارس المنصة */
+    static void write(jakarta.servlet.http.HttpServletResponse response,
+                      HttpStatus status, String message) {
         response.setStatus(status.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
