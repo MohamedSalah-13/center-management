@@ -2,6 +2,7 @@ package com.codejava.center.service;
 
 import com.codejava.center.config.SecurityConfig;
 import com.codejava.center.domain.User;
+import com.codejava.center.service.dto.UserDraft;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.repository.UserRepository;
 import com.codejava.center.TestActor;
@@ -153,7 +154,7 @@ class UserServiceTest {
                 .build());
     }
 
-    private User request(Long id, String username, Role role) {
-        return User.builder().id(id).username(username).role(role).build();
+    private UserDraft request(Long id, String username, Role role) {
+        return new UserDraft(id, username, role);
     }
 }

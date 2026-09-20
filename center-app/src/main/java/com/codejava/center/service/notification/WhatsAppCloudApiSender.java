@@ -47,7 +47,9 @@ public class WhatsAppCloudApiSender implements ChannelSender {
         if (!config.hasToken()) {
             return Optional.of(I18n.get("error.notification.tokenMissing"));
         }
-        return Optional.empty();
+        // العنوان الافتراضي عنوان Meta، لكن الشاشة تسمح بتبديله لمن يمرّ بوسيط -
+        // ونصٌّ حرّ يُفتح من داخل الشبكة حاملاً الرمز هو ما يُفحص هنا
+        return Endpoints.problemWith(endpoint(config));
     }
 
     @Override
@@ -57,7 +59,8 @@ public class WhatsAppCloudApiSender implements ChannelSender {
         headers.put("Content-Type", "application/json; charset=utf-8");
 
         try {
-            HttpPoster.Response response = httpPoster.post(endpoint(config), headers, body(config, internationalPhone, message));
+            HttpPoster.Response response = httpPoster.post(Endpoints.require(endpoint(config)),
+                    headers, body(config, internationalPhone, message));
             if (response.isSuccess()) {
                 return MessageSender.SendResult.ok();
             }

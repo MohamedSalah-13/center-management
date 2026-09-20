@@ -3,6 +3,8 @@ package com.codejava.center.service;
 import com.codejava.center.domain.CenterSettings;
 import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.repository.CenterSettingsRepository;
+import com.codejava.center.domain.enums.Role;
+import com.codejava.center.security.RequiresRole;
 import com.codejava.center.util.I18n;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -48,6 +50,9 @@ public class SettingsService {
      * يسمح بإنشاء صفوف إعدادات متعددة لا يقرأ النظام إلا أولها.
      */
     @Transactional
+    // إعدادات السنتر وحدها تُعيد تعريف كل الأرصدة: ledgerStartDate يقرّر أيّ
+    // الحركات تُحتسب أصلاً، فتبديله يغيّر رصيد كل طالب بلا أن يمسّ صفّاً واحداً
+    @RequiresRole(Role.ADMIN)
     public CenterSettings save(CenterSettings settings) {
         settings.setId(SETTINGS_ID);
         CenterSettings saved = centerSettingsRepository.save(settings);

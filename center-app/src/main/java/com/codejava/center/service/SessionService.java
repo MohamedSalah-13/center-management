@@ -4,6 +4,8 @@ import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Session;
 import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.repository.SessionRepository;
+import com.codejava.center.domain.enums.Role;
+import com.codejava.center.security.RequiresRole;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.PersistenceErrors;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +35,7 @@ public class SessionService {
      * </ul>
      */
     @Transactional
+    @RequiresRole({Role.ADMIN, Role.SECRETARY})
     public Session openSession(CourseGroup group, LocalDate date) {
         LocalDate sessionDate = date != null ? date : LocalDate.now();
 
@@ -82,6 +85,7 @@ public class SessionService {
      * لأن أكثر من حصة قد تكون مفتوحة في نفس اللحظة.
      */
     @Transactional
+    @RequiresRole({Role.ADMIN, Role.SECRETARY})
     public void closeSession(Long sessionId) {
         Session session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException(I18n.get("error.session.notFound")));

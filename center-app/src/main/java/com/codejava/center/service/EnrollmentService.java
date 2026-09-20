@@ -8,6 +8,8 @@ import com.codejava.center.domain.enums.SchoolLevel;
 import com.codejava.center.repository.StudentGroupRepository;
 import com.codejava.center.repository.CourseGroupRepository;
 import com.codejava.center.service.dto.MembershipRow;
+import com.codejava.center.domain.enums.Role;
+import com.codejava.center.security.RequiresRole;
 import com.codejava.center.util.I18n;
 import com.codejava.center.util.PersistenceErrors;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +35,7 @@ public class EnrollmentService {
     private final AuditService auditService;
 
     @Transactional
+    @RequiresRole({Role.ADMIN, Role.SECRETARY})
     public StudentGroup subscribe(Student student, CourseGroup group) {
         // قفل المجموعة يجعل فحص السعة والحفظ قراراً متسلسلاً بين كل أجهزة السنتر.
         CourseGroup lockedGroup = courseGroupRepository.findByIdForEnrollment(group.getId())
@@ -114,6 +117,7 @@ public class EnrollmentService {
      * حصصه تُحسب على مدة المجموعة كلها. وهي أيضاً جواب "منذ متى لم يعد يأتي؟".</p>
      */
     @Transactional
+    @RequiresRole({Role.ADMIN, Role.SECRETARY})
     public StudentGroup unsubscribe(Long studentId, Long groupId) {
         StudentGroup membership = studentGroupRepository.findMembership(studentId, groupId)
                 .filter(StudentGroup::isActive)
