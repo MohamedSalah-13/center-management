@@ -1,6 +1,7 @@
 package com.codejava.center.service;
 
 import com.codejava.center.config.SecurityConfig;
+import com.codejava.center.config.TimeConfig;
 import com.codejava.center.domain.Attendance;
 import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Session;
@@ -48,7 +49,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 @DataJpaTest
 @Import({AttendanceService.class, TransactionService.class, SettingsService.class,
-        AuditService.class, UserSession.class, SecurityConfig.class})
+        AuditService.class, UserSession.class, SecurityConfig.class, TimeConfig.class})
 class AttendanceCheckOutTest {
 
     @Autowired private AttendanceService attendanceService;

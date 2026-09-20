@@ -23,8 +23,10 @@ import com.codejava.center.util.PersistenceErrors;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 @Service
@@ -35,6 +37,12 @@ public class TransactionService {
     private final SettingsService settingsService;
     private final AuditService auditService;
     private final org.springframework.context.ApplicationEventPublisher eventPublisher;
+
+    /**
+     * ساعة البرنامج. "اليوم" هنا ليس ختماً زمنياً بل حدّاً يُقارَن به: صافي الدرج يُحسب
+     * بين حدّي اليوم، ومخطط لوحة القيادة بين اليوم وقبل ثلاثين. راجع {@code config/TimeConfig}.
+     */
+    private final Clock clock;
 
     /**
      * تسجيل دفع اشتراك طالب مخصص لحصة معينة (لتجنب الدفع المزدوج للحصة)
@@ -56,7 +64,7 @@ public class TransactionService {
                 .type(TransactionType.INCOME)
                 .amount(MoneyUtils.normalize(amount))
                 .description(description)
-                .transactionDate(LocalDateTime.now())
+                .transactionDate(LocalDateTime.now(clock))
                 .student(student)
                 .group(group)
                 .session(session) // ربط الحصة بالحركة المالية
@@ -108,7 +116,7 @@ public class TransactionService {
                 .type(TransactionType.EXPENSE)
                 .amount(MoneyUtils.normalize(amount))
                 .description(description)
-                .transactionDate(LocalDateTime.now())
+                .transactionDate(LocalDateTime.now(clock))
                 .build();
 
         Transaction saved = transactionRepository.save(transaction);
@@ -125,8 +133,10 @@ public class TransactionService {
     @Transactional(readOnly = true)
     @RequiresRole(Role.ADMIN)
     public BigDecimal calculateTodayNetBalance() {
-        LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
-        LocalDateTime endOfDay = LocalDate.now().atTime(23, 59, 59);
+        LocalDateTime startOfDay = LocalDate.now(clock).atStartOfDay();
+        // آخر لحظة في اليوم لا آخر ثانية: العمود datetime(6)، فحدٌّ عند 23:59:59 يترك
+        // دفعةً حصلت في 23:59:59.4 خارج جرد الدرج - والرقم يُطابَق بالنقد في الدرج
+        LocalDateTime endOfDay = LocalDate.now(clock).atTime(LocalTime.MAX);
 
         BigDecimal totalIncome = transactionRepository.sumAmountByTypeAndDateRange(TransactionType.INCOME, startOfDay, endOfDay);
         BigDecimal totalExpense = transactionRepository.sumAmountByTypeAndDateRange(TransactionType.EXPENSE, startOfDay, endOfDay);
@@ -160,7 +170,7 @@ public class TransactionService {
                 .type(TransactionType.TEACHER_PAYOUT) // تحديد نوع الحركة كـ صرف مستحقات
                 .amount(MoneyUtils.normalize(payoutAmount))
                 .description(description)
-                .transactionDate(LocalDateTime.now()) // تسجيل وقت الصرف اللحظي
+                .transactionDate(LocalDateTime.now(clock)) // تسجيل وقت الصرف اللحظي
                 .build();
 
         // 3. حفظ الحركة في قاعدة البيانات
@@ -246,7 +256,7 @@ public class TransactionService {
                 .amount(MoneyUtils.normalize(amount))
                 .description(I18n.format("transaction.sessionChargeDescription",
                         group.getName(), session.getSessionDate()))
-                .transactionDate(LocalDateTime.now())
+                .transactionDate(LocalDateTime.now(clock))
                 .student(student)
                 .group(group)
                 .session(session)
@@ -270,8 +280,8 @@ public class TransactionService {
     @Transactional(readOnly = true)
     @RequiresRole(Role.ADMIN)
     public List<GroupRevenue> getRevenueByGroupLast30Days() {
-        LocalDateTime start = LocalDate.now().minusDays(30).atStartOfDay();
-        LocalDateTime end = LocalDate.now().plusDays(1).atStartOfDay();
+        LocalDateTime start = LocalDate.now(clock).minusDays(30).atStartOfDay();
+        LocalDateTime end = LocalDate.now(clock).plusDays(1).atStartOfDay();
         return transactionRepository.sumIncomeByGroup(start, end);
     }
 

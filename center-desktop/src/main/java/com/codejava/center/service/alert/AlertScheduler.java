@@ -15,6 +15,7 @@ import org.springframework.scheduling.Trigger;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -59,6 +60,9 @@ public class AlertScheduler {
     private final SettingsService settingsService;
     private final AlertEngine alertEngine;
 
+    /** ساعة البرنامج: "هل فات موعد الفحص" سؤالٌ لا يُختبر بغير تحريك الوقت */
+    private final Clock clock;
+
     private ScheduledFuture<?> scheduled;
     private ScheduledFuture<?> frequent;
 
@@ -90,7 +94,7 @@ public class AlertScheduler {
         // تبدأ بعد ربع ساعة، يصل بعد ساعتين من تشغيل البرنامج، خبرٌ لا تنبيه - وأسوأ من
         // الصمت لأنه يُقرأ على أنه الآن
         frequent = taskScheduler.scheduleWithFixedDelay(this::runFrequentScan,
-                Instant.now().plus(FREQUENT_INTERVAL), FREQUENT_INTERVAL);
+                clock.instant().plus(FREQUENT_INTERVAL), FREQUENT_INTERVAL);
 
         log.info("فحص التنبيهات التلقائي مجدول: {}", AlertSchedules.describe(schedule));
     }
@@ -114,9 +118,9 @@ public class AlertScheduler {
      */
     private Trigger trigger(AlertSchedule schedule, LocalDateTime lastRun) {
         return context -> {
-            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime now = LocalDateTime.now(clock);
             if (context.lastCompletion() == null && schedule.isOverdue(lastRun, now)) {
-                return Instant.now().plus(CATCH_UP_DELAY);
+                return clock.instant().plus(CATCH_UP_DELAY);
             }
             return schedule.nextRunAfter(now).atZone(ZoneId.systemDefault()).toInstant();
         };
@@ -153,7 +157,7 @@ public class AlertScheduler {
 
         try {
             AlertScanResult result = alertEngine.scanAll();
-            settingsService.recordAlertScanAt(LocalDateTime.now());
+            settingsService.recordAlertScanAt(LocalDateTime.now(clock));
 
             log.info("اكتمل فحص التنبيهات: {} تنبيهاً، {} رسالة، {} فشل",
                     result.raised(), result.messaged(), result.failures().size());
