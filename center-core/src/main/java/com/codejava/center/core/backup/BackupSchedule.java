@@ -1,14 +1,9 @@
-package com.codejava.center.service;
-
-import com.codejava.center.domain.CenterSettings;
-import com.codejava.center.domain.enums.BackupFrequency;
-import com.codejava.center.util.I18n;
+package com.codejava.center.core.backup;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.format.TextStyle;
 
 /**
  * موعد النسخة الاحتياطية التلقائية القادمة.
@@ -17,9 +12,13 @@ import java.time.format.TextStyle;
  * الحساب الذي إن أخطأ لم تُؤخذ نسخة لأشهر دون أن ينتبه أحد، و{@code BackupScheduleTest}
  * يغطّيه بلا سياق تطبيق ولا قاعدة بيانات.</p>
  *
- * <p>القيم الناقصة في الإعدادات تُملأ بافتراضات معقولة بدل رفضها: قاعدة بيانات رُقّيت من
- * نسخة أقدم لا تحمل أياً من الأعمدة الجديدة، ويجب أن تستمر في أخذ نسختها اليومية الثانية
- * صباحاً كما كانت قبل الترقية.</p>
+ * <p>القيم الناقصة تُملأ بافتراضات معقولة بدل رفضها: قاعدة بيانات رُقّيت من نسخة أقدم لا
+ * تحمل أياً من الأعمدة الجديدة، ويجب أن تستمر في أخذ نسختها اليومية الثانية صباحاً كما
+ * كانت قبل الترقية. ولذلك يأخذ {@link #of} قيماً تقبل {@code null}.</p>
+ *
+ * <p>ولا وصفَ نصّياً هنا: "يومياً الساعة 02:00" جملةٌ بلغة من يقرؤها، والنواة لا تعرف
+ * حزمة نصوص. راجع {@code service/BackupSchedules} على جهة التطبيق - هناك تُقرأ إعدادات
+ * السنتر وتُكتب الجملة.</p>
  *
  * @param dayOfWeek  يوم الأسبوع للتكرار الأسبوعي (1 = الاثنين … 7 = الأحد)
  * @param dayOfMonth يوم الشهر للتكرار الشهري؛ يُقصَر على آخر يوم في الأشهر الأقصر
@@ -36,12 +35,18 @@ public record BackupSchedule(BackupFrequency frequency, LocalTime time, int dayO
 
     public static final int DEFAULT_DAY_OF_MONTH = 1;
 
-    public static BackupSchedule from(CenterSettings settings) {
+    /**
+     * موعد من قيم قد تكون ناقصة أو خارج المدى.
+     *
+     * <p>القصر لا الرفض: يوم 40 من الشهر في صفٍّ قديم لا يصحّ أن يعني "لا نسخة أبداً".</p>
+     */
+    public static BackupSchedule of(BackupFrequency frequency, LocalTime time,
+                                    Integer dayOfWeek, Integer dayOfMonth) {
         return new BackupSchedule(
-                orDefault(settings.getBackupFrequency(), DEFAULT_FREQUENCY),
-                orDefault(settings.getBackupTime(), DEFAULT_TIME),
-                clamp(settings.getBackupDayOfWeek(), 1, 7, DEFAULT_DAY_OF_WEEK),
-                clamp(settings.getBackupDayOfMonth(), 1, 31, DEFAULT_DAY_OF_MONTH));
+                orDefault(frequency, DEFAULT_FREQUENCY),
+                orDefault(time, DEFAULT_TIME),
+                clamp(dayOfWeek, 1, 7, DEFAULT_DAY_OF_WEEK),
+                clamp(dayOfMonth, 1, 31, DEFAULT_DAY_OF_MONTH));
     }
 
     /**
@@ -80,19 +85,9 @@ public record BackupSchedule(BackupFrequency frequency, LocalTime time, int dayO
         return lastRun == null || !nextRunAfter(lastRun).isAfter(now);
     }
 
-    /** وصف الموعد بلغة الواجهة، لعرضه في شاشة الإعدادات */
-    public String describe() {
-        String clock = String.format("%02d:%02d", time.getHour(), time.getMinute());
-        return switch (frequency) {
-            case DAILY -> I18n.format("settings.scheduleDaily", clock);
-            case WEEKLY -> I18n.format("settings.scheduleWeekly", dayOfWeekName(dayOfWeek), clock);
-            case MONTHLY -> I18n.format("settings.scheduleMonthly", dayOfMonth, clock);
-        };
-    }
-
-    /** اسم يوم الأسبوع بلغة الواجهة، مصدره {@link DayOfWeek} لا قائمة مكتوبة في الكود */
-    public static String dayOfWeekName(int value) {
-        return DayOfWeek.of(value).getDisplayName(TextStyle.FULL, I18n.current());
+    /** الساعة والدقيقة بصيغة 24، وهي جزء من كل وصف للموعد */
+    public String clock() {
+        return String.format("%02d:%02d", time.getHour(), time.getMinute());
     }
 
     /**

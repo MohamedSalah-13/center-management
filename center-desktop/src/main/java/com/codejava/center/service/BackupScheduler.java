@@ -1,5 +1,7 @@
 package com.codejava.center.service;
 
+import com.codejava.center.core.backup.BackupSchedule;
+
 import com.codejava.center.domain.CenterSettings;
 import com.codejava.center.domain.enums.AlertType;
 import com.codejava.center.service.alert.AlertDraft;
@@ -86,11 +88,11 @@ public class BackupScheduler {
             return;
         }
 
-        BackupSchedule schedule = BackupSchedule.from(settings);
+        BackupSchedule schedule = BackupSchedules.from(settings);
         LocalDateTime lastRun = settings.getLastAutoBackupAt();
 
         scheduled = taskScheduler.schedule(this::runBackup, trigger(schedule, lastRun));
-        log.info("النسخ الاحتياطي التلقائي مجدول: {}", schedule.describe());
+        log.info("النسخ الاحتياطي التلقائي مجدول: {}", BackupSchedules.describe(schedule));
     }
 
     public synchronized void cancel() {

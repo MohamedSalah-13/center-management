@@ -1,5 +1,7 @@
 package com.codejava.center.service.alert;
 
+import com.codejava.center.core.alert.AlertSchedule;
+
 import com.codejava.center.domain.CenterSettings;
 import com.codejava.center.service.SettingsChangedEvent;
 import com.codejava.center.service.SettingsService;
@@ -80,7 +82,7 @@ public class AlertScheduler {
             return;
         }
 
-        AlertSchedule schedule = AlertSchedule.from(settings);
+        AlertSchedule schedule = AlertSchedules.from(settings);
         scheduled = taskScheduler.schedule(this::runScan,
                 trigger(schedule, settings.getLastAlertScanAt()));
 
@@ -90,7 +92,7 @@ public class AlertScheduler {
         frequent = taskScheduler.scheduleWithFixedDelay(this::runFrequentScan,
                 Instant.now().plus(FREQUENT_INTERVAL), FREQUENT_INTERVAL);
 
-        log.info("فحص التنبيهات التلقائي مجدول: {}", schedule.describe());
+        log.info("فحص التنبيهات التلقائي مجدول: {}", AlertSchedules.describe(schedule));
     }
 
     public synchronized void cancel() {

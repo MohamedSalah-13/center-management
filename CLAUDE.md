@@ -61,7 +61,8 @@ system:
   delivers it) that both the desktop app and a future SaaS server implement each in its own way
   — a JavaFX session, the Windows registry, an attached printer, the JavaFX thread and this
   machine's own database on one side; an HTTP request, a secret vault, no printer at all, an SSE
-  stream and one tenant's schema on the other.
+  stream and one tenant's schema on the other. Beside the contracts it holds the **pure
+  decisions** (see below) with their tests — the calculations that are wrong silently.
 - `center-desktop` — everything else for now: the JavaFX app *and* the whole business layer
   (`domain/`, `repository/`, `service/`). The plan (`docs/saas-review-and-plan.md`) is to carve
   the business layer out into a `center-app` module with no JavaFX dependency; until then the
@@ -109,9 +110,29 @@ name is translated at the one screen that shows it (`Printing.printTestPage`), g
 not just the shape: a passphrase kept inside the database it protects ships inside every backup
 and is lost with the very disk the backups exist for.
 
-A pure decision (`BackupSchedule`, `BackupRetention`, `GroupSchedule`, `AlertSchedule`,
-`PhoneNumbers`, `PasswordPolicy`) belongs in `center-core` with its test, once it stops
-importing `I18n`; the same JavaFX-free discipline `Printing.pageBreaks` already follows.
+**A pure decision belongs in `center-core` with its test, and the ones that were listed as
+debts now live there**: `BackupSchedule` + `BackupFrequency`, `BackupRetention`,
+`GroupSchedule`, `AlertSchedule`, `PhoneNumbers` + `PhoneCountry`, `PasswordPolicy`, and the
+arithmetic half of money as `Money`. Each is a calculation whose failure is silent — no backup
+taken for months, a teacher double-booked, a parent's number refused, old files never deleted —
+and each is now tested without a Spring context, a database or a toolkit. `Printing.pageBreaks`
+already followed the same discipline.
+
+Every one of them left something behind, and always the same thing: **the wording.** The core
+does not know a language, so a class that needs one keeps a thin app-side partner, named in the
+plural and holding exactly what the core cannot say —
+
+| Core (the decision) | App side (the wording, and the entity) |
+| --- | --- |
+| `BackupSchedule.of(...)`, `nextRunAfter`, `isOverdue` | `service/BackupSchedules` — reads `CenterSettings`, writes "daily at 02:00" |
+| `AlertSchedule.of(...)` | `service/alert/AlertSchedules` |
+| `GroupSchedule.conflicts(days, times…)` | `service/GroupSchedules` — takes `CourseGroup`, composes the name, orders days Saturday-first |
+| `PasswordPolicy.check` → `Violation` | `util/Passwords` — throws the translated message |
+| `Money.normalize/format` | `util/MoneyUtils` — adds the centre's currency and its symbol |
+
+The rule generalises: **the core decides, the edge words it.** A `getDisplayName()` on a core
+enum is the same mistake in miniature, which is why `BackupFrequency` and `DocumentKind` lost
+theirs on the way in.
 
 ### Spring Boot + JavaFX wiring
 
@@ -616,8 +637,8 @@ one place that both the screen and the service read, exactly like `BackupSchedul
 a missing schedule. **Zero still means keep everything** — it is an explicit choice, and
 collapsing it with "not set" is what hid the bug.
 
-`BackupRetention` is pure — no Spring, no filesystem — for the reason `BackupSchedule` and
-`Printing.pageBreaks` are: it is the decision that deletes files, and it is wrong in two
+`BackupRetention` is pure and lives in `center-core` — no Spring, no filesystem — for the reason
+`BackupSchedule` and `Printing.pageBreaks` are: it is the decision that deletes files, and it is wrong in two
 directions that are both invisible until the day a backup is wanted. It sorts **by filename,
 never by modification time**: the name carries the timestamp and survives copying the folder,
 while `mtime` makes a year-old backup restored onto a new disk look like the newest thing
@@ -941,7 +962,8 @@ Adding a currency is a constant in `Currency` plus `currency.<NAME>` and
 `currency.<NAME>.symbol` in both bundles. No migration: the column is deliberately
 `varchar` rather than the `enum` the schema generator produces for every other constant,
 so a new currency is never a database change. Two decimal places are not negotiable per
-currency, though — `SCALE` is the shape of every `DECIMAL(12,2)` column, so a three-decimal
+currency, though — `Money.SCALE` (`center-core`) is the shape of every `DECIMAL(12,2)` column,
+so a three-decimal
 currency (dinar) or a zero-decimal one (yen) is a migration over the whole schema, not a
 line in the enum.
 

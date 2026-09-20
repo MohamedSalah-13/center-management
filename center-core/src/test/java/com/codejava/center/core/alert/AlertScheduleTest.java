@@ -1,7 +1,5 @@
-package com.codejava.center.service;
+package com.codejava.center.core.alert;
 
-import com.codejava.center.domain.CenterSettings;
-import com.codejava.center.service.alert.AlertSchedule;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -79,16 +77,12 @@ class AlertScheduleTest {
      * الافتراضي بدل أن ترمي {@code NullPointerException} في خيط المجدوِل حيث لا يراها أحد.
      */
     @Test
-    void settingsWithoutAScanTimeFallBackToTheDefault() {
-        AlertSchedule schedule = AlertSchedule.from(CenterSettings.builder().build());
-
-        assertThat(schedule.time()).isEqualTo(AlertSchedule.DEFAULT_TIME);
+    void aMissingScanTimeFallsBackToTheDefault() {
+        assertThat(AlertSchedule.of(null).time()).isEqualTo(AlertSchedule.DEFAULT_TIME);
     }
 
     @Test
-    void settingsWithAScanTimeUseIt() {
-        CenterSettings settings = CenterSettings.builder().alertScanTime(LocalTime.of(21, 30)).build();
-
-        assertThat(AlertSchedule.from(settings).time()).isEqualTo(LocalTime.of(21, 30));
+    void aConfiguredScanTimeIsUsed() {
+        assertThat(AlertSchedule.of(LocalTime.of(21, 30)).time()).isEqualTo(LocalTime.of(21, 30));
     }
 }

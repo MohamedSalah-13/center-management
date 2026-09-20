@@ -8,7 +8,7 @@ import com.codejava.center.domain.enums.Role;
 import com.codejava.center.repository.UserRepository;
 import com.codejava.center.security.RequiresRole;
 import com.codejava.center.util.I18n;
-import com.codejava.center.util.PasswordPolicy;
+import com.codejava.center.util.Passwords;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -57,8 +57,8 @@ public class UserService {
             throw new IllegalArgumentException(I18n.get("error.user.passwordRequired"));
         }
         if (passwordChanged) {
-            PasswordPolicy.validate(rawPassword);
-            PasswordPolicy.requireConfirmation(rawPassword, passwordConfirmation);
+            Passwords.validate(rawPassword);
+            Passwords.requireConfirmation(rawPassword, passwordConfirmation);
             target.setPassword(passwordEncoder.encode(rawPassword));
         }
 

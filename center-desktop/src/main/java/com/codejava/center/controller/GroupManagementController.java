@@ -5,7 +5,7 @@ import com.codejava.center.domain.Teacher;
 import com.codejava.center.domain.enums.SchoolLevel;
 import com.codejava.center.service.CourseGroupService;
 import com.codejava.center.service.EnrollmentService;
-import com.codejava.center.service.GroupSchedule;
+import com.codejava.center.service.GroupSchedules;
 import com.codejava.center.service.ReportService;
 import com.codejava.center.service.TeacherService;
 import com.codejava.center.service.dto.MembershipRow;
@@ -407,7 +407,7 @@ public class GroupManagementController {
             target.setAutoName(!customNameCheck.isSelected());
             target.setName(customNameCheck.isSelected()
                     ? groupNameField.getText().trim()
-                    : GroupSchedule.compose(target));
+                    : GroupSchedules.compose(target));
             return target;
         } catch (NumberFormatException e) {
             Dialogs.error(I18n.get("common.numberError"), I18n.get("group.numbersInvalid"));
@@ -462,7 +462,7 @@ public class GroupManagementController {
             return;
         }
 
-        groupNameField.setText(GroupSchedule.compose(level,
+        groupNameField.setText(GroupSchedules.compose(level,
                 teacher == null ? null : teacher.getName(),
                 days,
                 readTime(startHourSpinner, startMinuteSpinner)));

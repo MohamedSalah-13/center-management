@@ -91,10 +91,10 @@ public class CourseGroupService {
             if (other.getId().equals(group.getId())) {
                 continue;
             }
-            if (GroupSchedule.conflicts(group, other)) {
+            if (GroupSchedules.conflicts(group, other)) {
                 throw new IllegalStateException(I18n.format("error.group.teacherBusy",
                         group.getTeacher().getName(),
-                        WeekDays.describe(GroupSchedule.sharedDays(group, other)),
+                        WeekDays.describe(GroupSchedules.sharedDays(group, other)),
                         WeekDays.describeRange(other.getStartTime(), other.getEndTime()),
                         other.getName()));
             }
@@ -107,7 +107,7 @@ public class CourseGroupService {
      */
     private void applyName(CourseGroup group) {
         if (group.isAutoName()) {
-            group.setName(GroupSchedule.compose(group));
+            group.setName(GroupSchedules.compose(group));
             return;
         }
         if (group.getName() == null || group.getName().isBlank()) {

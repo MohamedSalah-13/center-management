@@ -5,7 +5,7 @@ import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.repository.UserRepository;
 import com.codejava.center.util.I18n;
-import com.codejava.center.util.PasswordPolicy;
+import com.codejava.center.util.Passwords;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -63,7 +63,7 @@ public class InitialSetupService {
         if (password == null || password.isBlank()) {
             throw new IllegalArgumentException(I18n.get("setup.error.passwordRequired"));
         }
-        PasswordPolicy.validate(password);
-        PasswordPolicy.requireConfirmation(password, confirmation);
+        Passwords.validate(password);
+        Passwords.requireConfirmation(password, confirmation);
     }
 }

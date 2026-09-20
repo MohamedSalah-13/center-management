@@ -1,6 +1,6 @@
 package com.codejava.center.domain;
 
-import com.codejava.center.domain.enums.BackupFrequency;
+import com.codejava.center.core.backup.BackupFrequency;
 import com.codejava.center.domain.enums.Currency;
 import com.codejava.center.domain.enums.NotificationChannel;
 import jakarta.persistence.Column;
