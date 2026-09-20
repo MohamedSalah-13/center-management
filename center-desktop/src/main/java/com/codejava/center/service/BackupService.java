@@ -1,16 +1,15 @@
 package com.codejava.center.service;
 
+import com.codejava.center.core.backup.BackupTarget;
 import com.codejava.center.core.secret.BackupSecretStore;
 import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.security.RequiresRole;
 import com.codejava.center.util.BackupCrypto;
 import com.codejava.center.util.I18n;
-import com.codejava.center.util.MySqlLocator;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
@@ -46,6 +45,12 @@ import java.util.stream.Stream;
  * <p>مخرجات {@code mysqldump} تُقرأ من التيار ولا تُكتب بـ {@code -r}: هكذا يمكن تمريرها
  * على التشفير قبل أن تلمس القرص، فلا توجد لحظة يكون فيها ملف صريح بكل بيانات السنتر
  * على الجهاز. راجع {@link BackupCrypto}.</p>
+ *
+ * <p><b>وهي لا تعرف أيّ قاعدة تنسخ ولا أين الأدوات.</b> كانت تقرأ رابط JDBC الخاص
+ * بالتطبيق وتحلّله بنفسها، وتفحص مجلدات تركيب ويندوز بحثاً عن {@code mysqldump} — أي
+ * أنها تفترض أن قاعدتها هي قاعدة البرنامج الذي تعمل فيه، وأن خلفها قرصاً بمجلد
+ * {@code Program Files}. الاثنان يصلان الآن من {@link BackupTarget}: Desktop يشتقّهما من
+ * رابطه ومن {@code MySqlLocator}، والخادم من صفّ المؤسسة.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -84,24 +89,13 @@ public class BackupService {
      */
     private final BackupSecretStore backupSecrets;
 
-    // بيانات الاتصال تُقرأ من الإعدادات (متغيرات البيئة) بدلاً من كتابتها داخل الكود
-    @Value("${spring.datasource.username}")
-    private String dbUsername;
-
-    @Value("${spring.datasource.password}")
-    private String dbPassword;
-
-    @Value("${spring.datasource.url}")
-    private String dbUrl;
-
     /**
-     * مجلد أدوات MySQL حين لا تكون في {@code PATH}، مضبوطاً صراحةً.
-     * مثبِّت MySQL على ويندوز لا يضيفها إلى المسار افتراضياً، وكان ذلك يعني نسخاً
-     * احتياطية لا تعمل عند العميل بلا سبب ظاهر. تصريحٌ فارغ هنا لا يعني عدم البحث —
-     * راجع {@link #effectiveMysqlBinDir()} و{@link MySqlLocator}.
+     * أيّ قاعدة تُنسخ وبأي أدوات. واجهةٌ لا {@code @Value} من رابط هذا التطبيق: الخدمة
+     * كانت تعرف أن قاعدتها "تلك التي في رابطها هي"، وأن الأدوات تُلتمس بفحص مجلدات
+     * تركيب ويندوز — وخادمٌ يخدم مئة سنتر ينسخ schema المؤسسة الطالبة لا قاعدته هو.
+     * راجع {@link BackupTarget}.
      */
-    @Value("${center.backup.mysql-bin-dir:}")
-    private String mysqlBinDir;
+    private final BackupTarget backupTarget;
 
     /**
      * يأخذ نسخة احتياطية ويعيد الملف الناتج وحصيلة حذف القديم معه.
@@ -184,7 +178,7 @@ public class BackupService {
                 plain = temporary;
             }
 
-            run(processBuilder(mysqlTool("mysql")).redirectInput(plain.toFile()), null, null);
+            run(processBuilder("mysql").redirectInput(plain.toFile()), null, null);
 
             // الاستعادة تكتب فوق كل شيء، بما فيه سجل المراقبة نفسه: السطر الذي يُكتب هنا
             // هو أول ما يبقى بعدها، وبه يُعرف أن ما قبله محتوى ملف لا تاريخ السنتر.
@@ -216,9 +210,9 @@ public class BackupService {
     private void dump(Path target, char[] passphrase) {
         List<String> command = new ArrayList<>(List.of(
                 mysqlTool("mysqldump"),
-                "--host=" + host(dbUrl),
-                "--port=" + port(dbUrl),
-                "--user=" + dbUsername,
+                "--host=" + backupTarget.host(),
+                "--port=" + backupTarget.port(),
+                "--user=" + backupTarget.username(),
                 // بدونها يخرج الملف بترميز الأداة الافتراضي فتتحول أسماء الطلاب إلى علامات استفهام
                 "--default-character-set=utf8mb4",
                 // نسخة متسقة بلا قفل الجداول. ليست تحسيناً فقط: بدونها تلجأ الأداة إلى
@@ -245,7 +239,7 @@ public class BackupService {
                 // LOCK TABLES التي لا يملكها المستخدم، وتتوقف الاستعادة بالخطأ 1044 عند
                 // أول جدول. التسريع لا يعني شيئاً بحجم قاعدة سنتر.
                 "--skip-add-locks",
-                dbName(dbUrl)));
+                backupTarget.database()));
 
         run(processBuilder(command), target, passphrase);
     }
@@ -335,38 +329,28 @@ public class BackupService {
      */
     private ProcessBuilder processBuilder(List<String> command) {
         ProcessBuilder processBuilder = new ProcessBuilder(command);
-        if (dbPassword != null && !dbPassword.isEmpty()) {
-            processBuilder.environment().put("MYSQL_PWD", dbPassword);
+        String password = backupTarget.password();
+        if (password != null && !password.isEmpty()) {
+            processBuilder.environment().put("MYSQL_PWD", password);
         }
         return processBuilder;
     }
 
     private ProcessBuilder processBuilder(String tool) {
-        return processBuilder(List.of(tool,
-                "--host=" + host(dbUrl),
-                "--port=" + port(dbUrl),
-                "--user=" + dbUsername,
+        return processBuilder(List.of(mysqlTool(tool),
+                "--host=" + backupTarget.host(),
+                "--port=" + backupTarget.port(),
+                "--user=" + backupTarget.username(),
                 "--default-character-set=utf8mb4",
-                dbName(dbUrl)));
+                backupTarget.database()));
     }
 
+    /** الاسم المجرّد حين تكون الأداة في {@code PATH}، ومسارها الكامل حين لا تكون */
     private String mysqlTool(String name) {
-        String binDir = effectiveMysqlBinDir();
+        String binDir = backupTarget.toolDirectory();
         return binDir == null || binDir.isBlank()
                 ? name
                 : Path.of(binDir, name).toString();
-    }
-
-    /**
-     * {@code CENTER_BACKUP_MYSQL_BIN_DIR} صريح دائماً له الأولوية؛ فقط حين يكون فارغاً
-     * يُستشار {@link MySqlLocator}، الذي يعيد {@code null} لو كانت الأدوات في {@code PATH}
-     * أصلاً أو تعذّر إيجادها بالفحص التلقائي.
-     */
-    private String effectiveMysqlBinDir() {
-        if (mysqlBinDir != null && !mysqlBinDir.isBlank()) {
-            return mysqlBinDir;
-        }
-        return MySqlLocator.resolve();
     }
 
     /**
@@ -381,8 +365,7 @@ public class BackupService {
      *
      * <p>{@code package-private} لا {@code private}: هذه هي الخطوة التي يشتكي غيابها صاحب
      * السنتر، و{@code BackupRetention} يغطّي القرار وحده - أما أن الحذف يقع فعلاً على قرص
-     * حقيقي فلا يثبته إلا اختبار يكتب ملفات ويقرأ المجلد بعده. نفس سبب كون
-     * {@code dbName}/{@code host}/{@code port} أدناه package-private.</p>
+     * حقيقي فلا يثبته إلا اختبار يكتب ملفات ويقرأ المجلد بعده.</p>
      *
      * @return حصيلة الحذف، لسجل المراقبة وللشاشة معاً
      */
@@ -460,55 +443,5 @@ public class BackupService {
 
     private String messageOf(Exception e) {
         return e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
-    }
-
-    // ------------------------------------------------------- تحليل رابط JDBC
-    // الدوال الثلاث package-private لا private: هي ما يحدّد على أي قاعدة بيانات تعمل
-    // النسخة، وخطؤها يعني نسخة سليمة الشكل من قاعدة أخرى. يغطّيها JdbcUrlParsingTest.
-
-    /**
-     * اسم قاعدة البيانات من رابط JDBC.
-     * مثال: {@code jdbc:mysql://localhost:3306/center_db?useSSL=false} ← {@code center_db}
-     */
-    String dbName(String jdbcUrl) {
-        String withoutParams = beforeParams(jdbcUrl);
-        int lastSlash = withoutParams.lastIndexOf('/');
-        if (lastSlash < 0 || lastSlash == withoutParams.length() - 1) {
-            throw new IllegalStateException(I18n.format("error.backup.dbNameUnresolved", jdbcUrl));
-        }
-        return withoutParams.substring(lastSlash + 1);
-    }
-
-    /**
-     * المضيف من الرابط.
-     *
-     * <p>كانت الأداة تُستدعى بلا {@code --host} ولا {@code --port} فتذهب إلى
-     * {@code localhost:3306} دائماً. السنتر الذي يشغّل MySQL في Docker على منفذ آخر، أو
-     * على جهاز الخادم في الشبكة، كان يأخذ نسخة من قاعدة أخرى - أو يفشل - بينما البرنامج
-     * نفسه يعمل على القاعدة الصحيحة. راجع docs/first-install.md §7.</p>
-     */
-    String host(String jdbcUrl) {
-        return authority(jdbcUrl)[0];
-    }
-
-    String port(String jdbcUrl) {
-        String[] parts = authority(jdbcUrl);
-        return parts.length > 1 ? parts[1] : "3306";
-    }
-
-    private String[] authority(String jdbcUrl) {
-        String withoutParams = beforeParams(jdbcUrl);
-        int start = withoutParams.indexOf("//");
-        if (start < 0) {
-            throw new IllegalStateException(I18n.format("error.backup.dbNameUnresolved", jdbcUrl));
-        }
-        String rest = withoutParams.substring(start + 2);
-        int slash = rest.indexOf('/');
-        String hostAndPort = slash < 0 ? rest : rest.substring(0, slash);
-        return hostAndPort.isBlank() ? new String[]{"localhost"} : hostAndPort.split(":", 2);
-    }
-
-    private String beforeParams(String jdbcUrl) {
-        return jdbcUrl.split("\\?", 2)[0];
     }
 }

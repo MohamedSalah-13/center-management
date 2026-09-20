@@ -19,12 +19,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  * وُلد منها ("النسخ القديمة لا تُحذف") تقع في هذه المسافة بالذات، ولا يراها اختبار لا يلمس
  * نظام الملفات.</p>
  *
- * <p>{@code auditService} ومخزن السرّ يبقيان {@code null}: {@link BackupService#prune} لا
- * يمسّهما، وتمرير بديل وهمي هنا يوحي بأنهما جزء من العملية وهما ليسا كذلك.</p>
+ * <p>{@code auditService} ومخزن السرّ ووجهة النسخ تبقى {@code null}: {@link BackupService#prune}
+ * لا يمسّها، وتمرير بدائل وهمية هنا يوحي بأنها جزء من العملية وهي ليست كذلك.</p>
  */
 class BackupPruneTest {
 
-    private final BackupService backupService = new BackupService(null, null);
+    private final BackupService backupService = new BackupService(null, null, null);
 
     @TempDir
     Path folder;

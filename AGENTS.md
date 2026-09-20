@@ -57,10 +57,11 @@ system:
   only JUnit and AssertJ, so a stray framework import fails to compile. Today it holds the
   identity and tenant contracts (`ActorIdentity`, `CurrentActor`, `TenantContext`, `TenantId`)
   and the device contracts (`BackupSecretStore`, `MessagingSecretStore`, `SheetHeaderPolicy`,
-  `UiDispatcher`, plus `DocumentKind` which labels a filled sheet for whoever delivers it) that
-  both the desktop app and a future SaaS server implement each in its own way — a JavaFX
-  session, the Windows registry, an attached printer and the JavaFX thread on one side; an HTTP
-  request, a secret vault, no printer at all and an SSE stream on the other.
+  `UiDispatcher`, `BackupTarget`, plus `DocumentKind` which labels a filled sheet for whoever
+  delivers it) that both the desktop app and a future SaaS server implement each in its own way
+  — a JavaFX session, the Windows registry, an attached printer, the JavaFX thread and this
+  machine's own database on one side; an HTTP request, a secret vault, no printer at all, an SSE
+  stream and one tenant's schema on the other.
 - `center-desktop` — everything else for now: the JavaFX app *and* the whole business layer
   (`domain/`, `repository/`, `service/`). The plan (`docs/saas-review-and-plan.md`) is to carve
   the business layer out into a `center-app` module with no JavaFX dependency; until then the
@@ -86,6 +87,7 @@ them the same way — through a port, never through `java.util.prefs`:**
 | The messaging provider's token | `MessagingSecretStore` | `DesktopMessagingPreferences` → `NotificationPreferences` |
 | Does a filled sheet carry the centre letterhead | `SheetHeaderPolicy` | `DesktopSheetHeaderPolicy` → `PrintPreferences` |
 | Where does a delivery to a watching screen run | `UiDispatcher` | `DesktopUiDispatcher` → `Platform.runLater` |
+| Which database does a backup dump, with which tools | `BackupTarget` | `DesktopBackupTarget` → `JdbcUrl` + `MySqlLocator` |
 
 That last one is the *only* printing question left in the business layer, and deliberately so:
 it is asked at fill time, since the condition sits on a band inside the template and a sheet
@@ -564,6 +566,12 @@ signature returned `false` and printed the stack trace, and a jpackage build has
 "the operation failed" was all the customer ever saw, whether the folder was gone, the
 password was wrong or `mysqldump` was not installed. The tool's own stderr now reaches the
 screen through `FxAsync`.
+
+**Which database, and where the tools are, come from `BackupTarget`** (`center-core`) — the
+service asks, it does not know. On the desktop `DesktopBackupTarget` answers from the app's own
+JDBC URL (`util/JdbcUrl`) and from `MySqlLocator`; on a server the answer is the tenant's schema,
+not the connection the server itself uses to serve a hundred centres. The methods are called
+when a backup is taken, not at startup: finding the tools reads the disk.
 
 `mysqldump` is invoked with `--host` and `--port` **read from the JDBC URL**. Without them it
 always went to `localhost:3306` — a centre running MySQL in Docker on another port had
@@ -1186,7 +1194,8 @@ The test classes below exist because these failure modes are invisible to the co
   fine and only surfaces the day `center-app` is carved out, by which time it has spread.
   `BusinessLayerPurityTest` reads the imports of `service/`, `domain/`, `repository/` and
   `security/` and fails the build for `javafx.*`, `java.awt.*`, `java.util.prefs`, any
-  `util/*Preferences`, `UserSession` or a controller. It carries no exemption list any more —
+  `util/*Preferences`, `UserSession`, `MySqlLocator` or a controller. It carries no exemption
+  list any more —
   the four packages are clean today, so the next import to break them fails the build by file
   and line.
 
