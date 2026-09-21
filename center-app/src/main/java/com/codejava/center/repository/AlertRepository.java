@@ -37,6 +37,15 @@ public interface AlertRepository extends JpaRepository<Alert, Long> {
     long countByAcknowledgedAtIsNull();
 
     /**
+     * عدد ما لم يُعالَج من درجةٍ بعينها - وهو ما يقرؤه مسحُ المنصة، بـ{@code CRITICAL}.
+     *
+     * <p>والمجموعُ لا يصلح هناك: إيصالُ الدفع {@code INFO} ويُطلق عشراتِ المرات في
+     * اليوم، فعمودٌ يعدّها كلها يقرأ رقماً كبيراً في كل سنترٍ يعمل - أي رقماً لا يفرّق
+     * بين سنترٍ مزدحم وسنترٍ تعطّلت نسخُه.</p>
+     */
+    long countBySeverityAndAcknowledgedAtIsNull(AlertSeverity severity);
+
+    /**
      * ما استُجدّ بعد المعرّف المعطى ولم يُعالَج بعد - مصدر الإشعارات المنبثقة.
      *
      * <p>بالمعرّف لا بالوقت: ساعات الأجهزة في السنتر لا تتطابق، وفحصٌ يقارن

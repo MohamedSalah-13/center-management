@@ -2,12 +2,15 @@ package com.codejava.center.config.tenancy;
 
 import com.codejava.center.core.tenant.TenantContext;
 import com.codejava.center.core.tenant.TenantSweep;
+import com.codejava.center.platform.PlatformOperations;
 import com.codejava.center.platform.TenantMigrations;
 import com.codejava.center.platform.TenantProvisioning;
 import com.codejava.center.platform.TenantRegistry;
+import com.codejava.center.repository.AlertRepository;
 import com.codejava.center.repository.CenterSettingsRepository;
 import com.codejava.center.repository.UserRepository;
 import com.codejava.center.service.InitialSetupService;
+import com.codejava.center.service.SettingsService;
 import org.flywaydb.core.Flyway;
 import org.hibernate.cfg.AvailableSettings;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -154,6 +157,22 @@ public class TenancyConfig {
     @Bean(initMethod = "migrateAll")
     public TenantMigrations tenantMigrations(DataSource dataSource, TenantRegistry tenantRegistry) {
         return new TenantMigrations(dataSource, tenantRegistry, TENANT_MIGRATIONS);
+    }
+
+    /**
+     * مسحُ حالِ السنترات، لمشغّل المنصة.
+     *
+     * <p>هنا لا في {@code center-web}: قراءةُ خمسين قاعدةً كلٍّ في نطاقها عملٌ في طبقة
+     * الأعمال، والحافةُ تنسخ الجواب في سجلٍّ صغير وتنتهي - كبقية ملفات {@code api/}.</p>
+     */
+    @Bean
+    public PlatformOperations platformOperations(TenantRegistry tenantRegistry,
+                                                 ServerTenantContext serverTenantContext,
+                                                 SettingsService settingsService,
+                                                 AlertRepository alertRepository,
+                                                 Clock clock) {
+        return new PlatformOperations(tenantRegistry, serverTenantContext,
+                settingsService, alertRepository, clock);
     }
 
     @Bean

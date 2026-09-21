@@ -89,6 +89,21 @@ class PlatformGuardTest {
         assertThat(guard(TOKEN).shouldNotFilter(opening)).isFalse();
     }
 
+    /**
+     * ومسحُ التشغيل منها: هو يقرأ حالَ كل سنتر على المنصة.
+     *
+     * <p>وهو السطرُ الذي يشرح لماذا الحارسُ فلترٌ على المسار لا فحصٌ داخل كل دالة:
+     * هذه النقطة أُضيفت بعد الحارس بدفعات، ولم يُكتب لها سطرُ حراسةٍ واحد - ولو كان
+     * الفحصُ يُكتب في كل دالة لَوُلدت مفتوحةً للجميع ولا شيء يقول ذلك.</p>
+     */
+    @Test
+    void theOperationsSurveyIsGuardedLikeEverythingElseUnderThePath() {
+        MockHttpServletRequest survey = new MockHttpServletRequest();
+        survey.setRequestURI("/api/platform/operations");
+
+        assertThat(guard(TOKEN).shouldNotFilter(survey)).isFalse();
+    }
+
     /** وما ليس تحت المسار لا يخصّ هذا الحارس: شاشات السنتر لها جلستها */
     @Test
     void theCentresOwnApiIsNotThisGuardsBusiness() {
