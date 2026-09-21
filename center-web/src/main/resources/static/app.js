@@ -89,7 +89,7 @@ function report(error) {
 }
 
 /** جدولٌ من صفوف: الرؤوس مفاتيح، والخلايا نصوصٌ جاهزة */
-function table(id, headerKeys, rows, cells, emptyKey) {
+function table(id, headerKeys, rows, cells, emptyKey, action) {
     const node = document.getElementById(id);
     node.innerHTML = '';
 
@@ -106,6 +106,9 @@ function table(id, headerKeys, rows, cells, emptyKey) {
         cell.textContent = t(key);
         head.appendChild(cell);
     });
+    if (action) {
+        head.appendChild(document.createElement('th'));
+    }
 
     const body = node.createTBody();
     rows.forEach((row) => {
@@ -114,6 +117,15 @@ function table(id, headerKeys, rows, cells, emptyKey) {
             // textContent لا innerHTML: اسمُ طالبٍ فيه أقواس زاوية نصٌّ لا وسم
             line.insertCell().textContent = value === null || value === undefined ? t('web.common.none') : value;
         });
+        if (action) {
+            // الزرّ يُبنى على الصفّ الذي أمام العين: الإغلاق يُطلب وأنت تنظر إلى سطره،
+            // لا بعد أن تكتب رقماً في حقل بعيد عنه
+            const button = action(row);
+            const cell = line.insertCell();
+            if (button) {
+                cell.appendChild(button);
+            }
+        }
     });
 }
 
@@ -128,7 +140,7 @@ function today() {
 
 /* ------------------------------------------------------------------ الشاشات */
 
-const views = ['attendance', 'till', 'students', 'reports'];
+const views = ['day', 'attendance', 'till', 'students', 'reports'];
 
 function openView(name) {
     views.forEach((view) => {
@@ -137,7 +149,9 @@ function openView(name) {
     document.querySelectorAll('nav button').forEach((button) => {
         button.classList.toggle('active', button.dataset.view === name);
     });
-    if (name === 'attendance') {
+    if (name === 'day') {
+        loadDay().catch(report);
+    } else if (name === 'attendance') {
         loadAttendance().catch(report);
     } else if (name === 'till') {
         loadTill().catch(report);
@@ -149,7 +163,7 @@ function openView(name) {
 /* ------------------------------------------------------------------ الحضور */
 
 async function loadAttendance() {
-    const sessions = await get('/api/attendance/sessions');
+    const sessions = await get('/api/class-sessions?open=true');
     const select = document.getElementById('sessionId');
     select.innerHTML = '';
 
@@ -177,6 +191,84 @@ async function refreshAttendanceLog() {
         (row) => [row.studentName, row.barcode, row.groupName,
             clockOf(row.timeIn), clockOf(row.timeOut), row.stateName],
         'web.attendance.empty');
+}
+
+/* ------------------------------------------------------------ اليوم والحصص */
+
+async function loadDay() {
+    const day = document.getElementById('dayDate');
+    if (!day.value) {
+        day.value = today();
+    }
+    const sessionDate = document.getElementById('sessionDate');
+    if (!sessionDate.value) {
+        sessionDate.value = today();
+    }
+
+    const groups = await get('/api/groups');
+    const select = document.getElementById('sessionGroup');
+    select.innerHTML = '';
+    groups.forEach((group) => {
+        const option = document.createElement('option');
+        option.value = group.id;
+        option.textContent = group.name;
+        select.appendChild(option);
+    });
+
+    await Promise.all([refreshDay(), refreshSessions()]);
+}
+
+async function refreshDay() {
+    const date = document.getElementById('dayDate').value || today();
+    const day = await get('/api/day-schedule?date=' + date);
+
+    show('dayBrief', t('web.day.brief', day.brief.total, day.brief.open,
+        day.brief.notOpened, day.brief.closed), false);
+    show('dayNext', day.brief.nextGroupName
+        ? t('web.day.next', day.brief.nextGroupName, day.brief.nextStartTime)
+        : t('web.day.noNext'), false);
+
+    table('dayTable',
+        ['web.day.col.group', 'web.day.col.teacher', 'web.day.col.level',
+            'web.day.col.scheduled', 'web.day.col.status', 'web.day.col.attendance'],
+        day.rows,
+        (row) => [row.groupName, row.teacherName, row.level, row.scheduledTime,
+            row.status, row.attendance],
+        'web.day.empty');
+}
+
+async function refreshSessions() {
+    const openOnly = document.getElementById('openOnly').checked;
+    const sessions = await get('/api/class-sessions' + (openOnly ? '?open=true' : ''));
+
+    table('sessionTable',
+        ['web.sessions.col.group', 'web.sessions.col.teacher', 'web.sessions.col.date',
+            'web.sessions.col.startedAt', 'web.sessions.col.endedAt', 'web.sessions.col.state'],
+        sessions,
+        (row) => [row.groupName, row.teacherName, row.date,
+            clockOf(row.startedAt), clockOf(row.endedAt),
+            t(row.open ? 'web.sessions.state.open' : 'web.sessions.state.closed')],
+        'web.sessions.empty',
+        (row) => {
+            if (!row.open) {
+                return null;
+            }
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = t('web.sessions.close');
+            button.addEventListener('click', () => closeSession(row.id));
+            return button;
+        });
+}
+
+async function closeSession(id) {
+    try {
+        await post('/api/class-sessions/' + id + '/close');
+        show('sessionResult', '', false);
+        await Promise.all([refreshSessions(), refreshDay()]);
+    } catch (error) {
+        show('sessionResult', error.message, true);
+    }
 }
 
 /* ------------------------------------------------------------------ الخزينة */
@@ -306,7 +398,7 @@ function enterApp(me) {
     document.getElementById('app').classList.remove('hidden');
     document.getElementById('who').textContent = me.username + ' - ' + me.roleName;
     refreshReportLinks();
-    openView('attendance');
+    openView('day');
     openAlertStream();
 }
 
@@ -354,6 +446,31 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.querySelectorAll('nav button').forEach((button) => {
         button.addEventListener('click', () => openView(button.dataset.view));
+    });
+
+    document.getElementById('dayForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        refreshDay().catch(report);
+    });
+
+    document.getElementById('sessionFilterForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        refreshSessions().catch(report);
+    });
+
+    document.getElementById('openSessionForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const group = document.getElementById('sessionGroup').value;
+        try {
+            const opened = await post('/api/class-sessions', {
+                groupId: group ? Number(group) : null,
+                date: document.getElementById('sessionDate').value || null
+            });
+            show('sessionResult', opened.groupName + '   -   ' + opened.date, false);
+            await Promise.all([refreshSessions(), refreshDay()]);
+        } catch (error) {
+            show('sessionResult', error.message, true);
+        }
     });
 
     document.getElementById('scanForm').addEventListener('submit', async (event) => {

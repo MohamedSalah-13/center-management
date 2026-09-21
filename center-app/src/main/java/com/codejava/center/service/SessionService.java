@@ -104,6 +104,18 @@ public class SessionService {
     }
 
     /** كل الحصص المفتوحة حالياً */
+    /**
+     * حصةٌ بمعرّفها، ومجموعتُها ومعلّمُها محمَّلان معها.
+     *
+     * <p>لمن يصل إليها برقمٍ لا بكائن - أي كل حافة HTTP. و{@code JOIN FETCH} لأن
+     * الاسمين يُقرآن بعد إغلاق المعاملة.</p>
+     */
+    @Transactional(readOnly = true)
+    public Session findById(Long id) {
+        return sessionRepository.findByIdWithGroup(id)
+                .orElseThrow(() -> new IllegalArgumentException(I18n.get("error.session.notFound")));
+    }
+
     @Transactional(readOnly = true)
     public List<Session> getActiveSessions() {
         return sessionRepository.findAllActive();

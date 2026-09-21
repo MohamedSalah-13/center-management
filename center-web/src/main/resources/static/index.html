@@ -42,6 +42,7 @@
     <header>
         <strong data-text="web.app.title"></strong>
         <nav>
+            <button data-view="day" data-text="web.nav.day"></button>
             <button data-view="attendance" data-text="web.nav.attendance"></button>
             <button data-view="till" data-text="web.nav.till"></button>
             <button data-view="students" data-text="web.nav.students"></button>
@@ -66,6 +67,33 @@
         </form>
         <p id="scanResult" class="result"></p>
         <table id="attendanceTable"></table>
+    </section>
+
+    <section id="view-day" class="view hidden">
+        <h2 data-text="web.day.title"></h2>
+        <form id="dayForm" class="row">
+            <label data-text="web.common.date" for="dayDate"></label>
+            <input id="dayDate" type="date">
+            <button type="submit" data-text="web.common.refresh"></button>
+        </form>
+        <p id="dayBrief" class="result"></p>
+        <p id="dayNext" class="result"></p>
+        <table id="dayTable"></table>
+
+        <h3 data-text="web.sessions.title"></h3>
+        <form id="openSessionForm" class="row">
+            <label data-text="web.sessions.group" for="sessionGroup"></label>
+            <select id="sessionGroup"></select>
+            <label data-text="web.sessions.date" for="sessionDate"></label>
+            <input id="sessionDate" type="date">
+            <button type="submit" data-text="web.sessions.open"></button>
+        </form>
+        <p id="sessionResult" class="result"></p>
+        <form id="sessionFilterForm" class="row">
+            <label><input id="openOnly" type="checkbox" checked> <span data-text="web.sessions.openOnly"></span></label>
+            <button type="submit" data-text="web.common.refresh"></button>
+        </form>
+        <table id="sessionTable"></table>
     </section>
 
     <section id="view-till" class="view hidden">

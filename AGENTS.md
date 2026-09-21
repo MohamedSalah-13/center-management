@@ -504,6 +504,30 @@ into "locks rarely" instead of "locks everyone". `X-Forwarded-For` is never read
 the caller writes turns evading the throttle into editing one line, and lets somebody lock another
 person's address. The framework reads it, when the deployment says a proxy it owns is in front.
 
+**Opening a session is what made the attendance gate a whole feature.** A scan needs an open
+session, and until `/api/class-sessions` existed only the desktop could open one — so a centre
+that wanted its screens on its own network still needed one machine to start the day. The path
+is `class-sessions` although the entity is `Session`, because `/api/session` already means the
+signer's own session: two meanings for one word under one prefix is a mistake waiting for
+somebody to type the wrong one. Names in code follow the entity; names in URLs follow what
+distinguishes.
+
+The same push deleted `GET /api/attendance/sessions`, which answered the same question. One
+question with two endpoints ends as one question with two answers.
+
+`/api/groups` came with it and is **read-only on purpose**. Opening a session means choosing a
+group, so the list is half the feature rather than scope creep. Creating and editing are not
+here because `CourseGroupService.saveGroup` still takes a `CourseGroup`, and no JPA entity is
+ever an HTTP input — that screen is preceded by a draft, the way `UserDraft` preceded the users
+screen, and that work is in `center-app` rather than at the edge. The same is true of
+`saveStudent`, `saveTeacher`, `SettingsService.save` and `saveRule`: four more screens, four
+more drafts first.
+
+`CourseGroupService.findById` and `SessionService.findById` exist for the same reason and are
+both `JOIN FETCH`: a desktop screen holds the row the user picked out of a list it just read,
+while a request holds a number in its path — and the names on that row are read after the
+transaction closes.
+
 Three smaller decisions that are easy to undo by accident:
 
 - **`open-in-view` is off.** The default keeps a Hibernate session open for the whole request, so
@@ -1698,7 +1722,7 @@ Add coverage when touching any of those. `@DataJpaTest` needs `@Import(SecurityC
 because the boot class is itself a bean injecting `PasswordEncoder`.
 
 **A test lives in the module that holds its subject**, which is why the suite is split
-88 / 263 / 52 / 43 — core, app, desktop, web.
+88 / 263 / 52 / 48 — core, app, desktop, web.
 Two classes in `center-app`'s test tree exist only because it is a library and not a program:
 
 - `AppTestApplication` — `@DataJpaTest` searches *upward* for a `@SpringBootConfiguration` to
