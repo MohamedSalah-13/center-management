@@ -3,6 +3,8 @@ package com.codejava.center.web.api;
 import com.codejava.center.core.tenant.SchemaName;
 import com.codejava.center.core.tenant.TenantId;
 import com.codejava.center.domain.User;
+import com.codejava.center.platform.CentreOperations;
+import com.codejava.center.platform.PlatformOperations;
 import com.codejava.center.platform.PlatformTenant;
 import com.codejava.center.platform.TenantProvisioning;
 import com.codejava.center.platform.TenantRegistry;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -48,6 +51,7 @@ public class PlatformController {
 
     private final TenantProvisioning provisioning;
     private final TenantRegistry registry;
+    private final PlatformOperations operations;
     private final EdgeThrottle edgeThrottle;
 
     /**
@@ -121,6 +125,39 @@ public class PlatformController {
             edgeThrottle.recordFailure(http);
             throw refused;
         }
+    }
+
+    /**
+     * @param needsAttention خلاصةُ السطر في حقلٍ واحد: ما يقرّر لونَه يُحسب على الخادم،
+     *                       فلا تعيد شاشةٌ - ولا شاشتان - اشتقاقَه بشرطٍ يختلف عنه
+     */
+    public record OperationsView(long id, String name, String slug, String status,
+                                 boolean readable, String problem,
+                                 boolean autoBackupEnabled, LocalDateTime lastBackupAt,
+                                 boolean backupOverdue,
+                                 boolean alertsEnabled, LocalDateTime lastScanAt,
+                                 boolean scanOverdue,
+                                 long openCritical, boolean needsAttention) {
+    }
+
+    /**
+     * أيُّ سنترٍ أظلم.
+     *
+     * <p>لا شاشة له بعد، وهو مقصود: بابٌ يُفتح من {@code curl} ومن أيّ مراقبةٍ عند
+     * الناشر أنفعُ اليوم من صفحةٍ ثانية بلغةٍ وجلسةٍ خاصتين - والمشغّل ليس مستخدماً
+     * في سنتر، فصفحتُه ليست هذه الصفحة.</p>
+     */
+    @GetMapping("/operations")
+    public List<OperationsView> operations() {
+        return operations.survey().stream().map(PlatformController::view).toList();
+    }
+
+    private static OperationsView view(CentreOperations row) {
+        return new OperationsView(row.id(), row.name(), row.slug(), row.status().name(),
+                row.readable(), row.problem(),
+                row.autoBackupEnabled(), row.lastBackupAt(), row.backupOverdue(),
+                row.alertsEnabled(), row.lastScanAt(), row.scanOverdue(),
+                row.openCritical(), row.needsAttention());
     }
 
     private static CentreView view(PlatformTenant tenant) {

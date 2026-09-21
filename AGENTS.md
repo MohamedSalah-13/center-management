@@ -219,6 +219,8 @@ of one.
 | `TenantMigrations` | `platform/` | Flyway over every centre's database at startup |
 | `ServerTenantContext` | `config/tenancy/` | which centre this thread works for |
 | `SchemaPerTenantConnectionProvider` | `config/tenancy/` | point the connection at that centre's database |
+| `PlatformOperations` | `platform/` | which centre has gone dark, across all of them |
+| `CentreOperations` | `platform/` | is *this* centre's backup or scan actually overdue |
 
 `ServerTenantContext` answers **both** `TenantContext` and `TenantSweep`, and is declared once,
 returned as itself rather than as either contract. A second `@Primary` bean handing the same
@@ -284,6 +286,59 @@ the third centre leaves everyone after it unbacked-up with nobody aware, so `Ser
 catches per tenant and logs by name. `DesktopTenantSweep` deliberately does not: `BACKUP_FAILED`
 exists because `BackupScheduler` sees its own failure, and an implementation that swallowed
 "for safety" would silence it.
+
+**Every log line written inside a centre carries its name, and one line does it.**
+`ServerTenantContext.call` is the funnel both paths end in — a request through
+`TenantBindingFilter`, a nightly sweep through `sweep` — so putting the slug in SLF4J's `MDC`
+there stamps everything written afterwards, in services, in Hibernate, in Spring, without
+anyone passing a tenant to a logger. Without it, "the backup failed" in the log of a server
+serving fifty centres says that something happened and not to whom; `sweep` named the centre
+only when a whole cycle failed, never for a line inside one. The tag is **restored, not
+cleared**, for the reason `CURRENT` is: scopes nest, and clearing leaves the rest of the outer
+work unlabelled while it is still inside a centre. `center-web`'s `logging.pattern.level` is
+what prints it (`%X{centre:-platform}`) — the tag is set on the desktop too and nothing reads
+it there, which is right, since a desktop serves one centre.
+
+**And the tag can never fail the work.** It is decoration on a log line; a registry that is
+absent or a lookup that throws costs the line a readable name, not the request. The first
+version of it did not say so and took `TenantBindingFilterTest` down with a
+`NullPointerException` thrown while composing a log label. Same rule as `AlertEngine.raise`
+and `prune`: what is incidental never replaces what is not.
+
+**`PlatformOperations.survey()` is the answer to "which centre has gone dark".** Each centre
+already knows its own state — `lastAutoBackupAt` and `lastAlertScanAt` sit in its settings row
+and its own settings screen shows them — and on a platform nobody opens fifty of those screens,
+so a centre whose backups stopped a month ago looks exactly like one that is fine. The survey
+reads every centre inside its own scope and says, per centre, whether its backup and its scan
+are overdue and how many critical alerts are still open.
+
+Three things it encodes:
+
+- **Nothing in it goes through a guarded service.** The operator is not a user of any centre —
+  no row in any `users` table, no centre session — so `AlertService.unacknowledgedCount`, which
+  is `@RequiresRole(ADMIN)`, would refuse in every centre it visited and a survey built on it
+  would return fifty refusals. It reads `AlertRepository` directly, for the reason
+  `BackupService.executeBackup` carries no guard: a thread with no session doing real work.
+- **Overdue is the centre's own schedule, and only for a centre that is served.** It reuses
+  `BackupSchedule.isOverdue` / `AlertSchedule.isOverdue` — the very calculations the schedulers
+  run — so the survey cannot say one thing while the scheduler does another; a centre backing up
+  monthly is not overdue on day two. A `SUSPENDED` centre is never overdue, because
+  `TenantStatus.isServed()` already decided nothing runs for it: flagging it is a false alarm by
+  design, and fifty of them teach the operator not to look. Likewise a centre that switched
+  automatic backup off chose that — "off" and "overdue" are a decision and a fault.
+- **A centre that cannot be read stays in the list, marked.** Dropping its row leaves
+  forty-nine that look perfectly healthy, and the missing one is precisely the one that needed
+  seeing. `CentreOperations.unreadable` claims nothing about it — not "not overdue", not "zero
+  alerts" — because both read as reassurance about a question that was never asked.
+
+`GET /api/platform/operations` is the edge over it, behind the same operator token filter as the
+rest of `/api/platform`, and it has no screen: a path `curl` and any monitoring at the deployer
+can read is worth more today than a second page with its own language and session, and the
+operator is not a user of a centre so the centre's page is not theirs. **Per-centre log lines,
+not per-centre log files** — one stream that every line names its centre on can be filtered and
+still has somewhere to put a line that belongs to no centre (startup, migrations, the operator's
+own endpoints, which print `platform`), while a file per tenant multiplies handles and rolling
+policies and has nowhere to put those.
 
 **Invite codes replace "the users table is empty" as proof.** On a machine in a centre,
 whoever sits at the computer holding the database is its owner, so emptiness is proof enough.
@@ -1888,9 +1943,19 @@ The test classes below exist because these failure modes are invisible to the co
 - Tenant isolation fails silently by construction — a query that reads the wrong centre returns
   perfectly valid rows. `SchemaRoutingTest` covers the routing and the connection reset on H2 so
   it runs on every machine, and `MultiTenantIsolationIntegrationTest` proves end-to-end isolation
-  on a MySQL container: two centres, a student saved in one and absent from the other. CI
+  on a MySQL container: two centres, a student saved in one and absent from the other, and the
+  operator's survey reading each centre's stamp from its own schema — which is the one thing
+  `PlatformOperationsTest` cannot show, since a survey that read the wrong schema would return
+  rows of the right shape describing the wrong centre. CI
   requires **both** container suites to have actually run, because `disabledWithoutDocker` would
   otherwise turn the gate into a silent pass.
+- An operations view is wrong in two directions that both end in nobody looking: a false alarm
+  teaches the operator to ignore the colour, and a silence hides a centre whose backups stopped.
+  `CentreOperationsTest` pins the decisions without Spring or a database — suspended is never
+  overdue, off is not overdue, and overdue follows the centre's own frequency —
+  while `PlatformOperationsTest` stands in for the reader to prove the loop keeps an unreadable
+  centre in the list and carries on past it, the same substitution `SchemaRoutingTest` makes for
+  a connection pool.
 
 **Never assert a user-facing string as a literal.** The UI language is stored per machine,
 so a test comparing against Arabic text starts failing the moment someone switches the app
@@ -1901,7 +1966,7 @@ Add coverage when touching any of those. `@DataJpaTest` needs `@Import(SecurityC
 because the boot class is itself a bean injecting `PasswordEncoder`.
 
 **A test lives in the module that holds its subject**, which is why the suite is split
-88 / 282 / 52 / 94 — core, app, desktop, web.
+88 / 301 / 52 / 95 — core, app, desktop, web.
 Two classes in `center-app`'s test tree exist only because it is a library and not a program:
 
 - `AppTestApplication` — `@DataJpaTest` searches *upward* for a `@SpringBootConfiguration` to

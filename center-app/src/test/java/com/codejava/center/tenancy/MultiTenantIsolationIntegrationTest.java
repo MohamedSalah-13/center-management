@@ -5,6 +5,8 @@ import com.codejava.center.core.tenant.SchemaName;
 import com.codejava.center.core.tenant.TenantId;
 import com.codejava.center.domain.Student;
 import com.codejava.center.domain.User;
+import com.codejava.center.platform.CentreOperations;
+import com.codejava.center.platform.PlatformOperations;
 import com.codejava.center.platform.PlatformTenant;
 import com.codejava.center.platform.TenantProvisioning;
 import com.codejava.center.platform.TenantRegistry;
@@ -23,6 +25,7 @@ import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -83,6 +86,7 @@ class MultiTenantIsolationIntegrationTest {
     @Autowired private UserRepository userRepository;
     @Autowired private SettingsService settingsService;
     @Autowired private JdbcTemplate platformJdbcTemplate;
+    @Autowired private PlatformOperations operations;
 
     private PlatformTenant cairo;
     private PlatformTenant giza;
@@ -149,6 +153,39 @@ class MultiTenantIsolationIntegrationTest {
 
         assertThatThrownBy(() -> provisioning.redeemInvite(cairoInvite, "Other-Pass1!", "Other-Pass1!"))
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    /**
+     * مسحُ المشغّل يقرأ كل سنترٍ من قاعدته هو.
+     *
+     * <p>وهو الموضع الوحيد الذي يمكن أن يُختبر فيه فعلاً: {@code PlatformOperationsTest}
+     * يغطّي الحلقة ببديلٍ عن القارئ، وما يبقى - أن القراءة داخل النطاق تصيب مخطَّط
+     * صاحبها لا مخطَّط جاره - لا يظهر إلا بقاعدتين حقيقيتين. ولو أصابت المخطَّط الخطأ
+     * لَعاد المسحُ صفوفاً صحيحة الشكل تصف السنتر الخطأ، ولا شيء يفشل.</p>
+     */
+    @Test
+    void theOperatorSurveyReadsEachCentreFromItsOwnSchema() {
+        LocalDateTime lastBackup = LocalDateTime.of(2026, 9, 20, 2, 0);
+        tenants.within(cairo.id(), () -> settingsService.recordAutoBackupAt(lastBackup));
+
+        List<CentreOperations> survey = operations.survey();
+
+        CentreOperations cairoRow = row(survey, cairo.slug());
+        CentreOperations gizaRow = row(survey, giza.slug());
+
+        assertThat(cairoRow.readable()).isTrue();
+        assertThat(gizaRow.readable()).isTrue();
+
+        assertThat(cairoRow.name()).isEqualTo("سنتر القاهرة");
+        assertThat(cairoRow.lastBackupAt()).isEqualTo(lastBackup);
+        assertThat(gizaRow.lastBackupAt())
+                .as("ختمُ سنترٍ لا يُقرأ من قاعدة جاره")
+                .isNull();
+    }
+
+    private static CentreOperations row(List<CentreOperations> survey, String slug) {
+        return survey.stream().filter(centre -> slug.equals(centre.slug())).findFirst()
+                .orElseThrow(() -> new AssertionError("لا سطر في المسح للسنتر " + slug));
     }
 
     @Test

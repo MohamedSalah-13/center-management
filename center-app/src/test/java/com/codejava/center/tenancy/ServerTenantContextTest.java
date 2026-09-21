@@ -7,6 +7,7 @@ import com.codejava.center.platform.TenantStatus;
 import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.ArrayList;
@@ -121,6 +122,82 @@ class ServerTenantContextTest {
         });
 
         assertThat(visited).containsExactly(1L, 3L);
+    }
+
+    /* ------------------------------------------------- وسمُ السنتر في السجلّ */
+
+    /**
+     * كلُّ سطر يُكتب داخل نطاق سنترٍ يحمل اسمه.
+     *
+     * <p>و"فشلت النسخة الاحتياطية" في سجلّ خادمٍ يخدم خمسين سنتراً بلا هذا الوسم تقول
+     * إن شيئاً وقع ولا تقول لمن.</p>
+     */
+    @Test
+    void everyLineWrittenInsideACentreCarriesItsName() {
+        context.within(new TenantId(1), () ->
+                assertThat(MDC.get(ServerTenantContext.LOG_KEY)).isEqualTo("cairo"));
+    }
+
+    /** وينتهي بانتهاء النطاق: خيطٌ من مجمّع يأخذه غيره، ووسمٌ باقٍ يَنسب سطورَه إليه */
+    @Test
+    void theNameIsGoneOnceTheScopeEnds() {
+        context.within(new TenantId(1), () -> {
+        });
+
+        assertThat(MDC.get(ServerTenantContext.LOG_KEY)).isNull();
+    }
+
+    /** ونطاقٌ داخل نطاق يعيد الوسمَ الخارجي، كما يعيد المؤسسة نفسها */
+    @Test
+    void anInnerScopeRestoresTheOuterName() {
+        context.within(new TenantId(1), () -> {
+            context.within(new TenantId(3), () ->
+                    assertThat(MDC.get(ServerTenantContext.LOG_KEY)).isEqualTo("tanta"));
+
+            assertThat(MDC.get(ServerTenantContext.LOG_KEY))
+                    .as("محوُ الوسم يترك بقيةَ العمل الخارجي بلا اسم وهو داخل مؤسسة")
+                    .isEqualTo("cairo");
+        });
+    }
+
+    /**
+     * ومعرّفٌ لا يعرفه السجلّ يُكتب برقمه لا بفراغ.
+     *
+     * <p>جلسةٌ تشير إلى مؤسسة حُذفت حالةٌ تستحقّ أن تُرى في السجلّ، وفراغٌ مكانها يُقرأ
+     * سطراً لا يخصّ أحداً.</p>
+     */
+    @Test
+    void aTenantTheRegistryDoesNotKnowIsLoggedByItsNumber() {
+        context.within(new TenantId(404), () ->
+                assertThat(MDC.get(ServerTenantContext.LOG_KEY)).isEqualTo("#404"));
+    }
+
+    /**
+     * <b>والوسمُ لا يُسقط عملاً أبداً.</b>
+     *
+     * <p>هو زينةٌ على سطر سجلّ، ولا يصحّ أن يقرّر نجاحَ طلبٍ أو فشلَه. وهذا ليس
+     * افتراضاً: أولُ صياغةٍ له كسرت {@code TenantBindingFilterTest} كاملاً، إذ يبني
+     * النطاقَ بلا سجلّ - والطلبُ الذي كان يمرّ صار يسقط بـ{@code NullPointerException}
+     * لأجل اسمٍ في سطر. نفسُ قاعدة {@code AlertEngine.raise} و{@code prune}.</p>
+     */
+    @Test
+    void aMissingRegistryCostsTheLogAName_notTheWork() {
+        ServerTenantContext bare = new ServerTenantContext(null);
+        List<String> ran = new ArrayList<>();
+
+        bare.within(new TenantId(1), () -> ran.add(MDC.get(ServerTenantContext.LOG_KEY)));
+
+        assertThat(ran).containsExactly("#1");
+    }
+
+    /** والدورة الليلية تمرّ بالمصفاة نفسها، فأسطرُها موسومةٌ بلا سطرٍ إضافي فيها */
+    @Test
+    void theNightlySweepStampsEachTenantTooSoOneFunnelCoversBoth() {
+        List<String> stamped = new ArrayList<>();
+
+        context.sweep(tenant -> stamped.add(MDC.get(ServerTenantContext.LOG_KEY)));
+
+        assertThat(stamped).containsExactly("cairo", "tanta");
     }
 
     private void insert(JdbcTemplate platform, long id, String slug, TenantStatus status) {
