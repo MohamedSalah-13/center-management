@@ -25,6 +25,7 @@ import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -186,6 +187,54 @@ class MultiTenantIsolationIntegrationTest {
     private static CentreOperations row(List<CentreOperations> survey, String slug) {
         return survey.stream().filter(centre -> slug.equals(centre.slug())).findFirst()
                 .orElseThrow(() -> new AssertionError("لا سطر في المسح للسنتر " + slug));
+    }
+
+    /**
+     * <b>دفعةٌ واحدة تفتح سنتراً منقضياً، ولا تمسّ قرارَ المشغّل.</b>
+     *
+     * <p>وهو المسار الحقيقي: العمودُ في قاعدة المنصة على MySQL لا على H2، والتمديدُ
+     * يمرّ بـ{@code registry.refresh()} - فلو لم يُحدَّث السجلّ لبقي السنترُ مغلقاً
+     * بعد أن دفع، والمشغّلُ يرى في قائمته أنه دافع. وهو عطبٌ يقرأه من يقع فيه على
+     * أنه "دفعتُ ولم يفتح".</p>
+     */
+    @Test
+    void recordingAPaymentReopensALapsedCentreWithoutTouchingTheOperatorsDecision() {
+        LocalDate today = LocalDate.now();
+        platformJdbcTemplate.update("UPDATE tenants SET paid_through = ? WHERE id = ?",
+                today.minusMonths(2), cairo.id().value());
+        registry.refresh();
+
+        assertThat(registry.find(cairo.id()).orElseThrow().isServedOn(today))
+                .as("منقضٍ منذ شهرين: لا يُخدَم ولو كانت حالتُه ACTIVE")
+                .isFalse();
+        assertThat(registry.served()).extracting(PlatformTenant::id).doesNotContain(cairo.id());
+
+        LocalDate paidThrough = provisioning.recordPayment(cairo.id(), 1);
+
+        assertThat(paidThrough)
+                .as("والشهرُ يُشترى من اليوم لا من تاريخٍ مضى")
+                .isEqualTo(today.plusMonths(1));
+
+        PlatformTenant reopened = registry.find(cairo.id()).orElseThrow();
+        assertThat(reopened.isServedOn(today)).isTrue();
+        assertThat(reopened.status())
+                .as("والدفعُ لا يكتب في عمود المشغّل: المحوران منفصلان")
+                .isEqualTo(TenantStatus.ACTIVE);
+        assertThat(registry.served()).extracting(PlatformTenant::id).contains(cairo.id());
+    }
+
+    /** وسنترٌ أوقفه المشغّل لا يعود بالدفع وحده: قرارُه قرارُه */
+    @Test
+    void payingDoesNotUndoASuspensionTheOperatorMade() {
+        provisioning.changeStatus(giza.id(), TenantStatus.SUSPENDED);
+
+        provisioning.recordPayment(giza.id(), 3);
+
+        PlatformTenant paid = registry.find(giza.id()).orElseThrow();
+        assertThat(paid.status()).isEqualTo(TenantStatus.SUSPENDED);
+        assertThat(paid.isServedOn(LocalDate.now()))
+                .as("مدفوعٌ ثلاثة أشهر وما زال موقوفاً - وذلك هو المقصود")
+                .isFalse();
     }
 
     @Test

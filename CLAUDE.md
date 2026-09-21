@@ -216,6 +216,7 @@ of one.
 | `SchemaName` | `center-core` | is this string safe to put in `CREATE DATABASE` |
 | `TenantSweep` | `center-core` | run this once per centre we serve, inside its context |
 | `TenantRegistry` | `platform/` | who the centres are, which database each has, and their subscription |
+| `Subscription` | `center-core` | has this centre's month run out, and how far does a payment reach |
 | `TenantProvisioning` | `platform/` | open a new centre: database, schema, settings row, invite code |
 | `TenantMigrations` | `platform/` | Flyway over every centre's database at startup |
 | `ServerTenantContext` | `config/tenancy/` | which centre this thread works for |
@@ -340,6 +341,48 @@ not per-centre log files** — one stream that every line names its centre on ca
 still has somewhere to put a line that belongs to no centre (startup, migrations, the operator's
 own endpoints, which print `platform`), while a file per tenant multiplies handles and rolling
 policies and has nowhere to put those.
+
+**Billing is a second axis, not a fourth `TenantStatus`.** `status` is the operator's decision
+and `paid_through` is the money; they change for different reasons and by different hands, and a
+centre is served only when both agree — `PlatformTenant.isServedOn(today)`. Writing an automatic
+expiry into `status` instead would destroy the answer to a question asked a month later, *which of
+the two stopped this centre*, and would then let a payment restart a centre the operator suspended
+for something else entirely.
+
+The shape falls out of that: **nothing schedules a suspension.** Expiry is computed on every read,
+the way `isOverdue` is, so there is no such state as "the nightly job did not run, and a lapsed
+centre kept being served until somebody noticed". A failure that cannot happen needs no test.
+
+`Subscription` (`center-core`) is the pure part, fixed-clock tested like `BackupSchedule`, and it
+holds four decisions that are each silently wrong in both directions:
+
+- **`paidThrough` is the last paid day, not the first unpaid one.** Confusing them takes a day
+  from every centre every month, and nothing in a database row shows it.
+- **`GRACE_DAYS` is one number, used twice.** It is the window a late transfer is tolerated in
+  *and* the window the operator should be chasing payment in — closing a centre at midnight on
+  day one is how a customer is lost to a slow bank, and a second, different "warn at N days"
+  constant is a constant that drifts from the first.
+- **A payment extends from the later of today and `paidThrough`.** From today always, a centre
+  that pays ten days early loses those ten days with nothing saying so; from `paidThrough` always,
+  a centre three months lapsed buys a month that already passed — it stays shut after paying while
+  the operator's list shows it as paid, which is the worst of the two because the fault reads as
+  a fix.
+- **An absent date means no subscription is tracked, never one that expired long ago.** Three real
+  installs carry it: every row the moment the platform is upgraded, a server running one centre
+  with no billing at all, and a centre on a private arrangement. Reading blank as "unpaid" closes
+  all of them at once.
+
+`POST /api/platform/centres/{id}/subscription` takes **whole months and no amount** — the price is
+the plan's, not the caller's, the same rule that made a teacher payout a `POST` on a session rather
+than on an amount. A new centre opens with **no** date: the operator opened it by hand and billing
+starts at the first payment they record; seeding today's date instead would shut a centre down
+mid-onboarding, and seeding a free month is product policy that provisioning does not get to
+invent.
+
+And lapsing closes the **door**, not only the automation. `PlatformCentreConfig` filters sign-in
+through the same `isServedOn`, so an unpaid centre is refused exactly as an unknown slug is —
+withholding backups and alerts alone collects no money and leaves a centre running with no backup,
+which punishes the customer in the one place it only hurts them.
 
 **Invite codes replace "the users table is empty" as proof.** On a machine in a centre,
 whoever sits at the computer holding the database is its owner, so emptiness is proof enough.
@@ -2009,7 +2052,7 @@ Add coverage when touching any of those. `@DataJpaTest` needs `@Import(SecurityC
 because the boot class is itself a bean injecting `PasswordEncoder`.
 
 **A test lives in the module that holds its subject**, which is why the suite is split
-88 / 312 / 52 / 95 — core, app, desktop, web.
+97 / 319 / 52 / 95 — core, app, desktop, web.
 Two classes in `center-app`'s test tree exist only because it is a library and not a program:
 
 - `AppTestApplication` — `@DataJpaTest` searches *upward* for a `@SpringBootConfiguration` to

@@ -6,6 +6,7 @@ import com.codejava.center.core.tenant.TenantId;
 import com.codejava.center.domain.CenterSettings;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
@@ -24,6 +25,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CentreOperationsTest {
 
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 21, 12, 0);
+
+    /** اشتراكٌ مدفوع بعيداً: ما لم يكن الاشتراكُ موضوعَ الاختبار فهو ليس سببَ نتيجته */
+    private static final LocalDate PAID_THROUGH = NOW.toLocalDate().plusMonths(6);
 
     /** نسخةٌ يومية آخرُها أمس ظهراً: موعدُ الثانية فجراً مرّ ولم تُؤخذ */
     @Test
@@ -147,13 +151,84 @@ class CentreOperationsTest {
         assertThat(row.openCritical()).isZero();
     }
 
+    /* ------------------------------------------------------- الاشتراك */
+
+    /**
+     * <b>والمنقضي اشتراكُه ليس متأخراً كذلك - للسبب نفسه.</b>
+     *
+     * <p>{@code isServedOn} يجمع المحورين: يسمح المشغّل <b>و</b>يكون مدفوعاً. فسنترٌ
+     * انقضى اشتراكُه لا تعمل له نسخةٌ ولا فحص، ووسمُه "متأخر" يضيف إنذاراً كاذباً فوق
+     * سببٍ معروف - والمطلوب أن يُقرأ سطرُه "لم يدفع" لا "تعطّلت نسخُه".</p>
+     */
+    @Test
+    void aLapsedCentreIsNotOverdueEitherBecauseNothingRunsForItAnyway() {
+        CenterSettings stale = dailyBackupAt(LocalTime.of(2, 0), NOW.minusMonths(2));
+        LocalDate lapsed = NOW.toLocalDate().minusMonths(2);
+
+        CentreOperations row = CentreOperations.of(
+                tenant(TenantStatus.ACTIVE, lapsed), stale, 0, NOW);
+
+        assertThat(row.lapsed()).isTrue();
+        assertThat(row.backupOverdue())
+                .as("السببُ واحد ويُقال مرة: لم يدفع")
+                .isFalse();
+        assertThat(row.needsAttention()).isTrue();
+    }
+
+    /** والباقي يُعرض بالأيام، فيُطالَب قبل أن تُغلق الأبواب لا بعدها */
+    @Test
+    void theSurveySaysHowManyDaysAreLeftBeforeTheDoorsClose() {
+        LocalDate soon = NOW.toLocalDate().plusDays(3);
+
+        CentreOperations row = CentreOperations.of(
+                tenant(TenantStatus.ACTIVE, soon), upToDate(), 0, NOW);
+
+        assertThat(row.paidThrough()).isEqualTo(soon);
+        assertThat(row.daysRemaining()).isEqualTo(3);
+        assertThat(row.lapsed()).isFalse();
+        assertThat(row.needsAttention())
+                .as("وكلُّ شيءٍ آخر في موعده - المطالبةُ وحدها هي ما يستدعي النظر")
+                .isTrue();
+    }
+
+    /** وسنترٌ بلا اشتراكٍ يُتابَع لا يُطالَب ولا يُغلق */
+    @Test
+    void aCentreWithNoTrackedSubscriptionIsNeitherChasedNorClosed() {
+        CentreOperations row = CentreOperations.of(
+                tenant(TenantStatus.ACTIVE, null), upToDate(), 0, NOW);
+
+        assertThat(row.paidThrough()).isNull();
+        assertThat(row.lapsed()).isFalse();
+        assertThat(row.needsAttention()).isFalse();
+    }
+
+    /**
+     * والاشتراكُ يُقال حتى عن سنترٍ تعذّرت قراءةُ قاعدته.
+     *
+     * <p>هو في سجلّ المنصة لا في قاعدة السنتر، فتعذُّرُ فتحها لا يُخفي متى دفع - وهو
+     * أولُ ما يُسأل عنه حين يصمت سنتر.</p>
+     */
+    @Test
+    void anUnreadableCentreStillSaysWhenItPaid() {
+        LocalDate paidThrough = NOW.toLocalDate().plusDays(20);
+
+        CentreOperations row = CentreOperations.unreadable(
+                tenant(TenantStatus.ACTIVE, paidThrough), "قاعدة هذا السنتر مقطوعة");
+
+        assertThat(row.paidThrough()).isEqualTo(paidThrough);
+    }
+
     private static CentreOperations of(TenantStatus status, CenterSettings settings, long critical) {
         return CentreOperations.of(tenant(status), settings, critical, NOW);
     }
 
     private static PlatformTenant tenant(TenantStatus status) {
+        return tenant(status, PAID_THROUGH);
+    }
+
+    private static PlatformTenant tenant(TenantStatus status, LocalDate paidThrough) {
         return new PlatformTenant(new TenantId(7), "سنتر النور", "noor",
-                SchemaName.of("center_noor"), status);
+                SchemaName.of("center_noor"), status, paidThrough);
     }
 
     private static CenterSettings dailyBackupAt(LocalTime hour, LocalDateTime lastRun) {

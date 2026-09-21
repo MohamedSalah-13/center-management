@@ -83,8 +83,9 @@ public class TenancyConfig {
     }
 
     @Bean
-    public TenantRegistry tenantRegistry(JdbcTemplate platformJdbcTemplate, Flyway platformFlyway) {
-        TenantRegistry registry = new TenantRegistry(platformJdbcTemplate);
+    public TenantRegistry tenantRegistry(JdbcTemplate platformJdbcTemplate, Flyway platformFlyway,
+                                         Clock clock) {
+        TenantRegistry registry = new TenantRegistry(platformJdbcTemplate, clock);
         registry.refresh();
         return registry;
     }

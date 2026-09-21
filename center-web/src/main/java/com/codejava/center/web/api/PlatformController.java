@@ -12,7 +12,9 @@ import com.codejava.center.platform.TenantStatus;
 import com.codejava.center.web.EdgeThrottle;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -79,6 +82,13 @@ public class PlatformController {
     public record StatusRequest(@NotNull TenantStatus status) {
     }
 
+    /** شهورٌ كاملة: الاشتراك شهريٌّ ثابت، فلا مبلغَ في الطلب ولا أيامَ مفردة */
+    public record PaymentRequest(@Positive int months) {
+    }
+
+    public record SubscriptionView(long id, String slug, LocalDate paidThrough) {
+    }
+
     @PostMapping("/centres")
     public OpenedCentre openCentre(@RequestBody OpenCentreRequest request) {
         TenantProvisioning.NewTenant opened = provisioning.open(
@@ -103,6 +113,27 @@ public class PlatformController {
         provisioning.changeStatus(tenant, request.status());
         return registry.find(tenant)
                 .map(PlatformController::view)
+                .orElseThrow(() -> new IllegalArgumentException("unknown centre"));
+    }
+
+    /**
+     * تسجيلُ دفعِ شهورٍ كاملة.
+     *
+     * <p>ولا مبلغَ في الطلب: الاشتراك شهريٌّ ثابت، وما يقرّره هذا الباب هو <b>إلى متى
+     * دُفع</b> لا كم دُفع. ومبلغٌ يُرسَل هنا يعني أن من يستدعي يقرّر السعر - نفسُ
+     * القاعدة التي جعلت صرفَ المعلم {@code POST} على حصة لا على مبلغ.</p>
+     *
+     * <p>ولا يمسّ {@code status}: المحوران منفصلان، فسنترٌ أوقفه المشغّل لسببٍ غير
+     * المال لا يعود بالدفع وحده.</p>
+     */
+    @PostMapping("/centres/{id}/subscription")
+    public SubscriptionView recordPayment(@PathVariable long id,
+                                          @Valid @RequestBody PaymentRequest request) {
+        TenantId tenant = new TenantId(id);
+        LocalDate paidThrough = provisioning.recordPayment(tenant, request.months());
+
+        return registry.find(tenant)
+                .map(centre -> new SubscriptionView(id, centre.slug(), paidThrough))
                 .orElseThrow(() -> new IllegalArgumentException("unknown centre"));
     }
 
@@ -137,7 +168,9 @@ public class PlatformController {
                                  boolean backupOverdue,
                                  boolean alertsEnabled, LocalDateTime lastScanAt,
                                  boolean scanOverdue,
-                                 long openCritical, boolean needsAttention) {
+                                 long openCritical,
+                                 LocalDate paidThrough, long daysRemaining, boolean lapsed,
+                                 boolean needsAttention) {
     }
 
     /**
@@ -157,7 +190,9 @@ public class PlatformController {
                 row.readable(), row.problem(),
                 row.autoBackupEnabled(), row.lastBackupAt(), row.backupOverdue(),
                 row.alertsEnabled(), row.lastScanAt(), row.scanOverdue(),
-                row.openCritical(), row.needsAttention());
+                row.openCritical(),
+                row.paidThrough(), row.daysRemaining(), row.lapsed(),
+                row.needsAttention());
     }
 
     private static CentreView view(PlatformTenant tenant) {

@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -49,13 +50,14 @@ class PlatformOperationsTest {
                     name VARCHAR(150) NOT NULL,
                     slug VARCHAR(80) NOT NULL,
                     schema_name VARCHAR(48) NOT NULL,
-                    status VARCHAR(20) NOT NULL)
+                    status VARCHAR(20) NOT NULL,
+                    paid_through DATE NULL)
                 """);
         insert(platform, 1, "cairo", TenantStatus.ACTIVE);
         insert(platform, 2, "giza", TenantStatus.SUSPENDED);
         insert(platform, 3, "tanta", TenantStatus.ACTIVE);
 
-        registry = new TenantRegistry(platform);
+        registry = new TenantRegistry(platform, FIXED);
         registry.refresh();
         context = new ServerTenantContext(registry);
     }
@@ -153,11 +155,22 @@ class PlatformOperationsTest {
                 tenant.status(), true, null,
                 true, NOW.minusHours(1), false,
                 true, NOW.minusHours(1), false,
-                0);
+                0,
+                NOW.toLocalDate().plusMonths(6), 180, false, false);
     }
 
     private void insert(JdbcTemplate platform, long id, String slug, TenantStatus status) {
-        platform.update("INSERT INTO tenants (id, name, slug, schema_name, status) VALUES (?, ?, ?, ?, ?)",
-                id, "سنتر " + slug, slug, "center_" + slug, status.name());
+        // مدفوعٌ بعيداً ما لم يكن الاشتراك موضوعَ الاختبار: وإلا صار كلُّ نتيجةٍ
+        // هنا محتملةَ السبب - أهي الحالة أم المال
+        insert(platform, id, slug, status, LocalDate.now().plusYears(1));
+    }
+
+    private void insert(JdbcTemplate platform, long id, String slug, TenantStatus status,
+                        LocalDate paidThrough) {
+        platform.update("""
+                INSERT INTO tenants (id, name, slug, schema_name, status, paid_through)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                id, "سنتر " + slug, slug, "center_" + slug, status.name(), paidThrough);
     }
 }
