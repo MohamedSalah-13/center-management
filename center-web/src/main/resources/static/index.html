@@ -47,6 +47,7 @@
             <button data-view="till" data-text="web.nav.till"></button>
             <button data-view="students" data-text="web.nav.students"></button>
             <button data-view="groups" data-text="web.nav.groups"></button>
+            <button data-view="finance" data-text="web.nav.finance"></button>
             <button data-view="reports" data-text="web.nav.reports"></button>
         </nav>
         <span class="spacer"></span>
@@ -172,6 +173,10 @@
         </form>
         <p id="enrolResult" class="result"></p>
         <table id="enrolmentTable"></table>
+
+        <h3 data-text="web.payments.title"></h3>
+        <p id="paymentSummary" class="result"></p>
+        <table id="paymentTable"></table>
     </section>
 
     <section id="view-groups" class="view hidden">
@@ -206,6 +211,31 @@
 
         <h3 id="rosterTitle"></h3>
         <table id="rosterTable"></table>
+    </section>
+
+    <section id="view-finance" class="view hidden">
+        <h2 data-text="web.expenses.title"></h2>
+        <form id="expenseReportForm" class="row">
+            <label data-text="web.reports.from" for="expenseFrom"></label>
+            <input id="expenseFrom" type="date">
+            <label data-text="web.reports.to" for="expenseTo"></label>
+            <input id="expenseTo" type="date">
+            <input id="expenseQuery" data-placeholder="web.expenses.search">
+            <button type="submit" data-text="web.common.refresh"></button>
+            <a id="expensesPdf" href="#" target="_blank" rel="noopener" data-text="web.expenses.pdf"></a>
+        </form>
+        <p id="expenseSummary" class="result"></p>
+        <table id="expenseTable"></table>
+
+        <h3 data-text="web.payouts.title"></h3>
+        <form id="payoutForm" class="row">
+            <label data-text="web.payouts.teacher" for="payoutTeacher"></label>
+            <select id="payoutTeacher"></select>
+            <button type="submit" data-text="web.common.refresh"></button>
+            <a id="statementPdf" href="#" target="_blank" rel="noopener" data-text="web.payouts.statement"></a>
+        </form>
+        <p id="payoutResult" class="result"></p>
+        <table id="payoutTable"></table>
     </section>
 
     <section id="view-reports" class="view hidden">

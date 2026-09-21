@@ -51,6 +51,7 @@ public class TransactionService {
     @RequiresRole(Role.ADMIN)
     public Transaction recordStudentPayment(Student student, CourseGroup group, Session session, BigDecimal amount, String description) {
         validateAmount(amount);
+        validateDescription(description);
 
         // التحقق من عدم تكرار الدفع لنفس الحصة (إذا تم تمرير حصة)
         if (session != null) {
@@ -111,6 +112,7 @@ public class TransactionService {
     @RequiresRole(Role.ADMIN)
     public Transaction recordExpense(BigDecimal amount, String description) {
         validateAmount(amount);
+        validateDescription(description);
 
         Transaction transaction = Transaction.builder()
                 .type(TransactionType.EXPENSE)
@@ -153,6 +155,23 @@ public class TransactionService {
     private void validateAmount(BigDecimal amount) {
         if (amount == null || amount.signum() <= 0) {
             throw new IllegalArgumentException(I18n.get("error.transaction.amountPositive"));
+        }
+    }
+
+    /**
+     * كلُّ حركةٍ على الخزينة تقول ما كانت.
+     *
+     * <p>العمود {@code NOT NULL} منذ أول ترحيل، فالقاعدة كانت تفرضها - لكن برسالةٍ
+     * إنجليزية فيها اسم الجدول والعمود تصل {@code 500}. والشاشتان تفحصانه في نفسيهما
+     * ({@code CashierController} و{@code ExpensesController})، وقاعدةٌ تعيش في شاشة
+     * تنساها الشاشة التالية: حافةُ HTTP هي الشاشة التالية، ونسيتها.</p>
+     *
+     * <p>وليست شكليّة: سطرُ جرد الوردية وسطرُ السجلّ كلاهما يُقرأ بعد أيام، ومبلغٌ
+     * خرج من الدرج بلا بيانٍ لا يُطابَق بشيء.</p>
+     */
+    private void validateDescription(String description) {
+        if (description == null || description.isBlank()) {
+            throw new IllegalArgumentException(I18n.get("error.transaction.descriptionRequired"));
         }
     }
 

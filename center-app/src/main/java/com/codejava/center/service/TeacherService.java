@@ -156,6 +156,23 @@ public class TeacherService {
         return teacherRepository.findAll();
     }
 
+    /**
+     * معلمٌ بمعرّفه، لكشف حسابه.
+     *
+     * <p>لازمةٌ لمن يصل إليه برقمٍ لا بكائن - أي كلُّ حافة HTTP: شاشةُ سطح المكتب
+     * تحمل الصفَّ الذي اختاره المستخدم من قائمةٍ قرأتها توّاً.</p>
+     *
+     * <p>ومحروسةٌ كـ {@code getAllTeachers}، لا مفتوحةٌ كبقية القراءات: الصفُّ يحمل
+     * نوع العمولة وقيمتها - أي ما يتقاضاه المعلم - وهو لا يُقرأ هنا إلا لبناء ورقة
+     * صرفٍ لا يوقّعها غير صاحب السنتر.</p>
+     */
+    @Transactional(readOnly = true)
+    @RequiresRole(Role.ADMIN)
+    public Teacher findById(Long teacherId) {
+        return teacherRepository.findById(teacherId)
+                .orElseThrow(() -> new IllegalArgumentException(I18n.get("error.teacher.notFound")));
+    }
+
     @Transactional
     @RequiresRole(Role.ADMIN)
     public Teacher saveTeacher(Teacher teacher) {

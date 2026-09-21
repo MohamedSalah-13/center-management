@@ -1,12 +1,15 @@
 package com.codejava.center.web.api;
 
 import com.codejava.center.domain.CourseGroup;
+import com.codejava.center.domain.Transaction;
 import com.codejava.center.service.AttendanceService;
 import com.codejava.center.service.CourseGroupService;
 import com.codejava.center.service.ReportService;
 import com.codejava.center.service.StudentService;
+import com.codejava.center.service.TeacherService;
 import com.codejava.center.service.TransactionService;
 import com.codejava.center.service.dto.Sheet;
+import com.codejava.center.service.dto.SessionPayout;
 import com.codejava.center.service.dto.StudentBalance;
 import com.codejava.center.util.I18n;
 import lombok.RequiredArgsConstructor;
@@ -53,6 +56,7 @@ public class ReportController {
     private final TransactionService transactionService;
     private final AttendanceService attendanceService;
     private final CourseGroupService courseGroupService;
+    private final TeacherService teacherService;
 
     @GetMapping("/arrears.pdf")
     public ResponseEntity<byte[]> arrears() {
@@ -83,6 +87,41 @@ public class ReportController {
         String scope = I18n.format("attLog.filterDescription", from, to, groupName(groupId));
         return pdf(reportService.attendanceLogSheet(
                 attendanceService.getAttendanceLog(from, to, groupId), scope));
+    }
+
+    /**
+     * كشف المصروفات، ومعه <b>نفس</b> التصفية التي بَنت الأرقام على الشاشة.
+     *
+     * <p>البنود والإجمالي ووصفُ المدى كلُّها من {@code ExpenseController}، فالورقة
+     * نسخةٌ مما كان أمام من ضغط الزرّ لا ترتيبٌ ثانٍ يقرؤه من جديد. وبغير ذلك تخرج
+     * ورقةٌ بإجمالي الفترة كلها لمن كان ينظر إلى نتيجة بحث.</p>
+     */
+    @GetMapping("/expenses.pdf")
+    public ResponseEntity<byte[]> expenses(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) String query) {
+
+        List<Transaction> rows = ExpenseController.filtered(
+                transactionService.getExpenses(from, to), query);
+        BigDecimal total = rows.stream()
+                .map(Transaction::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return pdf(reportService.expenseReportSheet(rows, total,
+                ExpenseController.scopeOf(from, to, query)));
+    }
+
+    /**
+     * كشف حساب معلم: حصصه المغلقة التي لم تُصرَف بعد.
+     *
+     * <p>هو الورقة التي تُسلَّم مع المال، فلا يقرأ المعلم رقماً واحداً بلا الحصص التي
+     * تكوّن منها.</p>
+     */
+    @GetMapping("/teacher-statement.pdf")
+    public ResponseEntity<byte[]> teacherStatement(@RequestParam Long teacherId) {
+        List<SessionPayout> sessions = teacherService.getPayableSessionsOf(teacherId);
+        return pdf(reportService.teacherStatementSheet(teacherService.findById(teacherId), sessions));
     }
 
     private String groupName(Long groupId) {
