@@ -1,8 +1,6 @@
 package com.codejava.center.web.api;
 
-import com.codejava.center.domain.Session;
 import com.codejava.center.service.AttendanceService;
-import com.codejava.center.service.SessionService;
 import com.codejava.center.service.dto.AttendanceLogRow;
 import com.codejava.center.service.dto.AttendanceResult;
 import com.codejava.center.util.MoneyUtils;
@@ -34,7 +32,6 @@ import java.util.List;
 public class AttendanceController {
 
     private final AttendanceService attendanceService;
-    private final SessionService sessionService;
 
     public record ScanRequest(@NotBlank String barcode, Long sessionId) {
     }
@@ -46,9 +43,6 @@ public class AttendanceController {
     public record LogRow(Long attendanceId, String studentName, String barcode, String groupName,
                          LocalDateTime timeIn, LocalDateTime timeOut,
                          String state, String stateName) {
-    }
-
-    public record OpenSession(Long id, Long groupId, String groupName) {
     }
 
     @PostMapping("/scan")
@@ -66,21 +60,8 @@ public class AttendanceController {
         return attendanceService.getTodayLog().stream().map(AttendanceController::row).toList();
     }
 
-    /** الحصص المفتوحة: الشاشة تربط نفسها بواحدة حين تخدم قاعةً بعينها */
-    @GetMapping("/sessions")
-    public List<OpenSession> openSessions() {
-        return sessionService.getActiveSessions().stream()
-                .map(session -> new OpenSession(session.getId(), groupId(session), groupName(session)))
-                .toList();
-    }
-
-    private static Long groupId(Session session) {
-        return session.getGroup() == null ? null : session.getGroup().getId();
-    }
-
-    private static String groupName(Session session) {
-        return session.getGroup() == null ? null : session.getGroup().getName();
-    }
+    // قائمةُ الحصص المفتوحة كانت هنا أيضاً، وحُذفت حين وُلد /api/class-sessions:
+    // سؤالٌ واحد بجوابين ينتهي بجوابين مختلفين. الشاشة تسأل هناك وتربط نفسها بحصة
 
     private static ScanView view(AttendanceResult result) {
         return new ScanView(

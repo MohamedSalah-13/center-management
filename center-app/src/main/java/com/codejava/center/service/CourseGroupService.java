@@ -25,6 +25,26 @@ public class CourseGroupService {
     private final CourseGroupRepository courseGroupRepository;
     private final AuditService auditService;
 
+    /**
+     * مجموعةٌ بمعرّفها، ومعلّمُها محمَّلٌ معها.
+     *
+     * <p>لازمةٌ لمن يصل إليها برقمٍ لا بكائن - أي كلُّ حافة HTTP: شاشةُ سطح المكتب
+     * تحمل الصفَّ الذي اختاره المستخدم من قائمةٍ قرأتها توّاً، والطلبُ لا يحمل إلا
+     * رقماً في مساره.</p>
+     *
+     * <p>وبـ {@code JOIN FETCH} على المعلم: الاسم يُقرأ بعد إغلاق المعاملة - في رسالة
+     * تعارضٍ أو في صفّ جدول - وعلاقةٌ كسولة هناك تعني
+     * {@code LazyInitializationException} لا حقلاً فارغاً.</p>
+     *
+     * <p>قراءةٌ بلا حارس، كبقية القراءات: ما تدين به الحافة للقراءة هو المصادقة لا
+     * التصريح.</p>
+     */
+    @Transactional(readOnly = true)
+    public CourseGroup findById(Long id) {
+        return courseGroupRepository.findByIdWithTeacher(id)
+                .orElseThrow(() -> new IllegalArgumentException(I18n.get("error.group.notFound")));
+    }
+
     @Transactional
     @RequiresRole(Role.ADMIN)
     public CourseGroup saveGroup(CourseGroup group) {
