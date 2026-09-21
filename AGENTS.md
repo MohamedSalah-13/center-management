@@ -126,6 +126,7 @@ them the same way — through a port, never through `java.util.prefs`:**
 | Does a filled sheet carry the centre letterhead | `SheetHeaderPolicy` | `DesktopSheetHeaderPolicy` → `PrintPreferences` | always `true` |
 | Where does a delivery to a watching screen run | `UiDispatcher` | `DesktopUiDispatcher` → `Platform.runLater` | `Runnable::run` |
 | Which database does a backup dump, with which tools | `BackupTarget` | `DesktopBackupTarget` → `JdbcUrl` + `MySqlLocator` | `ServerBackupTarget` → the tenant's schema |
+| Where does the finished backup go afterwards | `OffsiteBackup` | `DesktopOffsiteBackup` → nowhere; `backupPath` already leaves the machine | `ServerOffsiteBackup` → a store from the environment, a folder per centre |
 | What language is being spoken right now | `LocaleProvider` | `LanguagePreferences` → `java.util.prefs` | `ServerLocaleProvider` → `Accept-Language` |
 | Who is doing this | `CurrentActor` | `UserSession` | `ServerCurrentActor` → `SecurityContextHolder` |
 | For which centre | `TenantContext` | `UserSession` → `TenantId.DESKTOP` | the session's `CentreAuthentication` |
@@ -1372,6 +1373,48 @@ the desktop answers from `BackupPreferences` and a server would answer from a va
 passphrase is kept is the part that differs between the two, and "never inside what it protects"
 is the part that does not.
 
+**A backup that dies with what it protects is not a backup, and on a server that is the default.**
+The file is written where `backupPath` says and stays there. In a centre that is the owner's
+decision — they point it at a flash drive or the centre's share, which is exactly why
+`BackupTarget.backupRoot()` answers `null` there — so the copy leaves the machine by their own
+hand. On a server it inverts: the encrypted file sits on the same disk that carries fifty centres'
+databases, so losing that disk loses the databases and their backups in one go. `OffsiteBackup`
+(`center-core`) is the port that says where it goes afterwards, and `OffsiteBackupSender`
+(`center-app`) `PUT`s the file there with the token in a header — the same "describe the request,
+don't hard-code a provider" shape as the messaging gateway, and for the same reason: centres buy
+storage from local resellers, and that is a difference in a setting, not in the program. It needs
+no new dependency; `java.net.http` is in the JDK, and `BodyPublishers.ofFile` streams rather than
+loading a gigabyte into memory.
+
+Five things it encodes:
+
+- **There is no separate on/off switch.** Configured means an endpoint *and* a token, which is
+  the lesson `EnvironmentSecrets.encryptionEnabled` already wrote down: a second flag beside the
+  thing that makes it work creates a fourth state with no meaning — "on, with nowhere to send" —
+  and that is the one that fails every night.
+- **An endpoint with no token is broken, not unconfigured.** Somebody typed that URL on purpose.
+  Reading it as "not asked for" silences the fault completely and leaves a centre believing its
+  backups are off the server when they never left it — and the belief is what stops anyone asking.
+- **It never throws, and never stays silent.** The backup already succeeded when it is called;
+  turning a written file into "backup failed" sends the owner hunting for a file they have. So
+  the failure comes back in `OffsiteCopy`, which lands in the `BACKUP_CREATED` audit line, on the
+  screen through `BackupOutcome.describe()`, and in `BACKUP_NOT_OFFSITE` raised by
+  `BackupScheduler`. Same rule as `prune` and `AlertEngine.raise`.
+- **`BACKUP_NOT_OFFSITE` is its own type, not `BACKUP_FAILED`.** One means there is no file; the
+  other means there is a perfectly good file in the worst possible place. Reading the second as
+  the first sends somebody looking for a backup that exists.
+- **`OutboundUrl` guards the final URL, not the base**, and redirects are not followed: the
+  program opens a human-typed address from inside the network carrying `Authorization: Bearer`,
+  which is SSRF, and a `302` into `169.254.169.254` would carry the token there. That guard is
+  also why the wire path cannot be driven from a test — a local server is `http` *and* loopback,
+  which it refuses twice over — so `interpret` is package-private and the decision that matters
+  (which status means the file is really there; every `2xx`, not just `200`) is tested directly.
+
+`OffsiteCopy` has **three** states rather than two, the same split as `SendResult` in messaging:
+not asked for, stored, or asked for and not stored. Collapsing the first and the third into one
+"no" makes a centre that never configured a store read identically to one whose uploads have been
+failing for a month.
+
 **The schedule is `CenterSettings`, not per machine** — unlike the printer and the language.
 It is one data-protection policy: the hour at which the centre is closed and the database is
 quiet. `BackupScheduler` builds a `Trigger` over `BackupSchedule` and reschedules on
@@ -1966,7 +2009,7 @@ Add coverage when touching any of those. `@DataJpaTest` needs `@Import(SecurityC
 because the boot class is itself a bean injecting `PasswordEncoder`.
 
 **A test lives in the module that holds its subject**, which is why the suite is split
-88 / 301 / 52 / 95 — core, app, desktop, web.
+88 / 312 / 52 / 95 — core, app, desktop, web.
 Two classes in `center-app`'s test tree exist only because it is a library and not a program:
 
 - `AppTestApplication` — `@DataJpaTest` searches *upward* for a `@SpringBootConfiguration` to

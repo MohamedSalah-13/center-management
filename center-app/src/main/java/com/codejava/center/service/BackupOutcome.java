@@ -9,10 +9,11 @@ import java.nio.file.Path;
 /**
  * ما تمّ في عملية نسخ احتياطي واحدة: الملف المكتوب، وما حُذف من القديم معه.
  *
- * @param file   النسخة التي كُتبت للتوّ
- * @param pruned حصيلة حذف النسخ الزائدة عن العدد المحفوظ
+ * @param file    النسخة التي كُتبت للتوّ
+ * @param pruned  حصيلة حذف النسخ الزائدة عن العدد المحفوظ
+ * @param offsite هل خرجت من هذا الجهاز - وهو السؤال الذي لا يجيب عنه وجودُ الملف
  */
-public record BackupOutcome(Path file, BackupRetention.Pruned pruned) {
+public record BackupOutcome(Path file, BackupRetention.Pruned pruned, OffsiteCopy offsite) {
 
     /**
      * جملة تُعرض بعد النسخة، بلغة الواجهة.
@@ -38,6 +39,12 @@ public record BackupOutcome(Path file, BackupRetention.Pruned pruned) {
         }
         if (pruned.unreadable()) {
             text.append(System.lineSeparator()).append(I18n.get("settings.backupPruneUnreadable"));
+        }
+        // ويُقال أن النسخة لم تخرج، ولا يُقال أنها خرجت: النجاح هو المتوقَّع، وسطرٌ
+        // بعد كل نسخة يقول "رُفعت" يُقرأ ضجيجاً ثم لا يُقرأ - وفيه يضيع سطرُ الفشل
+        if (offsite.failedAfterBeingAsked()) {
+            text.append(System.lineSeparator())
+                    .append(I18n.format("settings.backupNotOffsite", offsite.problem()));
         }
         return text.toString();
     }

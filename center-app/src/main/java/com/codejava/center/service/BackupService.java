@@ -108,6 +108,16 @@ public class BackupService {
     private final BackupTarget backupTarget;
 
     /**
+     * يُخرج النسخة من هذا الجهاز بعد كتابتها.
+     *
+     * <p>هنا لا في {@code BackupScheduler}: ثلاثةُ أبوابٍ تأخذ نسخة - المجدوِل، وتبويبُ
+     * الإعدادات، واختصارُ لوحة المفاتيح - ونسخةٌ تُؤخذ بيد أحدهم يجب أن تخرج كما تخرج
+     * نسخةُ الليل. وضعُه في المجدوِل وحده يترك النسختين الأخريين على القرص بلا أن
+     * يقول أحدٌ شيئاً.</p>
+     */
+    private final OffsiteBackupSender offsiteBackupSender;
+
+    /**
      * يأخذ نسخة احتياطية ويعيد الملف الناتج وحصيلة حذف القديم معه.
      *
      * <p>الحصيلة جزء من الجواب لا تفصيل داخلي: "تمت النسخة" وحدها تركت المستخدم لا يعرف
@@ -160,9 +170,14 @@ public class BackupService {
         int keep = BackupRetention.resolve(retentionCount);
         BackupRetention.Pruned pruned = prune(directory, keep);
 
+        // بعد الحذف لا قبله: الملفُّ المرفوع هو الذي بقي فعلاً في المجلد، ورفعُ نسخةٍ
+        // يحذفها دورُ الاحتفاظ بعد لحظة يملأ المستودع بما لا يقابله شيء هنا
+        OffsiteCopy offsite = offsiteBackupSender.send(target);
+
         auditService.record(AuditAction.BACKUP_CREATED, null, target.getFileName().toString(),
-                "encrypted=" + encrypt + "; retention=" + keep + "; " + pruned.details());
-        return new BackupOutcome(target, pruned);
+                "encrypted=" + encrypt + "; retention=" + keep + "; " + pruned.details()
+                        + "; " + offsite.details());
+        return new BackupOutcome(target, pruned, offsite);
     }
 
     /**
