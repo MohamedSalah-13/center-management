@@ -2,10 +2,12 @@ package com.codejava.center.platform;
 
 import com.codejava.center.core.alert.AlertSchedule;
 import com.codejava.center.core.backup.BackupSchedule;
+import com.codejava.center.core.tenant.Subscription;
 import com.codejava.center.domain.CenterSettings;
 import com.codejava.center.service.BackupSchedules;
 import com.codejava.center.service.alert.AlertSchedules;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -45,12 +47,18 @@ public record CentreOperations(
         boolean readable, String problem,
         boolean autoBackupEnabled, LocalDateTime lastBackupAt, boolean backupOverdue,
         boolean alertsEnabled, LocalDateTime lastScanAt, boolean scanOverdue,
-        long openCritical) {
+        long openCritical,
+        LocalDate paidThrough, long daysRemaining, boolean lapsed, boolean needsChasing) {
 
     /** حالُ سنترٍ قُرئت إعداداتُه */
     public static CentreOperations of(PlatformTenant tenant, CenterSettings settings,
                                       long openCritical, LocalDateTime now) {
-        boolean served = tenant.status().isServed();
+        LocalDate today = now.toLocalDate();
+        Subscription subscription = tenant.subscription();
+
+        // "يُخدَم" هنا هو نفسه الذي يقرّر الدخول والدورة الليلية: المشغّل والمال معاً.
+        // وقراءتُه من status وحده تجعل المسحَ يقول "في موعده" عن سنترٍ لا يُخدَم أصلاً
+        boolean served = tenant.isServedOn(today);
 
         boolean autoBackup = settings.isAutoBackupEnabled();
         boolean backupOverdue = served && autoBackup
@@ -64,7 +72,9 @@ public record CentreOperations(
                 tenant.status(), true, null,
                 autoBackup, settings.getLastAutoBackupAt(), backupOverdue,
                 alerts, settings.getLastAlertScanAt(), scanOverdue,
-                openCritical);
+                openCritical,
+                tenant.paidThrough(), subscription.daysRemaining(today),
+                subscription.lapsed(today), subscription.needsChasing(today));
     }
 
     /**
@@ -74,15 +84,19 @@ public record CentreOperations(
      * مطمئناً عن سؤالٍ لم يُسأل أصلاً.</p>
      */
     public static CentreOperations unreadable(PlatformTenant tenant, String problem) {
+        // والاشتراكُ يُقال على أي حال: هو في سجلّ المنصة لا في قاعدة السنتر، فتعذُّرُ
+        // قراءة قاعدته لا يُخفي متى دفع - وهو أولُ ما يُسأل عنه حين يصمت سنتر
+        Subscription subscription = tenant.subscription();
         return new CentreOperations(tenant.id().value(), tenant.name(), tenant.slug(),
                 tenant.status(), false, problem,
                 false, null, false,
                 false, null, false,
-                0);
+                0,
+                tenant.paidThrough(), 0, false, false);
     }
 
     /** أثمّة ما يستدعي نظرَ المشغّل في هذا السنتر الآن؟ */
     public boolean needsAttention() {
-        return !readable || backupOverdue || scanOverdue || openCritical > 0;
+        return !readable || backupOverdue || scanOverdue || openCritical > 0 || needsChasing;
     }
 }

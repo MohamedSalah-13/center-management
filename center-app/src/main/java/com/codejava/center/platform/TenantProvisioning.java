@@ -2,6 +2,7 @@ package com.codejava.center.platform;
 
 import com.codejava.center.config.tenancy.ServerTenantContext;
 import com.codejava.center.core.tenant.SchemaName;
+import com.codejava.center.core.tenant.Subscription;
 import com.codejava.center.core.tenant.TenantId;
 import com.codejava.center.domain.CenterSettings;
 import com.codejava.center.domain.User;
@@ -16,6 +17,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import javax.sql.DataSource;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -80,7 +82,12 @@ public class TenantProvisioning {
         createDatabase(schema);
 
         TenantId id = insertTenantRow(name, slug, schema);
-        PlatformTenant tenant = new PlatformTenant(id, name, slug, schema, TenantStatus.ACTIVE);
+
+        // بلا تاريخ دفع: السنتر يُفتح بيد المشغّل، والفوترةُ تبدأ بأول دفعةٍ يسجّلها.
+        // وتاريخٌ يُزرع هنا - ولو شهراً تجريبياً - سياسةُ منتَجٍ لا قرارُ تزويد، وأسوؤه
+        // أن يُزرع اليومُ نفسه: سنترٌ يُفتح الآن يُغلق بعد أيام السماح وهو في تهيئته
+        PlatformTenant tenant =
+                new PlatformTenant(id, name, slug, schema, TenantStatus.ACTIVE, null);
 
         // السجلّ يعرف المؤسسة فور وجود صفّها، وقبل أيّ عملٍ يجري داخل نطاقها: هو
         // الترجمة الوحيدة من معرّف إلى اسم قاعدة، فكلُّ ما يلي - وأوّله زرعُ صفّ
@@ -132,6 +139,27 @@ public class TenantProvisioning {
     public void changeStatus(TenantId tenant, TenantStatus status) {
         platform.update("UPDATE tenants SET status = ? WHERE id = ?", status.name(), tenant.value());
         registry.refresh();
+    }
+
+    /**
+     * يسجّل دفعَ شهورٍ كاملة، ويعيد التاريخ الذي صار الاشتراكُ مدفوعاً إليه.
+     *
+     * <p>ولا يمسّ {@code status}: المحوران منفصلان عن قصد، فدفعُ سنترٍ أوقفه المشغّل
+     * لسببٍ غير المال لا يُعيد تشغيله من تلقاء نفسه - ولا سبيل إلى معرفة ذلك لو كُتب
+     * الإيقافُ التلقائي في العمود نفسه. والحسابُ كلُّه في
+     * {@link Subscription#extendedBy}، وهو نقيٌّ ومُختبَر على الحدود.</p>
+     */
+    public LocalDate recordPayment(TenantId tenant, int months) {
+        PlatformTenant centre = registry.find(tenant).orElseThrow(
+                () -> new IllegalArgumentException("no tenant registered with id " + tenant.value()));
+
+        LocalDate paidThrough = centre.subscription()
+                .extendedBy(months, LocalDate.now(clock));
+
+        platform.update("UPDATE tenants SET paid_through = ? WHERE id = ?",
+                paidThrough, tenant.value());
+        registry.refresh();
+        return paidThrough;
     }
 
     private TenantId findRedeemableTenant(String fingerprint) {

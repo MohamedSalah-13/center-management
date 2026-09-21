@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.time.Clock;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -31,24 +33,12 @@ class ServerTenantContextTest {
 
     @BeforeEach
     void registerThreeTenants() {
-        JdbcDataSource dataSource = new JdbcDataSource();
-        dataSource.setURL("jdbc:h2:mem:platform_" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1");
-        dataSource.setUser("sa");
-
-        JdbcTemplate platform = new JdbcTemplate(dataSource);
-        platform.execute("""
-                CREATE TABLE tenants (
-                    id BIGINT PRIMARY KEY,
-                    name VARCHAR(150) NOT NULL,
-                    slug VARCHAR(80) NOT NULL,
-                    schema_name VARCHAR(48) NOT NULL,
-                    status VARCHAR(20) NOT NULL)
-                """);
+        JdbcTemplate platform = platformOf("default");
         insert(platform, 1, "cairo", TenantStatus.ACTIVE);
         insert(platform, 2, "giza", TenantStatus.SUSPENDED);
         insert(platform, 3, "tanta", TenantStatus.ACTIVE);
 
-        TenantRegistry registry = new TenantRegistry(platform);
+        TenantRegistry registry = new TenantRegistry(platform, Clock.systemDefaultZone());
         registry.refresh();
         context = new ServerTenantContext(registry);
     }
@@ -95,6 +85,37 @@ class ServerTenantContextTest {
         context.sweep(tenant -> visited.add(tenant.value()));
 
         assertThat(visited).containsExactly(1L, 3L);
+    }
+
+    /**
+     * <b>والدورة تتخطّى المنقضي اشتراكُه كما تتخطّى الموقوف.</b>
+     *
+     * <p>وهما محوران لا واحد: هذا أوقفه المشغّل، وذاك أوقفه المال. والمقصود واحد -
+     * خادمٌ يأخذ نسخةً ويرسل رسائل إلى أولياء أمور سنترٍ توقّف عن الدفع منذ شهرين
+     * يعمل باسم ذلك السنتر وعلى فاتورته.</p>
+     *
+     * <p>ولا مجدوِلَ أوقفه: الانقضاء يُحسب هنا عند كل قراءة، فلا ليلةَ تمرّ بلا
+     * دورةِ إيقافٍ يبقى فيها منقضٍ يُخدَم.</p>
+     */
+    @Test
+    void theSweepSkipsACentreWhoseSubscriptionLapsedJustAsItSkipsASuspendedOne() {
+        JdbcTemplate platform = platformOf("lapsed");
+        insert(platform, 1, "cairo", TenantStatus.ACTIVE);
+        insert(platform, 2, "giza", TenantStatus.ACTIVE,
+                LocalDate.now().minusMonths(2));
+        insert(platform, 3, "tanta", TenantStatus.ACTIVE,
+                // داخل أيام السماح: دُفع متأخراً، والأبواب لم تُغلق بعد
+                LocalDate.now().minusDays(1));
+
+        TenantRegistry registry = new TenantRegistry(platform, Clock.systemDefaultZone());
+        registry.refresh();
+
+        List<Long> visited = new ArrayList<>();
+        new ServerTenantContext(registry).sweep(tenant -> visited.add(tenant.value()));
+
+        assertThat(visited)
+                .as("والمتأخر داخل السماح يُخدَم: حوالةٌ تتأخر يوماً ليست انقطاعاً")
+                .containsExactly(1L, 3L);
     }
 
     @Test
@@ -200,8 +221,38 @@ class ServerTenantContextTest {
         assertThat(stamped).containsExactly("cairo", "tanta");
     }
 
+    /** سجلُّ منصةٍ فارغ على H2، جديدٌ لكل اختبار */
+    private JdbcTemplate platformOf(String label) {
+        JdbcDataSource dataSource = new JdbcDataSource();
+        dataSource.setURL("jdbc:h2:mem:platform_" + label + "_" + UUID.randomUUID()
+                + ";DB_CLOSE_DELAY=-1");
+        dataSource.setUser("sa");
+
+        JdbcTemplate platform = new JdbcTemplate(dataSource);
+        platform.execute("""
+                CREATE TABLE tenants (
+                    id BIGINT PRIMARY KEY,
+                    name VARCHAR(150) NOT NULL,
+                    slug VARCHAR(80) NOT NULL,
+                    schema_name VARCHAR(48) NOT NULL,
+                    status VARCHAR(20) NOT NULL,
+                    paid_through DATE NULL)
+                """);
+        return platform;
+    }
+
     private void insert(JdbcTemplate platform, long id, String slug, TenantStatus status) {
-        platform.update("INSERT INTO tenants (id, name, slug, schema_name, status) VALUES (?, ?, ?, ?, ?)",
-                id, "سنتر " + slug, slug, "center_" + slug, status.name());
+        // مدفوعٌ بعيداً ما لم يكن الاشتراك موضوعَ الاختبار: وإلا صار كلُّ نتيجةٍ
+        // هنا محتملةَ السبب - أهي الحالة أم المال
+        insert(platform, id, slug, status, LocalDate.now().plusYears(1));
+    }
+
+    private void insert(JdbcTemplate platform, long id, String slug, TenantStatus status,
+                        LocalDate paidThrough) {
+        platform.update("""
+                INSERT INTO tenants (id, name, slug, schema_name, status, paid_through)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                id, "سنتر " + slug, slug, "center_" + slug, status.name(), paidThrough);
     }
 }

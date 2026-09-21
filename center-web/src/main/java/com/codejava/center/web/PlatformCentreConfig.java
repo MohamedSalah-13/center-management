@@ -7,6 +7,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.Clock;
+import java.time.LocalDate;
+
 /**
  * خادم المنصة: السنتر يُعرف باسمه في سجلّ المنصة، والطلب يعمل داخل قاعدته.
  */
@@ -19,12 +22,16 @@ public class PlatformCentreConfig {
      *
      * <p>ورسالةُ الرفض واحدة لاسمٍ مجهول ولاشتراكٍ متوقف: التفريق بينهما يقول لمن
      * يجرّب الأسماء أيُّها سنترٌ قائم - وهو نصف ما يحتاجه قبل أن يجرّب كلمات المرور.</p>
+     *
+     * <p>و"متوقف" هنا يشمل <b>المنقضي اشتراكُه</b>، لأن {@code isServedOn} يجمع
+     * المحورين. ومنعُ المهامّ التلقائية وحدها عن سنترٍ لم يدفع لا يُحصّل مالاً ويترك
+     * سنتراً يعمل بلا نسخةٍ احتياطية - أي يعاقب العميلَ في الموضع الذي يؤذيه وحده.</p>
      */
     @Bean
-    public CentreDirectory platformCentreDirectory(TenantRegistry registry) {
+    public CentreDirectory platformCentreDirectory(TenantRegistry registry, Clock clock) {
         return slug -> {
             PlatformTenant tenant = registry.findBySlug(slug == null ? "" : slug.trim())
-                    .filter(candidate -> candidate.status().isServed())
+                    .filter(candidate -> candidate.isServedOn(LocalDate.now(clock)))
                     .orElseThrow(() -> new IllegalArgumentException("unknown centre"));
             return tenant.id();
         };
