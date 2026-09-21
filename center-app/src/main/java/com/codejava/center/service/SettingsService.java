@@ -5,6 +5,7 @@ import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.repository.CenterSettingsRepository;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.security.RequiresRole;
+import com.codejava.center.service.dto.CenterSettingsDraft;
 import com.codejava.center.util.I18n;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 /**
  * إعدادات السنتر.
@@ -53,7 +55,58 @@ public class SettingsService {
     // إعدادات السنتر وحدها تُعيد تعريف كل الأرصدة: ledgerStartDate يقرّر أيّ
     // الحركات تُحتسب أصلاً، فتبديله يغيّر رصيد كل طالب بلا أن يمسّ صفّاً واحداً
     @RequiresRole(Role.ADMIN)
-    public CenterSettings save(CenterSettings settings) {
+    public CenterSettings save(CenterSettingsDraft draft) {
+        // الصفُّ القائم يُقرأ ثم يُطبَّق عليه ما في المسودة، فما ليست صاحبةَ قراره يبقى
+        CenterSettings settings = getSettings();
+
+        settings.setCenterName(draft.centerName());
+        settings.setCenterPhone(draft.centerPhone());
+        settings.setLogoPath(draft.logoPath());
+        settings.setBackupPath(draft.backupPath());
+        settings.setAutoBackupEnabled(draft.autoBackupEnabled());
+        settings.setCurrency(draft.currency());
+
+        settings.setBackupFrequency(draft.backupFrequency());
+        settings.setBackupTime(draft.backupTime());
+        settings.setBackupDayOfWeek(draft.backupDayOfWeek());
+        settings.setBackupDayOfMonth(draft.backupDayOfMonth());
+        settings.setBackupRetentionCount(draft.backupRetentionCount());
+
+        settings.setNotificationChannel(draft.notificationChannel());
+        settings.setNotificationApiUrl(draft.notificationApiUrl());
+        settings.setNotificationSenderId(draft.notificationSenderId());
+        settings.setNotificationTemplateName(draft.notificationTemplateName());
+        settings.setNotificationTemplateLanguage(draft.notificationTemplateLanguage());
+        settings.setNotificationBodyTemplate(draft.notificationBodyTemplate());
+
+        settings.setLedgerStartDate(draft.ledgerStartDate());
+
+        return write(settings);
+    }
+
+    /**
+     * مفتاحُ التنبيهات وموعدُ فحصها، وهما بابٌ وحدهما.
+     *
+     * <p>صفُّ الإعدادات واحد، وشاشتان تكتبان فيه: الإعدادات ومركزُ التنبيهات. وما دامت
+     * الكتابة تمرّ بالصفّ كاملاً فإن كلَّ حفظٍ من إحداهما يمحو ما ضبطته الأخرى - وهو ما
+     * كان يقع فعلاً: شاشةُ الإعدادات لا تحمل حقلَ تنبيهاتٍ واحداً، فكانت كلُّ ضغطة
+     * "حفظ" فيها تُطفئ التنبيهات وتمحو {@code lastAlertScanAt}.</p>
+     *
+     * <p>فصارت كلُّ شاشةٍ تكتب ما تملكه وحده. والموعدُ الفارغ يعني الافتراضي، لا
+     * "بلا موعد": فحصٌ مفعَّل بلا ساعة لا يقع أبداً.</p>
+     */
+    @Transactional
+    @RequiresRole(Role.ADMIN)
+    public CenterSettings saveAlertScan(boolean enabled, LocalTime scanTime) {
+        CenterSettings settings = getSettings();
+        settings.setAlertsEnabled(enabled);
+        settings.setAlertScanTime(scanTime);
+
+        return write(settings);
+    }
+
+    /** الكتابةُ وما يتبعها: سطرُ السجل ثم الحدث الذي يعيد جدولة النسخ والفحص */
+    private CenterSettings write(CenterSettings settings) {
         settings.setId(SETTINGS_ID);
         CenterSettings saved = centerSettingsRepository.save(settings);
 

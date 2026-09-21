@@ -194,7 +194,7 @@ function monthStart() {
 
 /* ------------------------------------------------------------------ الشاشات */
 
-const views = ['day', 'attendance', 'till', 'students', 'groups', 'finance', 'reports'];
+const views = ['day', 'attendance', 'till', 'students', 'groups', 'finance', 'admin', 'reports'];
 
 function openView(name) {
     views.forEach((view) => {
@@ -215,6 +215,8 @@ function openView(name) {
         loadGroups().catch(report);
     } else if (name === 'finance') {
         loadFinance().catch(report);
+    } else if (name === 'admin') {
+        loadAdmin().catch(report);
     }
 }
 
@@ -854,6 +856,306 @@ async function payOut(row) {
     }
 }
 
+/* ------------------------------------------------------------------ الإدارة */
+
+let commissionTypes = [];
+
+/**
+ * ثلاث شاشاتٍ تحت عنوانٍ واحد، وكلٌّ تُمسك خطأها وحدها.
+ *
+ * <p>قراءةُ سجلّ المراقبة قد تُبطئ، وحسابُ مستخدمٍ قد يُرفض - ولا يصحّ أن يُفرّغ أحدُهما
+ * نموذجَ الإعدادات الذي كتبه المستخدم توّاً.</p>
+ */
+async function loadAdmin() {
+    const from = document.getElementById('auditFrom');
+    const to = document.getElementById('auditTo');
+    if (!from.value) {
+        from.value = monthStart();
+    }
+    if (!to.value) {
+        to.value = today();
+    }
+
+    await Promise.all([
+        loadSettings().catch((error) => show('settingsResult', error.message, true)),
+        loadTeachers().catch((error) => show('teacherResult', error.message, true)),
+        loadUsers().catch((error) => show('userResult', error.message, true)),
+        loadAudit().catch((error) => show('auditSummary', error.message, true))
+    ]);
+}
+
+/* --------------------------------------------------------------- الإعدادات */
+
+async function loadSettings() {
+    const [currencies, channels] = await Promise.all([
+        get('/api/settings/currencies'),
+        get('/api/settings/channels')
+    ]);
+    fill(document.getElementById('setCurrency'),
+        currencies.map((option) => ({value: option.name, label: option.label})), null);
+    fill(document.getElementById('setChannel'),
+        channels.map((option) => ({value: option.name, label: option.label})), null,
+        t('web.common.none'));
+    // التكرار ثلاثةُ ثوابت في center-core، وأسماؤها تصل مع بقية النصوص
+    fill(document.getElementById('setBackupFrequency'),
+        ['DAILY', 'WEEKLY', 'MONTHLY'].map((name) => ({value: name, label: name})), null,
+        t('web.common.none'));
+
+    await refreshSettings();
+}
+
+async function refreshSettings() {
+    const settings = await get('/api/settings');
+
+    document.getElementById('setCenterName').value = settings.centerName || '';
+    document.getElementById('setCenterPhone').value = settings.centerPhone || '';
+    document.getElementById('setLogoPath').value = settings.logoPath || '';
+    document.getElementById('setBackupPath').value = settings.backupPath || '';
+    document.getElementById('setAutoBackup').checked = settings.autoBackupEnabled;
+    document.getElementById('setCurrency').value = settings.currencyName || '';
+    document.getElementById('setBackupFrequency').value = settings.backupFrequency || '';
+    document.getElementById('setBackupTime').value =
+        settings.backupTime ? settings.backupTime.substring(0, 5) : '';
+    document.getElementById('setBackupRetention').value =
+        settings.backupRetentionCount === null ? '' : settings.backupRetentionCount;
+    document.getElementById('setChannel').value = settings.notificationChannel || '';
+    document.getElementById('setApiUrl').value = settings.notificationApiUrl || '';
+    document.getElementById('setSenderId').value = settings.notificationSenderId || '';
+    document.getElementById('setTemplateName').value = settings.notificationTemplateName || '';
+    document.getElementById('setTemplateLanguage').value = settings.notificationTemplateLanguage || '';
+    document.getElementById('setBodyTemplate').value = settings.notificationBodyTemplate || '';
+    document.getElementById('setLedgerStart').value = settings.ledgerStartDate || '';
+
+    // الثلاثةُ تُعرض ولا تُرسَل: ختمان يكتبهما المجدوِلان، ومفتاحٌ يملكه مركزُ التنبيهات.
+    // وتاريخٌ قديم هنا هو الشيء الوحيد الذي يقول إن النسخ الليلية تفشل ليلةً بعد ليلة
+    show('settingsState', t('web.settings.state',
+        stampOf(settings.lastAutoBackupAt) || t('web.common.none'),
+        stampOf(settings.lastAlertScanAt) || t('web.common.none'),
+        t(settings.alertsEnabled ? 'web.settings.alertsOn' : 'web.settings.alertsOff')), false);
+}
+
+async function saveSettings() {
+    const retention = document.getElementById('setBackupRetention').value;
+    const saved = await put('/api/settings', {
+        centerName: document.getElementById('setCenterName').value.trim(),
+        centerPhone: document.getElementById('setCenterPhone').value.trim(),
+        logoPath: document.getElementById('setLogoPath').value.trim(),
+        backupPath: document.getElementById('setBackupPath').value.trim(),
+        autoBackupEnabled: document.getElementById('setAutoBackup').checked,
+        currency: document.getElementById('setCurrency').value || null,
+        backupFrequency: document.getElementById('setBackupFrequency').value || null,
+        backupTime: document.getElementById('setBackupTime').value || null,
+        backupRetentionCount: retention === '' ? null : Number(retention),
+        notificationChannel: document.getElementById('setChannel').value || null,
+        notificationApiUrl: document.getElementById('setApiUrl').value.trim(),
+        notificationSenderId: document.getElementById('setSenderId').value.trim(),
+        notificationTemplateName: document.getElementById('setTemplateName').value.trim(),
+        notificationTemplateLanguage: document.getElementById('setTemplateLanguage').value.trim(),
+        notificationBodyTemplate: document.getElementById('setBodyTemplate').value.trim(),
+        ledgerStartDate: document.getElementById('setLedgerStart').value || null
+    });
+
+    show('settingsResult', t('web.settings.saved'), false);
+    show('settingsState', t('web.settings.state',
+        stampOf(saved.lastAutoBackupAt) || t('web.common.none'),
+        stampOf(saved.lastAlertScanAt) || t('web.common.none'),
+        t(saved.alertsEnabled ? 'web.settings.alertsOn' : 'web.settings.alertsOff')), false);
+}
+
+/* ---------------------------------------------------------------- المعلمون */
+
+async function loadTeachers() {
+    if (!commissionTypes.length) {
+        commissionTypes = await get('/api/teachers/commission-types');
+        // القائمة تأتي من CommissionTypes.KNOWN: نوعٌ مكتوبٌ في الصفحة قد لا يعرفه الحساب
+        fill(document.getElementById('teacherCommissionType'),
+            commissionTypes.map((type) => ({value: type.name, label: type.label})), null);
+    }
+    await refreshTeachers();
+}
+
+async function refreshTeachers() {
+    const rows = await get('/api/teachers?withCommission=true');
+    teachers = rows;
+
+    table('teacherTable',
+        ['web.teachers.col.name', 'web.teachers.col.subject',
+            'web.teachers.col.commission', 'web.teachers.col.value'],
+        rows,
+        (row) => [row.name, row.subject, row.commissionName, row.commissionValue],
+        'web.teachers.empty',
+        (row) => [
+            button('web.teachers.edit', () => editTeacher(row)),
+            button('web.teachers.delete', () => deleteTeacher(row))
+        ]);
+}
+
+function editTeacher(row) {
+    document.getElementById('teacherId').value = row.id;
+    document.getElementById('teacherName').value = row.name || '';
+    document.getElementById('teacherSubject').value = row.subject || '';
+    document.getElementById('teacherCommissionType').value = row.commissionType || '';
+    document.getElementById('teacherCommissionValue').value =
+        row.commissionValue === null ? '' : row.commissionValue;
+    show('teacherResult', '', false);
+}
+
+function clearTeacherForm() {
+    document.getElementById('teacherId').value = '';
+    ['teacherName', 'teacherSubject', 'teacherCommissionValue']
+        .forEach((id) => { document.getElementById(id).value = ''; });
+}
+
+async function saveTeacher() {
+    const id = document.getElementById('teacherId').value;
+    const value = document.getElementById('teacherCommissionValue').value;
+    const body = {
+        name: document.getElementById('teacherName').value.trim(),
+        subject: document.getElementById('teacherSubject').value.trim(),
+        commissionType: document.getElementById('teacherCommissionType').value,
+        commissionValue: value === '' ? null : value
+    };
+
+    const saved = id ? await put('/api/teachers/' + id, body) : await post('/api/teachers', body);
+    show('teacherResult', t('web.teachers.saved', saved.name), false);
+    clearTeacherForm();
+    await refreshTeachers();
+}
+
+async function deleteTeacher(row) {
+    try {
+        if (!window.confirm(t('web.teachers.confirmDelete', row.name))) {
+            return;
+        }
+        await remove('/api/teachers/' + row.id);
+        show('teacherResult', '', false);
+        clearTeacherForm();
+        await refreshTeachers();
+    } catch (error) {
+        show('teacherResult', error.message, true);
+    }
+}
+
+/* -------------------------------------------------------------- المستخدمون */
+
+async function loadUsers() {
+    const roles = await get('/api/users/roles');
+    fill(document.getElementById('userRole'),
+        roles.map((role) => ({value: role.name, label: role.label})), null);
+    await refreshUsers();
+}
+
+async function refreshUsers() {
+    const rows = await get('/api/users');
+    table('userTable',
+        ['web.users.col.username', 'web.users.col.role'],
+        rows,
+        (row) => [row.username, row.roleName],
+        'web.users.empty',
+        (row) => [
+            button('web.users.edit', () => editUser(row)),
+            button('web.users.delete', () => deleteUser(row))
+        ]);
+}
+
+/**
+ * التعديل لا يملأ حقلَي كلمة المرور.
+ *
+ * <p>لا بصمةَ تصل من الخادم أصلاً، وحقلٌ ممتلئ بنجومٍ يوهم أن كلمةً ما ستُحفظ. فارغاً
+ * يعني "اتركها كما هي" - وهو ما تقوله جملةُ التلميح تحت النموذج.</p>
+ */
+function editUser(row) {
+    document.getElementById('userId').value = row.id;
+    document.getElementById('userName').value = row.username || '';
+    document.getElementById('userRole').value = row.role || '';
+    clearPasswordFields();
+    show('userResult', '', false);
+}
+
+function clearPasswordFields() {
+    document.getElementById('userPassword').value = '';
+    document.getElementById('userConfirmation').value = '';
+}
+
+function clearUserForm() {
+    document.getElementById('userId').value = '';
+    document.getElementById('userName').value = '';
+    clearPasswordFields();
+}
+
+async function saveUser() {
+    const id = document.getElementById('userId').value;
+    const body = {
+        username: document.getElementById('userName').value.trim(),
+        role: document.getElementById('userRole').value,
+        password: document.getElementById('userPassword').value,
+        confirmation: document.getElementById('userConfirmation').value
+    };
+
+    const saved = id ? await put('/api/users/' + id, body) : await post('/api/users', body);
+    show('userResult', t('web.users.saved', saved.username), false);
+    clearUserForm();
+    await refreshUsers();
+}
+
+async function deleteUser(row) {
+    try {
+        if (!window.confirm(t('web.users.confirmDelete', row.username))) {
+            return;
+        }
+        await remove('/api/users/' + row.id);
+        show('userResult', '', false);
+        clearUserForm();
+        await refreshUsers();
+    } catch (error) {
+        // آخرُ مدير، ومن يحذف نفسه، والحساب المدمج - ثلاثةُ رفضٍ تأتي مترجَمة من الخدمة
+        show('userResult', error.message, true);
+    }
+}
+
+/* ----------------------------------------------------------- سجلّ المراقبة */
+
+async function loadAudit() {
+    const [actors, categories] = await Promise.all([
+        get('/api/audit/actors'),
+        get('/api/audit/categories')
+    ]);
+    fill(document.getElementById('auditActor'),
+        actors.map((actor) => ({value: actor, label: actor})), null, t('web.common.all'));
+    fill(document.getElementById('auditCategory'),
+        categories.map((option) => ({value: option.name, label: option.label})), null,
+        t('web.common.all'));
+
+    await refreshAudit();
+}
+
+async function refreshAudit() {
+    const from = document.getElementById('auditFrom').value || today();
+    const to = document.getElementById('auditTo').value || today();
+    const actor = document.getElementById('auditActor').value;
+    const category = document.getElementById('auditCategory').value;
+
+    const page = await get('/api/audit?from=' + from + '&to=' + to
+        + (actor ? '&actor=' + encodeURIComponent(actor) : '')
+        + (category ? '&category=' + encodeURIComponent(category) : ''));
+
+    // سجلٌّ يعرض جزءاً بصمتٍ يدعو قارئه إلى استنتاج أن الباقي لم يقع
+    show('auditSummary', page.truncated
+        ? t('web.audit.truncated', page.rows.length, page.totalMatching) : '', page.truncated);
+
+    table('auditTable',
+        ['web.audit.col.at', 'web.audit.col.actor', 'web.audit.col.action',
+            'web.audit.col.entity', 'web.audit.col.amount', 'web.audit.col.state',
+            'web.audit.col.details'],
+        page.rows,
+        // اسمٌ فارغ يعني النظام: النسخة المجدولة تجري بلا جلسة، ونسبتُها إلى أحدٍ كذبة
+        (row) => [stampOf(row.at), row.actor || t('web.audit.system'), row.actionName,
+            row.entityLabel, row.amount,
+            t(row.successful ? 'web.audit.state.ok' : 'web.audit.state.failed'),
+            row.details],
+        'web.audit.empty');
+}
+
 /* ------------------------------------------------------------------ التقارير */
 
 function refreshReportLinks() {
@@ -932,6 +1234,10 @@ function leaveApp() {
     levels = [];
     teachers = [];
     days = [];
+    commissionTypes = [];
+
+    // ولا يبقى في حقلٍ ما كُتب فيه: كلمةُ مرورِ حسابٍ يُنشأ لا تُترك لمن يجلس بعده
+    clearPasswordFields();
 }
 
 async function loadMessages() {
@@ -1113,6 +1419,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('payoutForm').addEventListener('submit', (event) => {
         event.preventDefault();
         refreshPayouts().catch(report);
+    });
+
+    document.getElementById('settingsForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        saveSettings().catch((error) => show('settingsResult', error.message, true));
+    });
+
+    document.getElementById('teacherForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        saveTeacher().catch((error) => show('teacherResult', error.message, true));
+    });
+
+    document.getElementById('teacherClear').addEventListener('click', () => {
+        clearTeacherForm();
+        show('teacherResult', '', false);
+    });
+
+    document.getElementById('userForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        saveUser().catch((error) => show('userResult', error.message, true));
+    });
+
+    document.getElementById('userClear').addEventListener('click', () => {
+        clearUserForm();
+        show('userResult', '', false);
+    });
+
+    document.getElementById('auditForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        refreshAudit().catch((error) => show('auditSummary', error.message, true));
     });
 
     document.getElementById('reportForm').addEventListener('input', refreshReportLinks);

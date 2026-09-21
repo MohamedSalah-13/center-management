@@ -6,6 +6,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -66,6 +68,18 @@ public class ApiErrors {
         return of(HttpStatus.BAD_REQUEST, e.getName() + ": " + I18n.get("error.validation.failed"));
     }
 
+    /**
+     * جسمٌ لا يُقرأ: JSON مشوَّه، أو ثابتٌ لا تعرفه القائمة - {@code "currency":"XYZ"}.
+     *
+     * <p>وهو لا يطبّق {@code ErrorResponse} خلافاً لإخوته، فيسقط في المُمسك العام ويصل
+     * {@code 500}. والرسالةُ عامة عن قصد: نصُّ الاستثناء يحمل أسماء أصنافٍ ومواضعَ داخل
+     * الـ JSON، وهي وصفٌ لبنية الخادم لمن يجمعها.</p>
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> unreadableBody(HttpMessageNotReadableException e) {
+        return of(HttpStatus.BAD_REQUEST, I18n.get("error.validation.failed"));
+    }
+
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ApiError> conflict(IllegalStateException e) {
         return of(HttpStatus.CONFLICT, e.getMessage());
@@ -76,9 +90,23 @@ public class ApiErrors {
      *
      * <p>نصُّ الاستثناء الخام يحمل أسماء جداول وأعمدة وأحياناً جزءاً من استعلام،
      * وهي خريطةٌ مجانية لمن يجمعها.</p>
+     *
+     * <p><b>إلا ما يحمل حالتَه معه.</b> استثناءاتُ إطار الويب - طريقةٌ لا يقبلها المسار،
+     * جسمٌ لا يُقرأ، نوعُ محتوى غير مدعوم - تُطبّق {@code ErrorResponse} وتحمل كلٌّ منها
+     * رمزَها الصحيح. وابتلاعُها في {@code 500} يجعل "طريقة غير مسموحة" خطأً في الخادم:
+     * يُسجَّل في سجلّ الأخطاء ويوقظ من يقرؤه، ويقرؤه من أرسل الطلب على أن العيب ليس عنده.
+     * وهذا ما كان يقع لكل {@code DELETE} على مسارٍ للقراءة ولكل جسمٍ مشوَّه.</p>
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> unexpected(Exception e) {
+        if (e instanceof ErrorResponse framework) {
+            HttpStatus status = HttpStatus.valueOf(framework.getStatusCode().value());
+            // 4xx مدخلٌ يصلحه من كتبه، فلا يُسجَّل خطأً ولا يحمل تفاصيل الإطار
+            return of(status, I18n.get(status.is4xxClientError()
+                    ? "error.validation.failed"
+                    : "error.unexpected"));
+        }
+
         log.error("طلب لم يكتمل: {}", e.getMessage(), e);
         return of(HttpStatus.INTERNAL_SERVER_ERROR, I18n.get("error.unexpected"));
     }
