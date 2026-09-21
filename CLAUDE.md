@@ -397,6 +397,28 @@ And three writes that had no guard at all now carry `{ADMIN, SECRETARY}`: `saveS
 hidden from the secretary in the sidebar, and a guard narrower than the screen is a refusal in the
 face of the person the screen was built for.
 
+**`CenterSettingsDraft` is the one where the absent field was already costing something**, and on
+the desktop, not at the edge. `center_settings` is a single row, `save` wrote all of it, and the
+settings screen builds a whole `CenterSettings` while carrying **no alert field at all** — so every
+press of "save" there set `alertsEnabled` back to `false` and erased `lastAlertScanAt`. Nothing
+failed, nothing was logged, and the result reads weeks later as "I never get any alerts". The
+screen had already patched one of the three by hand (`loadedLastAutoBackupAt`, with a comment
+saying exactly why), which is the tell: a rule kept in a screen holds only for the fields somebody
+remembered.
+
+So the draft carries what the settings screen owns and nothing else — no `id`, no
+`lastAutoBackupAt`, no `lastAlertScanAt`, and no alert switch — and `save` **loads the row and
+applies it**. The alert centre writes its own two fields through `saveAlertScan`. The rule the
+three drafts share, stated once: **a field belongs in a draft only if the screen that posts it
+owns it.**
+
+`TeacherDraft` came with them, and with a check that had been missing entirely: `commissionType`
+is a free-text column, and `calculatePayout` is the only thing that ever rejected an unknown one —
+at payout time, in front of whoever is counting the money, weeks after somebody else saved the
+teacher. `CommissionTypes.KNOWN` is now the single list, `requireKnown` runs at save, and
+`TeacherDraftTest` walks every known type through a save so the list and the `switch` cannot drift
+apart.
+
 **Two database defaults were lying.** `spring.datasource.password` had `${DB_PASSWORD:}` — an
 empty default — while this file claimed there was none, so a missing variable produced a MySQL
 access-denied message that reads like a wrong password. It is `${DB_PASSWORD}` now and startup
@@ -588,6 +610,27 @@ Three decisions inside them are worth keeping:
 - **Shift closing needed nothing new.** `/api/till/summary`, `/api/till/day` and
   `/api/reports/shift.pdf` already answer it; a second endpoint for the same question is how one
   question ends up with two answers, which is why `GET /api/attendance/sessions` was deleted.
+
+**The administration endpoints are where "no entity as input" pays for itself twice.**
+`PUT /api/settings` takes the draft above, so no request can reach the three fields it omits —
+`AdminEdgeTest` sends `alertsEnabled:false` and the two stamps as `null` and watches all four
+survive. `/api/users` needed no business-layer work at all, because `UserDraft` preceded it by a
+whole phase; the password is a field on the **request** and not on the draft, which is the same
+distinction drawn from the other side: the draft holds what is written to the row, and the row
+holds a hash, so a draft with a password field would accept a pre-computed hash. And `/api/audit`
+is read-only on purpose — `AuditLogRepository` extends the bare `Repository` precisely so that
+`delete` does not exist, and a `DELETE` endpoint here would be the door the wall was built for.
+
+`/api/teachers` withholds the commission unless asked (`?withCommission=true`): the group form
+needs a name, and shipping the row would put what every teacher is paid into a response nobody
+asked for.
+
+**A framework exception already carries its own status**, and `ApiErrors` used to swallow all of
+them. A `DELETE` on a read-only path and a malformed JSON body both came back `500` with
+"unexpected error" — logged as a server fault, and read by the sender as "not my problem". The
+catch-all now passes through anything implementing `ErrorResponse` with its own status, and
+`HttpMessageNotReadableException` maps to `400`. The message stays generic either way: the raw
+text carries class names and JSON pointers.
 
 `CourseGroupService.findById` and `SessionService.findById` exist for the same reason and are
 both `JOIN FETCH`: a desktop screen holds the row the user picked out of a list it just read,
@@ -1799,7 +1842,7 @@ Add coverage when touching any of those. `@DataJpaTest` needs `@Import(SecurityC
 because the boot class is itself a bean injecting `PasswordEncoder`.
 
 **A test lives in the module that holds its subject**, which is why the suite is split
-88 / 274 / 52 / 69 — core, app, desktop, web.
+88 / 282 / 52 / 81 — core, app, desktop, web.
 Two classes in `center-app`'s test tree exist only because it is a library and not a program:
 
 - `AppTestApplication` — `@DataJpaTest` searches *upward* for a `@SpringBootConfiguration` to

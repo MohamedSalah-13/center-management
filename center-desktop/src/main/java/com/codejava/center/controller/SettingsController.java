@@ -11,6 +11,7 @@ import com.codejava.center.service.BackupSchedules;
 import com.codejava.center.service.BackupService;
 import com.codejava.center.service.NotificationService;
 import com.codejava.center.service.SettingsService;
+import com.codejava.center.service.dto.CenterSettingsDraft;
 import com.codejava.center.service.notification.HttpGatewaySender;
 import com.codejava.center.service.notification.MessageSender;
 import com.codejava.center.service.notification.NotificationConfig;
@@ -183,12 +184,6 @@ public class SettingsController {
      * بلا تأكيد صريح - نفس معاملة {@code ledgerStartDate}.
      */
     private Currency loadedCurrency;
-
-    /**
-     * تُحفظ كما جاءت: الشاشة تبني كائن إعدادات جديداً بالكامل عند الحفظ، فأي حقل لا تعرضه
-     * يُكتب فارغاً فوق القيمة الموجودة. لحظة آخر نسخة تلقائية يكتبها المجدوِل لا المستخدم.
-     */
-    private LocalDateTime loadedLastAutoBackupAt;
 
     /** يمنع إعادة تعبئة قائمة الطابعات من أن تُحفظ كاختيار من المستخدم */
     private boolean reloadingPrinters;
@@ -811,7 +806,6 @@ public class SettingsController {
         FxAsync.supply(settingsService::getSettings, settings -> {
             loadedCenterName = settings.getCenterName();
             loadedLogoPath = settings.getLogoPath();
-            loadedLastAutoBackupAt = settings.getLastAutoBackupAt();
 
             // العملة الغائبة تعني الافتراضية، لا "بلا عملة": قاعدة مُرقّاة لا تحمل قيمة
             // وكل مبالغها بالجنيه، فالقائمة تُظهر ما يُطبع فعلاً على الإيصالات الآن
@@ -1048,36 +1042,37 @@ public class SettingsController {
         }
 
         BackupSchedule schedule = scheduleFromFields();
-        CenterSettings settings = CenterSettings.builder()
-                .centerName(trimmed(centerNameField))
-                .centerPhone(trimmed(centerPhoneField))
-                .currency(currency)
-                .logoPath(trimmed(logoPathField))
-                .backupPath(trimmed(backupPathField))
-                .autoBackupEnabled(autoBackupCheckBox.isSelected())
-                .backupFrequency(schedule.frequency())
-                .backupTime(schedule.time())
-                .backupDayOfWeek(schedule.dayOfWeek())
-                .backupDayOfMonth(schedule.dayOfMonth())
-                .backupRetentionCount(retentionFromField())
-                .lastAutoBackupAt(loadedLastAutoBackupAt) // الشاشة تعرضه ولا تعدّله
-                .ledgerStartDate(ledgerStart)
-                .notificationChannel(channel)
-                .notificationApiUrl(trimmed(notifApiUrlField))
-                .notificationSenderId(trimmed(notifSenderIdField))
-                .notificationTemplateName(trimmed(notifTemplateNameField))
-                .notificationTemplateLanguage(trimmed(notifTemplateLanguageField))
-                .notificationBodyTemplate(trimmed(notifBodyTemplateField))
-                .build();
+        // مسودةٌ لا كيان: كانت الشاشة تبني CenterSettings كاملاً فيُكتب الصفُّ كلُّه،
+        // وهي لا تحمل حقلَ تنبيهاتٍ واحداً - فكانت كلُّ ضغطة "حفظ" تُطفئ التنبيهات
+        // وتمحو تاريخ آخر فحص. وlastAutoBackupAt كانت تُحمل بيدٍ لنفس السبب
+        CenterSettingsDraft draft = new CenterSettingsDraft(
+                trimmed(centerNameField),
+                trimmed(centerPhoneField),
+                trimmed(logoPathField),
+                trimmed(backupPathField),
+                autoBackupCheckBox.isSelected(),
+                currency,
+                schedule.frequency(),
+                schedule.time(),
+                schedule.dayOfWeek(),
+                schedule.dayOfMonth(),
+                retentionFromField(),
+                channel,
+                trimmed(notifApiUrlField),
+                trimmed(notifSenderIdField),
+                trimmed(notifTemplateNameField),
+                trimmed(notifTemplateLanguageField),
+                trimmed(notifBodyTemplateField),
+                ledgerStart);
 
-        boolean brandingChanged = !java.util.Objects.equals(loadedCenterName, settings.getCenterName())
-                || !java.util.Objects.equals(loadedLogoPath, settings.getLogoPath());
+        boolean brandingChanged = !java.util.Objects.equals(loadedCenterName, draft.centerName())
+                || !java.util.Objects.equals(loadedLogoPath, draft.logoPath());
 
         // العملة معها: الشاشات المفتوحة رسمت مبالغها بالرمز القديم، وإعادة البناء وحدها
         // تجعل ما يراه المستخدم بعد الحفظ مطابقاً لما صار يُطبع على الإيصال
         boolean currencyChanged = currency != loadedCurrency;
 
-        FxAsync.supply(() -> settingsService.save(settings), saved -> {
+        FxAsync.supply(() -> settingsService.save(draft), saved -> {
             statusLabel.setText(I18n.get("settings.saved"));
             showBackupSchedule(saved);
             showNotificationSettings(saved);

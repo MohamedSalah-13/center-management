@@ -3,6 +3,7 @@ package com.codejava.center.controller;
 import com.codejava.center.domain.Teacher;
 import com.codejava.center.service.ReportService;
 import com.codejava.center.service.TeacherService;
+import com.codejava.center.service.dto.TeacherDraft;
 import com.codejava.center.util.CommissionTypes;
 import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
@@ -297,19 +298,20 @@ public class TeacherController {
     }
 
     private void saveOrUpdateTeacher(Teacher teacher) {
+        // النموذج يُقرأ في مسودة لا في الصفّ المعروض: تعبئتُه ثم فشلُ الحفظ كانت تترك
+        // بياناتٍ غير محفوظة في الجدول كأنها محفوظة
+        TeacherDraft draft;
         try {
-            teacher.setName(nameField.getText());
-            teacher.setSubject(subjectField.getText());
-            teacher.setCommissionType(typeCombo.getValue());
-            teacher.setCommissionValue(new BigDecimal(valueField.getText().trim()));
+            draft = new TeacherDraft(teacher.getId(), nameField.getText(), subjectField.getText(),
+                    typeCombo.getValue(), new BigDecimal(valueField.getText().trim()));
         } catch (NumberFormatException e) {
             Dialogs.error(I18n.get("common.invalidInput"), I18n.get("teacher.commissionMustBeNumeric"));
             return;
         }
 
-        boolean isNew = teacher.getId() == null;
+        boolean isNew = draft.isNew();
 
-        FxAsync.supply(() -> teacherService.saveTeacher(teacher), saved -> {
+        FxAsync.supply(() -> teacherService.saveTeacher(draft), saved -> {
             if (isNew) {
                 teachersList.add(saved); // إضافة جديد
             } else {

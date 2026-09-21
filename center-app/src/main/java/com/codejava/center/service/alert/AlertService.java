@@ -206,10 +206,9 @@ public class AlertService {
     @Transactional
     @RequiresRole(Role.ADMIN)
     public void saveScanSettings(boolean enabled, LocalTime time) {
-        CenterSettings settings = settingsService.getSettings();
-        settings.setAlertsEnabled(enabled);
-        settings.setAlertScanTime(time == null ? AlertSchedule.DEFAULT_TIME : time);
-        settingsService.save(settings);
+        // بابُ الحقلين وحدهما، لا الصفُّ كاملاً: شاشتان تكتبان في صفِّ إعداداتٍ واحد،
+        // وكتابةُ الصفِّ كلِّه من إحداهما تمحو ما ضبطته الأخرى
+        settingsService.saveAlertScan(enabled, time == null ? AlertSchedule.DEFAULT_TIME : time);
     }
 
     /**

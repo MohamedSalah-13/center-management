@@ -11,11 +11,14 @@ import com.codejava.center.repository.SessionRepository;
 import com.codejava.center.repository.StudentGroupRepository;
 import com.codejava.center.repository.TeacherRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.codejava.center.service.dto.SessionPayout;
+import com.codejava.center.service.dto.TeacherDraft;
 import com.codejava.center.util.I18n;
+import com.codejava.center.util.CommissionTypes;
 import com.codejava.center.util.MoneyUtils;
 
 import java.math.BigDecimal;
@@ -173,18 +176,37 @@ public class TeacherService {
                 .orElseThrow(() -> new IllegalArgumentException(I18n.get("error.teacher.notFound")));
     }
 
+    /**
+     * حفظ معلم جديد أو تعديل قائم.
+     *
+     * <p>المدخل {@link TeacherDraft} لا الكيان - انظر تعليقه - والصفُّ القائم يُقرأ ثم
+     * يُطبَّق عليه ما فيها، كما في {@code saveStudent} و{@code saveGroup}.</p>
+     */
     @Transactional
     @RequiresRole(Role.ADMIN)
-    public Teacher saveTeacher(Teacher teacher) {
-        if (teacher.getName() == null || teacher.getName().isEmpty()) {
+    public Teacher saveTeacher(TeacherDraft draft) {
+        String name = draft.trimmedName();
+        if (name == null || name.isEmpty()) {
             throw new IllegalArgumentException(I18n.get("error.teacher.nameRequired"));
         }
-        if (teacher.getCommissionValue() == null || teacher.getCommissionValue().signum() < 0) {
+        if (draft.commissionValue() == null || draft.commissionValue().signum() < 0) {
             throw new IllegalArgumentException(I18n.get("error.teacher.commissionRequired"));
         }
-        teacher.setCommissionValue(MoneyUtils.normalize(teacher.getCommissionValue()));
+        // نوعُ العمولة يقرّر ما يعنيه الرقم: نسبةً، أو مبلغاً ثابتاً، أو إيجارَ قاعة.
+        // ونوعٌ لا يعرفه الحساب يجعل كل صرفٍ لهذا المعلم يسقط برسالةٍ عند الصرف لا هنا
+        CommissionTypes.requireKnown(draft.commissionType());
 
-        boolean isNew = teacher.getId() == null;
+        boolean isNew = draft.isNew();
+        Teacher teacher = isNew
+                ? new Teacher()
+                : teacherRepository.findById(draft.id())
+                        .orElseThrow(() -> new IllegalStateException(I18n.get("error.teacher.notFound")));
+
+        teacher.setName(name);
+        teacher.setSubject(draft.subject());
+        teacher.setCommissionType(draft.commissionType());
+        teacher.setCommissionValue(MoneyUtils.normalize(draft.commissionValue()));
+
         Teacher saved = teacherRepository.save(teacher);
 
         // اتفاق العمولة يُسجَّل بقيمته: تغييره يغيّر ما يُصرف من الخزينة عن كل حصة
@@ -200,7 +222,15 @@ public class TeacherService {
     public void deleteTeacher(Long teacherId) {
         String name = teacherRepository.findById(teacherId).map(Teacher::getName).orElse(null);
 
-        teacherRepository.deleteById(teacherId);
+        try {
+            teacherRepository.deleteById(teacherId);
+            // المؤجَّل إلى commit لا يبقى له موضعٌ يُترجَم فيه؛ flush يُوقعه داخل هذا الحارس
+            teacherRepository.flush();
+        } catch (DataIntegrityViolationException error) {
+            // معلمٌ له مجموعة لا يُحذف: حذفُه يترك مجموعاتٍ بلا صاحب، والاسم مطبوعٌ في
+            // كشوف حسابٍ سابقة. والشاشة كانت تقول ذلك بنفسها لكل خطأ أياً كان سببه
+            throw new IllegalStateException(I18n.get("teacher.deleteBlocked"), error);
+        }
         auditService.record(AuditAction.TEACHER_DELETED, teacherId, name);
     }
 }

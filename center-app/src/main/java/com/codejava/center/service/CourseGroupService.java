@@ -13,6 +13,7 @@ import com.codejava.center.util.I18n;
 import com.codejava.center.util.MoneyUtils;
 import com.codejava.center.util.WeekDays;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -198,7 +199,14 @@ public class CourseGroupService {
         // قبل السماح بالحذف لتجنب الـ DataIntegrityViolationException
         Optional<String> name = courseGroupRepository.findById(groupId).map(CourseGroup::getName);
 
-        courseGroupRepository.deleteById(groupId);
+        try {
+            courseGroupRepository.deleteById(groupId);
+            courseGroupRepository.flush();
+        } catch (DataIntegrityViolationException error) {
+            // مجموعةٌ لها حصص أو مشتركون لا تُحذف: حذفُها يمحو حضوراً وحركاتٍ أُقفلت
+            // خزينةُ أيامها. والرسالة تقول ذلك بدل قيدٍ يصل بجملةٍ فيها اسم الجدول
+            throw new IllegalStateException(I18n.get("group.deleteBlocked"), error);
+        }
         auditService.record(AuditAction.GROUP_DELETED, groupId, name.orElse(null));
     }
 

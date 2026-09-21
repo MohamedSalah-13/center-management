@@ -4,7 +4,6 @@ import com.codejava.center.AspectProxying;
 import com.codejava.center.TestActor;
 import com.codejava.center.config.SecurityConfig;
 import com.codejava.center.config.TimeConfig;
-import com.codejava.center.domain.CenterSettings;
 import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Teacher;
 import com.codejava.center.domain.User;
@@ -64,7 +63,7 @@ class DefaultDenyTest {
 
     @Test
     void savingCentreSettingsWithNobodySignedInIsRefused() {
-        assertThatThrownBy(() -> settingsService.save(CenterSettings.builder().build()))
+        assertThatThrownBy(() -> settingsService.save(settingsDraft()))
                 .isInstanceOf(AccessDeniedException.class);
     }
 
@@ -87,7 +86,7 @@ class DefaultDenyTest {
     void aSecretaryMayNotSaveCentreSettings() {
         actor.setCurrentUser(userWithRole(Role.SECRETARY));
 
-        assertThatThrownBy(() -> settingsService.save(CenterSettings.builder().build()))
+        assertThatThrownBy(() -> settingsService.save(settingsDraft()))
                 .isInstanceOf(AccessDeniedException.class);
     }
 
@@ -136,6 +135,14 @@ class DefaultDenyTest {
         assertThatCode(() -> studentService.saveStudent(
                 new StudentDraft(null, null, "طالب الاستقبال", null, null, null)))
                 .doesNotThrowAnyException();
+    }
+
+    /** مسودةٌ فارغة: ما يُفحص هنا هو الحارس لا ما تحمله */
+    private static com.codejava.center.service.dto.CenterSettingsDraft settingsDraft() {
+        return new com.codejava.center.service.dto.CenterSettingsDraft(
+                "سنتر", null, null, null, false, null,
+                null, null, null, null, null,
+                null, null, null, null, null, null, null);
     }
 
     private CourseGroup group() {

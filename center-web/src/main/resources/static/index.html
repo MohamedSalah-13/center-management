@@ -48,6 +48,7 @@
             <button data-view="students" data-text="web.nav.students"></button>
             <button data-view="groups" data-text="web.nav.groups"></button>
             <button data-view="finance" data-text="web.nav.finance"></button>
+            <button data-view="admin" data-text="web.nav.admin"></button>
             <button data-view="reports" data-text="web.nav.reports"></button>
         </nav>
         <span class="spacer"></span>
@@ -236,6 +237,101 @@
         </form>
         <p id="payoutResult" class="result"></p>
         <table id="payoutTable"></table>
+    </section>
+
+    <section id="view-admin" class="view hidden">
+        <h2 data-text="web.settings.title"></h2>
+        <form id="settingsForm" class="row">
+            <label data-text="web.settings.centerName" for="setCenterName"></label>
+            <input id="setCenterName">
+            <label data-text="web.settings.centerPhone" for="setCenterPhone"></label>
+            <input id="setCenterPhone">
+            <label data-text="web.settings.currency" for="setCurrency"></label>
+            <select id="setCurrency"></select>
+            <label data-text="web.settings.logoPath" for="setLogoPath"></label>
+            <input id="setLogoPath">
+            <label data-text="web.settings.ledgerStart" for="setLedgerStart"></label>
+            <input id="setLedgerStart" type="date">
+
+            <label><input id="setAutoBackup" type="checkbox"> <span data-text="web.settings.autoBackup"></span></label>
+            <label data-text="web.settings.backupPath" for="setBackupPath"></label>
+            <input id="setBackupPath">
+            <label data-text="web.settings.backupFrequency" for="setBackupFrequency"></label>
+            <select id="setBackupFrequency"></select>
+            <label data-text="web.settings.backupTime" for="setBackupTime"></label>
+            <input id="setBackupTime" type="time">
+            <label data-text="web.settings.backupRetention" for="setBackupRetention"></label>
+            <input id="setBackupRetention" type="number" min="0" step="1">
+
+            <label data-text="web.settings.channel" for="setChannel"></label>
+            <select id="setChannel"></select>
+            <label data-text="web.settings.apiUrl" for="setApiUrl"></label>
+            <input id="setApiUrl">
+            <label data-text="web.settings.senderId" for="setSenderId"></label>
+            <input id="setSenderId">
+            <label data-text="web.settings.templateName" for="setTemplateName"></label>
+            <input id="setTemplateName">
+            <label data-text="web.settings.templateLanguage" for="setTemplateLanguage"></label>
+            <input id="setTemplateLanguage">
+            <label data-text="web.settings.bodyTemplate" for="setBodyTemplate"></label>
+            <input id="setBodyTemplate">
+
+            <button type="submit" data-text="web.settings.save"></button>
+            <p class="hint" data-text="web.settings.secretsHint"></p>
+        </form>
+        <p id="settingsState" class="result"></p>
+        <p class="hint" data-text="web.settings.stateHint"></p>
+        <p id="settingsResult" class="result"></p>
+
+        <h3 data-text="web.teachers.title"></h3>
+        <form id="teacherForm" class="row">
+            <input id="teacherId" type="hidden">
+            <label data-text="web.teachers.name" for="teacherName"></label>
+            <input id="teacherName" required>
+            <label data-text="web.teachers.subject" for="teacherSubject"></label>
+            <input id="teacherSubject">
+            <label data-text="web.teachers.commissionType" for="teacherCommissionType"></label>
+            <select id="teacherCommissionType"></select>
+            <label data-text="web.teachers.commissionValue" for="teacherCommissionValue"></label>
+            <input id="teacherCommissionValue" type="number" min="0" step="0.01">
+            <button type="submit" data-text="web.teachers.save"></button>
+            <button type="button" id="teacherClear" data-text="web.teachers.new"></button>
+        </form>
+        <p id="teacherResult" class="result"></p>
+        <table id="teacherTable"></table>
+
+        <h3 data-text="web.users.title"></h3>
+        <form id="userForm" class="row">
+            <input id="userId" type="hidden">
+            <label data-text="web.users.username" for="userName"></label>
+            <input id="userName" autocomplete="off" required>
+            <label data-text="web.users.role" for="userRole"></label>
+            <select id="userRole"></select>
+            <label data-text="web.users.password" for="userPassword"></label>
+            <input id="userPassword" type="password" autocomplete="new-password">
+            <label data-text="web.users.confirmation" for="userConfirmation"></label>
+            <input id="userConfirmation" type="password" autocomplete="new-password">
+            <button type="submit" data-text="web.users.save"></button>
+            <button type="button" id="userClear" data-text="web.users.new"></button>
+            <p class="hint" data-text="web.users.passwordHint"></p>
+        </form>
+        <p id="userResult" class="result"></p>
+        <table id="userTable"></table>
+
+        <h3 data-text="web.audit.title"></h3>
+        <form id="auditForm" class="row">
+            <label data-text="web.reports.from" for="auditFrom"></label>
+            <input id="auditFrom" type="date">
+            <label data-text="web.reports.to" for="auditTo"></label>
+            <input id="auditTo" type="date">
+            <label data-text="web.audit.actor" for="auditActor"></label>
+            <select id="auditActor"></select>
+            <label data-text="web.audit.category" for="auditCategory"></label>
+            <select id="auditCategory"></select>
+            <button type="submit" data-text="web.common.refresh"></button>
+        </form>
+        <p id="auditSummary" class="result"></p>
+        <table id="auditTable"></table>
     </section>
 
     <section id="view-reports" class="view hidden">
