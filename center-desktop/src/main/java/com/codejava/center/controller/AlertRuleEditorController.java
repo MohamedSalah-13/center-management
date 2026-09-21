@@ -5,6 +5,7 @@ import com.codejava.center.domain.enums.AlertAudience;
 import com.codejava.center.domain.enums.AlertSeverity;
 import com.codejava.center.domain.enums.AlertType;
 import com.codejava.center.service.alert.AlertService;
+import com.codejava.center.service.dto.AlertRuleDraft;
 import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
@@ -197,17 +198,17 @@ public class AlertRuleEditorController {
             return;
         }
 
-        AlertRule edited = AlertRule.builder()
-                .type(type)
-                .enabled(ruleEnabledCheck.isSelected())
-                .audience(audience == null ? AlertAudience.INTERNAL : audience)
-                .severity(ruleSeverityCombo.getValue() == null
-                        ? type.getDefaultSeverity() : ruleSeverityCombo.getValue())
-                .threshold(type.usesThreshold() ? ruleThresholdSpinner.getValue() : null)
-                .windowDays(type.usesWindow() ? ruleWindowSpinner.getValue() : null)
-                .cooldownDays(ruleCooldownSpinner.isManaged()
-                        ? ruleCooldownSpinner.getValue() : type.getDefaultCooldownDays())
-                .build();
+        // مسودةٌ لا كيان: updatedAt وupdatedBy تكتبهما الخدمة من CurrentActor،
+        // وحقلٌ لهما هنا يعني أن من يضبط قاعدةً يكتب اسمَ غيره تحتها
+        AlertRuleDraft edited = new AlertRuleDraft(type,
+                ruleEnabledCheck.isSelected(),
+                audience == null ? AlertAudience.INTERNAL : audience,
+                ruleSeverityCombo.getValue() == null
+                        ? type.getDefaultSeverity() : ruleSeverityCombo.getValue(),
+                type.usesThreshold() ? ruleThresholdSpinner.getValue() : null,
+                type.usesWindow() ? ruleWindowSpinner.getValue() : null,
+                ruleCooldownSpinner.isManaged()
+                        ? ruleCooldownSpinner.getValue() : type.getDefaultCooldownDays());
 
         saveRuleButton.setDisable(true);
         FxAsync.supply(() -> alertService.saveRule(edited), saved -> {
