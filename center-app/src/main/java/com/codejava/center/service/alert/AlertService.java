@@ -16,6 +16,7 @@ import com.codejava.center.domain.enums.Role;
 import com.codejava.center.repository.AlertRepository;
 import com.codejava.center.repository.AlertRuleRepository;
 import com.codejava.center.security.RequiresRole;
+import com.codejava.center.service.dto.AlertRuleDraft;
 import com.codejava.center.service.AuditService;
 import com.codejava.center.service.SettingsService;
 import com.codejava.center.service.dto.AlertPage;
@@ -138,21 +139,21 @@ public class AlertService {
      */
     @Transactional
     @RequiresRole(Role.ADMIN)
-    public AlertRule saveRule(AlertRule incoming) {
-        AlertType type = incoming.getType();
+    public AlertRule saveRule(AlertRuleDraft draft) {
+        AlertType type = draft.type();
 
         AlertRule stored = alertRuleRepository.findByType(type)
                 .orElseGet(() -> AlertRule.defaultsFor(type));
 
-        stored.setEnabled(incoming.isEnabled());
-        stored.setSeverity(incoming.getSeverity());
-        stored.setThreshold(incoming.getThreshold());
-        stored.setWindowDays(incoming.getWindowDays());
-        stored.setCooldownDays(incoming.getCooldownDays());
+        stored.setEnabled(draft.enabled());
+        stored.setSeverity(draft.severity());
+        stored.setThreshold(draft.threshold());
+        stored.setWindowDays(draft.windowDays());
+        stored.setCooldownDays(draft.cooldownDays());
 
         // وجهةٌ إلى ولي الأمر على نوع لا يصلح للإرسال تُردّ إلى الداخل بدل أن تُحفظ
         // فتبقى وعداً لا يتحقق: فشل نسخة احتياطية لا يُرسل إلى هاتف أحد
-        stored.setAudience(type.isParentCapable() ? incoming.getAudience() : AlertAudience.INTERNAL);
+        stored.setAudience(type.isParentCapable() ? draft.audience() : AlertAudience.INTERNAL);
 
         ActorIdentity actor = currentActor.currentActor();
         stored.setUpdatedAt(LocalDateTime.now());

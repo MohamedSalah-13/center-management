@@ -194,7 +194,7 @@ function monthStart() {
 
 /* ------------------------------------------------------------------ الشاشات */
 
-const views = ['day', 'attendance', 'till', 'students', 'groups', 'finance', 'admin', 'reports'];
+const views = ['day', 'attendance', 'till', 'students', 'groups', 'finance', 'admin', 'alerts', 'reports'];
 
 function openView(name) {
     views.forEach((view) => {
@@ -217,6 +217,8 @@ function openView(name) {
         loadFinance().catch(report);
     } else if (name === 'admin') {
         loadAdmin().catch(report);
+    } else if (name === 'alerts') {
+        loadAlerts().catch(report);
     }
 }
 
@@ -1167,7 +1169,437 @@ function refreshReportLinks() {
         '/api/reports/attendance-log.pdf?from=' + from + '&to=' + to;
 }
 
-/* ------------------------------------------------------------------ التنبيهات */
+/* --------------------------------------------------------- مركز التنبيهات */
+
+let alertCategories = [];
+let alertSeverities = [];
+let alertAudiences = [];
+let notifyTypes = [];
+
+/** آخر ما قُرئ من الصندوق: مرشِّح "غير المعالَجة" يعمل عليه بلا طلبٍ جديد */
+let alertRows = [];
+
+/** جملةُ "معروض كذا من كذا" حين يعضّ السقف، وعددُ ما لم يُعالَج - كلاهما من الخادم */
+let alertTruncation = '';
+let alertUnacknowledged = 0;
+
+/** القاعدة المفتوحة في النموذج الآن، وهي مصدرُ كل ما يُعرض فيه */
+let editedRule = null;
+
+/** آخر قائمةِ مرشَّحين بُنيت، وما وُصفت به - والوصفُ هو ما يُعاد به بناؤها عند الإرسال */
+let notifyCandidates = [];
+let notifyScope = null;
+
+/**
+ * أربع شاشاتٍ تحت عنوانٍ واحد، وكلٌّ تُمسك خطأها وحدها.
+ *
+ * <p>نفس ما في شاشة الإدارة: فحصٌ يُرفض لا يصحّ أن يُفرّغ نموذج قاعدةٍ كُتب توّاً،
+ * ولا أن يُخفي قائمةً بُنيت للإرسال.</p>
+ */
+async function loadAlerts() {
+    const from = document.getElementById('alertFrom');
+    const to = document.getElementById('alertTo');
+    if (!from.value) {
+        from.value = monthStart();
+    }
+    if (!to.value) {
+        to.value = today();
+    }
+
+    if (!alertCategories.length) {
+        [alertCategories, alertSeverities, alertAudiences, notifyTypes] = await Promise.all([
+            get('/api/alerts/categories'),
+            get('/api/alert-rules/severities'),
+            get('/api/alert-rules/audiences'),
+            get('/api/notifications/types')
+        ]);
+        const options = (list) => list.map((option) => ({value: option.name, label: option.label}));
+        fill(document.getElementById('alertCategory'), options(alertCategories), null, t('web.common.all'));
+        fill(document.getElementById('alertSeverity'), options(alertSeverities), null, t('web.common.all'));
+        fill(document.getElementById('ruleAudience'), options(alertAudiences), null);
+        fill(document.getElementById('ruleSeverity'), options(alertSeverities), null);
+        fill(document.getElementById('notifyType'),
+            notifyTypes.map((type) => ({value: type.name, label: type.label})), null);
+    }
+
+    // قائمةُ المجموعات تُقرأ في كل فتحة: مجموعةٌ أُنشئت في تبويب آخر تكون هنا
+    const groups = await get('/api/groups');
+    fill(document.getElementById('notifyGroup'),
+        groups.map((group) => ({value: group.id, label: group.name})),
+        document.getElementById('notifyGroup').value || null, t('web.common.none'));
+
+    await Promise.all([
+        refreshAlertInbox().catch((error) => show('alertSummary', error.message, true)),
+        refreshScanSettings().catch((error) => show('scanState', error.message, true)),
+        refreshRules().catch((error) => show('ruleResult', error.message, true)),
+        refreshChannel().catch((error) => show('notifyChannel', error.message, true)),
+        refreshNotifyLog().catch((error) => show('notifyResult', error.message, true))
+    ]);
+    notifyTypeChanged();
+}
+
+/* --------------------------------------------------------------- الصندوق */
+
+async function refreshAlertInbox() {
+    const category = document.getElementById('alertCategory').value;
+    const severity = document.getElementById('alertSeverity').value;
+    const page = await get('/api/alerts?from=' + document.getElementById('alertFrom').value
+        + '&to=' + document.getElementById('alertTo').value
+        + (category ? '&category=' + category : '')
+        + (severity ? '&severity=' + severity : ''));
+
+    alertRows = page.rows;
+    alertUnacknowledged = page.unacknowledged;
+    // سقفُ الصفوف يُقال حين يعضّ: صندوقٌ يعرض ألفاً من عشرة آلاف صامتاً يجعل من
+    // ينظر إليه يستنتج أن الباقي لم يقع
+    alertTruncation = page.truncated
+        ? t('web.alerts.truncated', page.rows.length, page.totalMatching) + '   |   ' : '';
+    applyOpenOnly();
+}
+
+/** مرشِّحُ عرضٍ لا سؤالٌ جديد: الصفُّ يحمل حالَه، والفترةُ والتصنيفُ وحدهما يُسألان */
+function applyOpenOnly() {
+    const openOnly = document.getElementById('alertOpenOnly').checked;
+    const shown = alertRows.filter((row) => !openOnly || !row.acknowledged);
+
+    table('alertTable',
+        ['web.alerts.col.raisedAt', 'web.alerts.col.severity', 'web.alerts.col.type',
+            'web.alerts.col.category', 'web.alerts.col.target', 'web.alerts.col.message',
+            'web.alerts.col.state'],
+        shown,
+        (row) => [stampOf(row.raisedAt), row.severityName, row.typeName, row.categoryName,
+            row.entityLabel, row.text, stateOfAlert(row)],
+        'web.alerts.inboxEmpty',
+        // المعالَج لا زرَّ له: العلامة لا تُنقض، فزرٌّ يُعيد ضغطُه لا شيء هو زرٌّ يكذب
+        (row) => row.acknowledged ? null
+            : button('web.alerts.acknowledge', () => acknowledgeAlert(row).catch(report)));
+
+    show('alertSummary', alertTruncation
+        + t('web.alerts.summary', shown.length, alertRows.length, alertUnacknowledged), false);
+}
+
+function stateOfAlert(row) {
+    if (!row.acknowledged) {
+        return t('web.alerts.status.open');
+    }
+    return row.acknowledgedBy
+        ? t('web.alerts.status.doneBy', row.acknowledgedBy)
+        : t('web.alerts.status.done');
+}
+
+async function acknowledgeAlert(row) {
+    const result = await post('/api/alerts/acknowledge', {alertIds: [row.id]});
+    show('alertSummary', t('web.alerts.acknowledged', result.acknowledged), false);
+    await refreshAlertInbox();
+}
+
+/**
+ * فحصٌ فوريّ.
+ *
+ * <p>يُسأل قبله حين تكون هناك قاعدةٌ وجهتها أولياء الأمور: الضغطة قد تُخرج رسائل
+ * حقيقية إلى أرقامٍ حقيقية الآن، وما خرج لا يُسحب. والقواعد محمَّلةٌ أصلاً في
+ * الجدول أسفل الشاشة، فالسؤال لا يكلّف طلباً.</p>
+ */
+async function scanNow() {
+    if (rulesMessagingParents() && !confirm(t('web.alerts.scanConfirm'))) {
+        return;
+    }
+    const result = await post('/api/alerts/scan');
+    const line = t('web.alerts.scanDone', result.raised, result.messaged);
+    show('alertSummary', result.failures.length
+        ? line + '\n' + result.failures.join('\n') : line, result.failures.length > 0);
+
+    await Promise.all([refreshAlertInbox(), refreshScanSettings()]);
+}
+
+/* ------------------------------------------------------------ موعد الفحص */
+
+async function refreshScanSettings() {
+    showScanSettings(await get('/api/alerts/scan-settings'));
+}
+
+function showScanSettings(settings) {
+    document.getElementById('scanEnabled').checked = settings.enabled;
+    document.getElementById('scanTime').value =
+        settings.time ? settings.time.substring(0, 5) : '';
+
+    // تاريخٌ قديم هنا هو الشيء الوحيد الذي يقول إن الفحص يفشل يوماً بعد يوم
+    show('scanState', t('web.alerts.scanState',
+        stampOf(settings.lastScanAt) || t('web.alerts.neverScanned'),
+        t(settings.enabled ? 'web.rules.on' : 'web.rules.off')), false);
+}
+
+async function saveScanSettings() {
+    showScanSettings(await put('/api/alerts/scan-settings', {
+        enabled: document.getElementById('scanEnabled').checked,
+        time: document.getElementById('scanTime').value || null
+    }));
+    show('ruleResult', t('web.alerts.scanSaved'), false);
+}
+
+/* ---------------------------------------------------------------- القواعد */
+
+let rules = [];
+
+async function refreshRules() {
+    rules = await get('/api/alert-rules');
+
+    table('ruleTable',
+        ['web.rules.col.type', 'web.rules.col.category', 'web.rules.col.state',
+            'web.rules.col.audience', 'web.rules.col.severity', 'web.rules.col.updated'],
+        rules,
+        (row) => [row.typeName, row.categoryName,
+            t(row.enabled ? 'web.rules.on' : 'web.rules.off'),
+            row.audienceName, row.severityName,
+            row.updatedAt ? t('web.rules.updated', stampOf(row.updatedAt),
+                row.updatedBy || t('web.audit.system')) : t('web.rules.untouched')],
+        'web.rules.empty',
+        (row) => button('web.rules.edit', () => editRule(row)));
+
+    show('ruleSummary', t('web.rules.summary',
+        rules.filter((rule) => rule.enabled).length, rules.length,
+        rules.filter(rulesSendsToParents).length), false);
+}
+
+/** قاعدةٌ تُخرج رسالةً إلى ولي أمر فعلاً: مفعَّلةٌ، ووجهتُها تشمله، ونوعُها يقبله */
+function rulesSendsToParents(rule) {
+    return rule.enabled && rule.parentCapable && rule.audience !== 'INTERNAL';
+}
+
+function rulesMessagingParents() {
+    return rules.some(rulesSendsToParents);
+}
+
+/**
+ * فتحُ نموذج قاعدة.
+ *
+ * <p>المغيِّرات تُخفى لا تُعطَّل، تماماً كنافذة سطح المكتب: عنوانُ الحدّ يأتي من
+ * النوع نفسه، وحقلُ أرقامٍ بجوار عنوانٍ فارغ لا يقول ما هو. والوجهةُ لا تُعرض إلا
+ * على نوعٍ يقبل الإرسال - عرضُ الخيار ثم رفضُه عند الحفظ أسوأ من عدم عرضه.</p>
+ */
+function editRule(row) {
+    editedRule = row;
+    document.getElementById('ruleForm').classList.remove('hidden');
+    document.getElementById('ruleSubject').textContent = row.typeName;
+    document.getElementById('ruleDescription').textContent = row.description || '';
+    document.getElementById('ruleEnabled').checked = row.enabled;
+    document.getElementById('ruleSeverity').value = row.severity || '';
+
+    fill(document.getElementById('ruleAudience'),
+        alertAudiences
+            .filter((audience) => row.parentCapable || audience.name === 'INTERNAL')
+            .map((audience) => ({value: audience.name, label: audience.label})),
+        row.audience);
+    showAudienceNote();
+
+    showRuleField('ruleThreshold', row.thresholdLabel, row.threshold);
+    showRuleField('ruleWindow', row.windowLabel, row.windowDays);
+    showRuleField('ruleCooldown', row.scheduled ? t('web.rules.cooldown') : null, row.cooldownDays);
+    show('ruleResult', '', false);
+}
+
+/** الحقلُ وعنوانُه يظهران معاً أو يختفيان معاً؛ عنوانٌ بلا حقل سطرٌ فارغ يقول إن شيئاً كان هنا */
+function showRuleField(id, label, value) {
+    const field = document.getElementById(id);
+    const caption = document.getElementById(id + 'Label');
+    const shown = label !== null && label !== undefined;
+
+    caption.textContent = shown ? label : '';
+    caption.classList.toggle('hidden', !shown);
+    field.classList.toggle('hidden', !shown);
+    field.value = shown && value !== null && value !== undefined ? value : '';
+}
+
+function showAudienceNote() {
+    const toParents = document.getElementById('ruleAudience').value !== 'INTERNAL';
+    const note = document.getElementById('ruleAudienceNote');
+    note.textContent = t(toParents ? 'web.rules.parentsNote' : 'web.rules.internalNote');
+    note.classList.toggle('bad', toParents);
+}
+
+function closeRuleForm() {
+    editedRule = null;
+    document.getElementById('ruleForm').classList.add('hidden');
+}
+
+/**
+ * حفظُ القاعدة.
+ *
+ * <p>تأكيدٌ صريح حين تصير الوجهة أولياء الأمور لأول مرة: هذه هي اللحظة التي يبدأ
+ * فيها البرنامج بمراسلة أرقامٍ حقيقية باسم السنتر بلا ضغطةٍ من موظف.</p>
+ */
+async function saveRule() {
+    if (!editedRule) {
+        return;
+    }
+    const audience = document.getElementById('ruleAudience').value;
+    const enabled = document.getElementById('ruleEnabled').checked;
+    const startsMessagingParents = enabled && audience !== 'INTERNAL'
+        && !rulesSendsToParents(editedRule);
+
+    if (startsMessagingParents
+        && !confirm(t('web.rules.parentConfirm', editedRule.typeName))) {
+        return;
+    }
+
+    const number = (id) => {
+        const field = document.getElementById(id);
+        return field.classList.contains('hidden') || field.value === '' ? null : Number(field.value);
+    };
+
+    const saved = await put('/api/alert-rules/' + editedRule.type, {
+        enabled,
+        audience,
+        severity: document.getElementById('ruleSeverity').value,
+        threshold: number('ruleThreshold'),
+        windowDays: number('ruleWindow'),
+        cooldownDays: number('ruleCooldown')
+    });
+
+    closeRuleForm();
+    await refreshRules();
+    show('ruleResult', t('web.rules.saved', saved.typeName), false);
+}
+
+/* ----------------------------------------------- رسائل أولياء الأمور */
+
+async function refreshChannel() {
+    const channel = await get('/api/notifications/channel');
+    const note = document.getElementById('notifyChannel');
+
+    // القناة تُقال قبل الضغط لا بعد أربعين رفضاً من المزوّد
+    if (channel.problem) {
+        note.textContent = t('web.notify.channelNotReady', channel.problem);
+        note.classList.add('bad');
+        return;
+    }
+    note.textContent = t(channel.requiresManualConfirmation
+        ? 'web.notify.channelManual' : 'web.notify.channelAutomatic');
+    note.classList.remove('bad');
+}
+
+/** المجموعةُ والمدةُ تخصّان الغياب وحده: النوع هو من يقول ذلك، لا الصفحة */
+function notifyTypeChanged() {
+    const selected = notifyTypes.find(
+        (type) => type.name === document.getElementById('notifyType').value);
+    const needsGroup = Boolean(selected && selected.needsGroup);
+
+    ['notifyGroup', 'notifyFrom', 'notifyTo'].forEach((id) => {
+        document.getElementById(id).classList.toggle('hidden', !needsGroup);
+    });
+    if (needsGroup && !document.getElementById('notifyFrom').value) {
+        document.getElementById('notifyFrom').value = monthStart();
+        document.getElementById('notifyTo').value = today();
+    }
+}
+
+async function buildCandidates() {
+    const type = document.getElementById('notifyType').value;
+    const group = document.getElementById('notifyGroup').value;
+    const from = document.getElementById('notifyFrom').value;
+    const to = document.getElementById('notifyTo').value;
+
+    // الوصفُ يُحفظ كما أُرسل: نفسُه يُعاد به البناء على الخادم لحظة الإرسال، فلو
+    // تغيّر الحقل بعد بناء القائمة لَبُنيت قائمةٌ أخرى لا هذه التي أمام العين
+    notifyScope = {
+        type,
+        groupId: group ? Number(group) : null,
+        from: from || null,
+        to: to || null
+    };
+    const query = 'type=' + type + (notifyScope.groupId ? '&groupId=' + notifyScope.groupId : '')
+        + (notifyScope.from ? '&from=' + notifyScope.from : '')
+        + (notifyScope.to ? '&to=' + notifyScope.to : '');
+
+    notifyCandidates = await get('/api/notifications/candidates?' + query);
+    showCandidates();
+}
+
+function showCandidates() {
+    table('notifyTable',
+        ['web.notify.col.name', 'web.notify.col.phone', 'web.notify.col.status',
+            'web.notify.col.message'],
+        notifyCandidates,
+        (row) => [row.studentName, row.phone, row.statusLabel, row.message],
+        'web.notify.empty',
+        (row) => row.sendable
+            ? button('web.notify.send', () => sendNotification(row).catch(report))
+            : null);
+
+    show('notifySummary', t('web.notify.summary', notifyCandidates.length,
+        notifyCandidates.filter((row) => row.sendable).length), false);
+}
+
+/**
+ * إرسالُ إشعارٍ واحد.
+ *
+ * <p>ما يُرسَل إلى الخادم هو <b>وصفُ القائمة ورقمُ الطالب</b>، لا الرقمُ ولا النصّ:
+ * قبولُهما من جسم الطلب يعني أن أيَّ من يملك جلسةً يُرسل أيَّ نصٍّ إلى أيِّ رقم من
+ * حساب السنتر عند المزوّد. والخادمُ يعيد بناء القائمة ويأخذ منها صاحبَ الرقم.</p>
+ */
+async function sendNotification(row) {
+    if (!confirm(t('web.notify.confirm', row.studentName))) {
+        return;
+    }
+    show('notifyHandOff', '', false);
+    const result = await post('/api/notifications/send',
+        Object.assign({studentId: row.studentId}, notifyScope));
+
+    if (result.needsHandOff) {
+        showHandOff(row, result.link);
+        return;
+    }
+    show('notifyResult', result.success
+        ? t('web.notify.sent', row.studentName) : result.failureReason, !result.success);
+    await Promise.all([buildCandidates(), refreshNotifyLog()]);
+}
+
+/**
+ * التسليمُ إلى إنسان: رابطٌ يفتحه، ثم يقول هو إنه فُتح.
+ *
+ * <p>ولا يُفتح من هنا تلقائياً ولا يُسجَّل تلقائياً. سطرُ {@code notification_logs}
+ * يعني "فُتحت محادثةُ وليّ الأمر بالرسالة فيها"، وكتابتُه لحظةَ بناء الرابط تسجّل
+ * إشعاراً لمحادثةٍ لم تُفتح - ثم يمنع حارسُ التكرار إعادةَ المحاولة، فيبقى وليُّ
+ * أمرٍ بلا خبر ولا أحد يدري.</p>
+ */
+function showHandOff(row, link) {
+    const area = document.getElementById('notifyHandOff');
+    area.innerHTML = '';
+    area.classList.remove('bad');
+
+    const note = document.createElement('span');
+    note.textContent = t('web.notify.handOff') + ' ';
+    area.appendChild(note);
+
+    const anchor = document.createElement('a');
+    anchor.href = link;
+    anchor.target = '_blank';
+    anchor.rel = 'noopener';
+    anchor.textContent = t('web.notify.openChat');
+    area.appendChild(anchor);
+
+    area.appendChild(button('web.notify.markOpened', () => markOpened(row).catch(report)));
+}
+
+async function markOpened(row) {
+    await post('/api/notifications/opened',
+        Object.assign({studentId: row.studentId}, notifyScope));
+
+    show('notifyHandOff', '', false);
+    show('notifyResult', t('web.notify.opened', row.studentName), false);
+    await Promise.all([buildCandidates(), refreshNotifyLog()]);
+}
+
+async function refreshNotifyLog() {
+    const rows = await get('/api/notifications/log');
+    table('notifyLogTable',
+        ['web.notify.log.col.at', 'web.notify.log.col.type', 'web.notify.log.col.phone'],
+        rows,
+        (row) => [stampOf(row.sentAt), row.typeName, row.phone],
+        'web.notify.logEmpty');
+}
+
+/* ------------------------------------------------------- مجرى التنبيهات */
 
 let stream = null;
 
@@ -1235,6 +1667,18 @@ function leaveApp() {
     teachers = [];
     days = [];
     commissionTypes = [];
+
+    // وقائمةُ المرشَّحين معها: أسماءُ طلابٍ وأرقامُ أولياء أمورهم ونصوصُ رسائلهم،
+    // وهي على منصّةٍ متعددة السناتر قائمةُ سنترٍ آخر
+    alertCategories = [];
+    alertSeverities = [];
+    alertAudiences = [];
+    notifyTypes = [];
+    alertRows = [];
+    rules = [];
+    notifyCandidates = [];
+    notifyScope = null;
+    closeRuleForm();
 
     // ولا يبقى في حقلٍ ما كُتب فيه: كلمةُ مرورِ حسابٍ يُنشأ لا تُترك لمن يجلس بعده
     clearPasswordFields();
@@ -1449,6 +1893,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('auditForm').addEventListener('submit', (event) => {
         event.preventDefault();
         refreshAudit().catch((error) => show('auditSummary', error.message, true));
+    });
+
+    document.getElementById('alertForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        refreshAlertInbox().catch((error) => show('alertSummary', error.message, true));
+    });
+
+    // المرشِّح يعمل على ما هو محمَّل: سؤالُ الخادم عن نفس الفترة لإخفاء صفوفٍ بين يديه
+    // طلبٌ بلا سبب
+    document.getElementById('alertOpenOnly').addEventListener('change', () => applyOpenOnly());
+
+    document.getElementById('alertScan').addEventListener('click', () => {
+        scanNow().catch((error) => show('alertSummary', error.message, true));
+    });
+
+    document.getElementById('scanSettingsForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        saveScanSettings().catch((error) => show('scanState', error.message, true));
+    });
+
+    document.getElementById('ruleAudience').addEventListener('change', showAudienceNote);
+
+    document.getElementById('ruleForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        saveRule().catch((error) => show('ruleResult', error.message, true));
+    });
+
+    document.getElementById('ruleCancel').addEventListener('click', closeRuleForm);
+
+    document.getElementById('notifyType').addEventListener('change', notifyTypeChanged);
+
+    document.getElementById('notifyForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        buildCandidates().catch((error) => show('notifySummary', error.message, true));
     });
 
     document.getElementById('reportForm').addEventListener('input', refreshReportLinks);

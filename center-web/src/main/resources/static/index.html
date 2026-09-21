@@ -49,6 +49,7 @@
             <button data-view="groups" data-text="web.nav.groups"></button>
             <button data-view="finance" data-text="web.nav.finance"></button>
             <button data-view="admin" data-text="web.nav.admin"></button>
+            <button data-view="alerts" data-text="web.nav.alerts"></button>
             <button data-view="reports" data-text="web.nav.reports"></button>
         </nav>
         <span class="spacer"></span>
@@ -332,6 +333,78 @@
         </form>
         <p id="auditSummary" class="result"></p>
         <table id="auditTable"></table>
+    </section>
+
+    <section id="view-alerts" class="view hidden">
+        <h2 data-text="web.alerts.inbox"></h2>
+        <form id="alertForm" class="row">
+            <label data-text="web.reports.from" for="alertFrom"></label>
+            <input id="alertFrom" type="date">
+            <label data-text="web.reports.to" for="alertTo"></label>
+            <input id="alertTo" type="date">
+            <label data-text="web.alerts.category" for="alertCategory"></label>
+            <select id="alertCategory"></select>
+            <label data-text="web.alerts.severity" for="alertSeverity"></label>
+            <select id="alertSeverity"></select>
+            <label><input id="alertOpenOnly" type="checkbox" checked> <span data-text="web.alerts.openOnly"></span></label>
+            <button type="submit" data-text="web.common.refresh"></button>
+            <button type="button" id="alertScan" data-text="web.alerts.scanNow"></button>
+        </form>
+        <p id="alertSummary" class="result"></p>
+        <table id="alertTable"></table>
+
+        <form id="scanSettingsForm" class="row">
+            <label><input id="scanEnabled" type="checkbox"> <span data-text="web.alerts.masterSwitch"></span></label>
+            <label data-text="web.alerts.scanTime" for="scanTime"></label>
+            <input id="scanTime" type="time">
+            <button type="submit" data-text="web.alerts.saveScan"></button>
+        </form>
+        <p id="scanState" class="result"></p>
+        <p class="hint" data-text="web.alerts.scanNote"></p>
+
+        <h3 data-text="web.rules.title"></h3>
+        <p id="ruleSummary" class="result"></p>
+        <table id="ruleTable"></table>
+        <form id="ruleForm" class="row hidden">
+            <strong id="ruleSubject"></strong>
+            <p id="ruleDescription" class="hint"></p>
+            <label><input id="ruleEnabled" type="checkbox"> <span data-text="web.rules.enabled"></span></label>
+            <label data-text="web.rules.audience" for="ruleAudience"></label>
+            <select id="ruleAudience"></select>
+            <label data-text="web.rules.severity" for="ruleSeverity"></label>
+            <select id="ruleSeverity"></select>
+            <label id="ruleThresholdLabel" for="ruleThreshold"></label>
+            <input id="ruleThreshold" type="number" min="0" step="1">
+            <label id="ruleWindowLabel" for="ruleWindow"></label>
+            <input id="ruleWindow" type="number" min="1" step="1">
+            <label id="ruleCooldownLabel" data-text="web.rules.cooldown" for="ruleCooldown"></label>
+            <input id="ruleCooldown" type="number" min="0" step="1">
+            <p id="ruleAudienceNote" class="hint"></p>
+            <button type="submit" data-text="web.rules.save"></button>
+            <button type="button" id="ruleCancel" data-text="web.rules.cancel"></button>
+        </form>
+        <p id="ruleResult" class="result"></p>
+
+        <h3 data-text="web.notify.title"></h3>
+        <p id="notifyChannel" class="hint"></p>
+        <form id="notifyForm" class="row">
+            <label data-text="web.notify.type" for="notifyType"></label>
+            <select id="notifyType"></select>
+            <label data-text="web.notify.group" for="notifyGroup"></label>
+            <select id="notifyGroup"></select>
+            <label data-text="web.reports.from" for="notifyFrom"></label>
+            <input id="notifyFrom" type="date">
+            <label data-text="web.reports.to" for="notifyTo"></label>
+            <input id="notifyTo" type="date">
+            <button type="submit" data-text="web.notify.build"></button>
+        </form>
+        <p id="notifySummary" class="result"></p>
+        <table id="notifyTable"></table>
+        <p id="notifyResult" class="result"></p>
+        <p id="notifyHandOff" class="result"></p>
+
+        <h4 data-text="web.notify.logTitle"></h4>
+        <table id="notifyLogTable"></table>
     </section>
 
     <section id="view-reports" class="view hidden">

@@ -52,7 +52,7 @@ body {
     gap: 0.4em;
 }
 
-h1, h2, h3 {
+h1, h2, h3, h4 {
     margin: 0 0 0.6em;
 }
 
@@ -177,6 +177,12 @@ nav button.active {
 .result {
     margin: 0.4em 0 1em;
     min-height: 1.2em;
+}
+
+/* التسليمُ إلى إنسان: جملةٌ ثم رابطٌ ثم زرّ، في سطرٍ واحد يُقرأ بترتيب ما يُفعل */
+.result a,
+.result button {
+    margin-inline-start: 0.6em;
 }
 
 .error {

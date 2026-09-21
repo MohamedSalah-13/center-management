@@ -366,11 +366,13 @@ is a write path on the host's disk.
 role, and no password field at all, so a pre-computed hash cannot be handed in. An entity as the
 input type is mass assignment waiting for a binder: a request meant to change a password carries
 `role=ADMIN` and it is written, with nothing in the code saying otherwise. `spring-boot-starter-validation`
-is on the path so the constraint is declared next to the field and holds for every caller. The
-other write surfaces still take entities; each one becomes a draft as `center-web` gives it an
-endpoint, and that is the rule: **no JPA entity is ever an HTTP input.**
+is on the path so the constraint is declared next to the field and holds for every caller. Each
+write surface became a draft as `center-web` gave it an endpoint, and that is the rule: **no JPA
+entity is ever an HTTP input.** There are six now — `UserDraft`, `StudentDraft`,
+`CourseGroupDraft`, `CenterSettingsDraft`, `TeacherDraft`, `AlertRuleDraft` — and no `save*`
+method in `service/` takes an entity any more.
 
-`StudentDraft` and `CourseGroupDraft` are the next two, and each is defined as much by the field
+`StudentDraft` and `CourseGroupDraft` were the next two, and each is defined as much by the field
 it leaves out as by the ones it carries.
 
 - **`StudentDraft` has no `isActive`.** Archiving is its own decision, with its own method and its
@@ -408,9 +410,11 @@ remembered.
 
 So the draft carries what the settings screen owns and nothing else — no `id`, no
 `lastAutoBackupAt`, no `lastAlertScanAt`, and no alert switch — and `save` **loads the row and
-applies it**. The alert centre writes its own two fields through `saveAlertScan`. The rule the
-three drafts share, stated once: **a field belongs in a draft only if the screen that posts it
-owns it.**
+applies it**. The alert centre writes its own two fields through `saveAlertScan`, which loads the
+row as well: the rule holds in both directions, and a `saveAlertScan` that wrote the whole row
+would erase the centre's name and its backup path instead — the same bug facing the other way.
+`AlertEdgeTest` pins that half. The rule the drafts share, stated once: **a field belongs in a
+draft only if the screen that posts it owns it.**
 
 `TeacherDraft` came with them, and with a check that had been missing entirely: `commissionType`
 is a free-text column, and `calculatePayout` is the only thing that ever rejected an unknown one —
@@ -418,6 +422,10 @@ at payout time, in front of whoever is counting the money, weeks after somebody 
 teacher. `CommissionTypes.KNOWN` is now the single list, `requireKnown` runs at save, and
 `TeacherDraftTest` walks every known type through a save so the list and the `switch` cannot drift
 apart.
+
+`AlertRuleDraft` closed the list. It omits `updatedAt` and `updatedBy` — the service stamps them
+from `CurrentActor` — and it has no id at all, because `type` is the row's key and
+`AlertRuleRegistry` builds the list from `AlertType` on every read rather than from seeded rows.
 
 **Two database defaults were lying.** `spring.datasource.password` had `${DB_PASSWORD:}` — an
 empty default — while this file claimed there was none, so a missing variable produced a MySQL
@@ -566,11 +574,9 @@ question with two endpoints ends as one question with two answers.
 
 `/api/groups` came with it read-only, because opening a session means choosing a group. It writes
 now, and `/api/students` with it, both behind the drafts described above — that work was in
-`center-app`, not at the edge, and it had to land first. What still takes an entity is
-`saveTeacher`, `SettingsService.save` and `saveRule`: three more screens, three more drafts first.
-`/api/teachers` is therefore read-only for exactly the reason `/api/groups` was, and is the list
-the group form needs; it stays `@RequiresRole(ADMIN)` because a teacher row carries what that
-teacher is paid, and it hands back three fields rather than the row.
+`center-app`, not at the edge, and it had to land first. `/api/teachers` arrived the same way one
+batch later, and it stays `@RequiresRole(ADMIN)` because a teacher row carries what that teacher
+is paid.
 
 **The id comes from the path and the body has no id field.** A body carrying its own id lets one
 request say two things about which student it edits, and the path is what the server log recorded
@@ -624,6 +630,59 @@ is read-only on purpose — `AuditLogRepository` extends the bare `Repository` p
 `/api/teachers` withholds the commission unless asked (`?withCommission=true`): the group form
 needs a name, and shipping the row would put what every teacher is paid into a response nobody
 asked for.
+
+**The alert endpoints are three surfaces and one absent door.** `/api/alerts` reads the inbox and
+acknowledges (never deletes: "when did this end and who looked at it" is asked a week later, and a
+delete makes it unanswerable — and the mark is not revocable, since a condition that returns raises
+a new alert with its own date). `/api/alerts/scan` is the manual scan, and it stamps
+`lastAlertScanAt` exactly as the scheduler does, or the catch-up would re-run the same scan minutes
+after somebody pressed the button. `/api/alert-rules` is the configuration. It shares its prefix
+with `AlertStreamController` on purpose — the stream is the same inbox arriving live, and the split
+is in the code, not in the URL.
+
+**`PUT /api/alert-rules/{type}` keys on the constant, not on a number**, because
+`AlertRuleRegistry` builds the list from `AlertType` on every read and the migration seeds no rows:
+there is no id for a type nobody has configured yet, and the first save is what writes one. The
+body carries no `type` field, same rule as the student id in a path.
+
+**`AlertRuleDraft` omits `updatedAt` and `updatedBy`** — the service stamps them from
+`CurrentActor`, and a field for them means whoever configures a rule writes somebody else's name
+under it. What the draft cannot do either is switch a type to parents that cannot reach them: the
+service forces `INTERNAL` for a type that is not `isParentCapable()`, so a request asking for it
+comes back `INTERNAL` rather than accepted-and-then-silent. Accepting it would leave a promise on
+the screen that nothing keeps.
+
+**The numbers come out resolved, not as the column holds them.** `null` means "use the type's
+default", which is a correct answer for whoever calculates and a useless one for whoever displays:
+a blank field in front of somebody configuring a rule does not say what limit is in force, and the
+save then writes the blank back so what was replaced is never read. A parameter the type does not
+use comes out `null` so its field disappears entirely — a number beside an empty caption does not
+say what it is. Same decision as the spinners in the desktop's rule window.
+
+**Nothing about the notification list is accepted from the request body, and that is the whole
+design of `/api/notifications`.** A candidate carries the parent's number *and* the message text,
+so taking one as sent would let anybody with a session send any text to any number from the
+centre's account at the provider — on its bill, under its name. So `SendRequest` says **which list
+to rebuild and who in it** (the type, the group and dates for absence, the student id), the server
+rebuilds it and picks that student out, and somebody no longer in it is refused with `409`: the
+state changed between the read and the press — they paid, or another terminal messaged them — and
+a message built on a stale read tells a parent something that is no longer true. It is the same
+rule that made a payout a `POST` on a session rather than on an amount.
+
+**And a hand-off is not a send.** The link channel returns a URL and writes nothing; the row in
+`notification_logs` means "this parent's chat was opened with the message in it", so
+`POST /api/notifications/opened` is what writes it, called by whoever opened the link. Writing it
+when the URL was built would log a notification for a chat that never opened, and the duplicate
+guard would then refuse the retry — leaving a parent untold with nobody aware. The server does not
+open the link either: a server has no screen, and a URL opened in its own browser is one nobody
+asked for. The browser gets `https://wa.me/...` rather than `whatsapp://`, because the protocol
+handler that answers the second one lives on a desktop and not in a tab.
+
+**`/api/notifications/types` exists so the page does not hold a second list.** Which alert types
+have a candidate list is what `build` knows; a copy of it in JS drifts, and then a type that is
+listed but not built is refused after the clerk picks it, while one that is built but not listed
+goes unused with nothing saying so. `AlertEdgeTest.everySelectableTypeBuildsAList` walks the
+endpoint's own answer through `/candidates`.
 
 **A framework exception already carries its own status**, and `ApiErrors` used to swallow all of
 them. A `DELETE` on a read-only path and a malformed JSON body both came back `500` with
@@ -1842,7 +1901,7 @@ Add coverage when touching any of those. `@DataJpaTest` needs `@Import(SecurityC
 because the boot class is itself a bean injecting `PasswordEncoder`.
 
 **A test lives in the module that holds its subject**, which is why the suite is split
-88 / 282 / 52 / 81 — core, app, desktop, web.
+88 / 282 / 52 / 94 — core, app, desktop, web.
 Two classes in `center-app`'s test tree exist only because it is a library and not a program:
 
 - `AppTestApplication` — `@DataJpaTest` searches *upward* for a `@SpringBootConfiguration` to
