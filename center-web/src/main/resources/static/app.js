@@ -173,13 +173,28 @@ function clockOf(timestamp) {
     return timestamp ? timestamp.substring(11, 16) : null;
 }
 
+/** اليوم وحده من ختمٍ كامل: الجدول يعرض فترة، والوقت في عموده */
+function dayOf(timestamp) {
+    return timestamp ? timestamp.substring(0, 10) : null;
+}
+
+/** الختم كاملاً بلا ثوانٍ: سجلُّ الحركات يمتدّ على شهور، فاليوم جزءٌ من الجواب */
+function stampOf(timestamp) {
+    return timestamp ? timestamp.substring(0, 10) + ' ' + timestamp.substring(11, 16) : null;
+}
+
 function today() {
     return new Date().toISOString().substring(0, 10);
 }
 
+/** أول الشهر الجاري: المدى الافتراضي لكشف المصروفات هو الشهر الذي يُراجَع */
+function monthStart() {
+    return today().substring(0, 8) + '01';
+}
+
 /* ------------------------------------------------------------------ الشاشات */
 
-const views = ['day', 'attendance', 'till', 'students', 'groups', 'reports'];
+const views = ['day', 'attendance', 'till', 'students', 'groups', 'finance', 'reports'];
 
 function openView(name) {
     views.forEach((view) => {
@@ -198,6 +213,8 @@ function openView(name) {
         loadStudents().catch(report);
     } else if (name === 'groups') {
         loadGroups().catch(report);
+    } else if (name === 'finance') {
+        loadFinance().catch(report);
     }
 }
 
@@ -398,7 +415,7 @@ async function refreshStudents() {
         'web.students.empty',
         (row) => [
             button('web.students.edit', () => editStudent(row)),
-            button('web.enrolments.title', () => showEnrolments(row).catch(report)),
+            button('web.students.details', () => showStudent(row)),
             button(row.active ? 'web.students.archive' : 'web.students.restore',
                 () => setArchived(row)),
             button('web.students.delete', () => deleteStudent(row))
@@ -507,6 +524,18 @@ async function deleteStudent(row) {
 
 /* ------------------------------------------------------------- الاشتراكات */
 
+/**
+ * لوحتا الطالب تُفتحان معاً بموضوعٍ واحد.
+ *
+ * <p>زرّان لكلٍّ موضوعُه يجعلان الشاشة تعرض اشتراكات طالبٍ وحركاتِ آخر في وقتٍ واحد،
+ * وهو تناقضٌ لا يقول عن نفسه شيئاً. وكلٌّ منهما يُمسك خطأه وحده: قراءةٌ تفشل لا تُفرّغ
+ * الأخرى.</p>
+ */
+function showStudent(student) {
+    showEnrolments(student).catch((error) => show('enrolResult', error.message, true));
+    showPayments(student).catch((error) => show('paymentSummary', error.message, true));
+}
+
 async function showEnrolments(student) {
     enrolmentSubject = student;
     show('enrolmentSubject', t('web.enrolments.for', student.name), false);
@@ -554,6 +583,31 @@ async function endEnrolment(row) {
     } catch (error) {
         show('enrolResult', error.message, true);
     }
+}
+
+/* --------------------------------------------------------- حركات الطالب */
+
+/**
+ * سجلُّ حركاته، وهو غير رصيده.
+ *
+ * <p>الرصيد رقمٌ يقول "كم عليه الآن"، وهذا يقول "من أين جاء": الدفعات ورسومُ الحصص
+ * معاً، وكلُّ صفّ يحمل نوعه. وقائمةٌ لا يُعرف فيها الداخلُ من الخارج تُقرأ مدفوعاتٍ
+ * كلَّها، فتصير خصوم الحصص دفعاتٍ في عين من ينظر.</p>
+ */
+async function showPayments(student) {
+    const history = await get('/api/students/' + student.id + '/payments');
+
+    show('paymentSummary', t('web.payments.for', student.name) + '   -   '
+        + t('web.payments.summary', history.formattedPaid, history.formattedCharged,
+            history.formattedBalance), false);
+
+    table('paymentTable',
+        ['web.payments.col.date', 'web.payments.col.type', 'web.payments.col.amount',
+            'web.payments.col.group', 'web.payments.col.session', 'web.payments.col.description'],
+        history.rows,
+        (row) => [stampOf(row.at), row.typeName, row.formatted,
+            row.groupName, row.sessionDate, row.description],
+        'web.payments.empty');
 }
 
 /* ------------------------------------------------------------------ المجموعات */
@@ -711,6 +765,93 @@ async function showRoster(group) {
             fraction(row.sessionsAttended, row.sessionsHeld),
             row.attendanceRate === null ? null : row.attendanceRate + '%'],
         'web.groups.roster.empty');
+}
+
+/* ------------------------------------------------------------------ المال */
+
+async function loadFinance() {
+    const from = document.getElementById('expenseFrom');
+    const to = document.getElementById('expenseTo');
+    if (!from.value) {
+        from.value = monthStart();
+    }
+    if (!to.value) {
+        to.value = today();
+    }
+
+    teachers = await get('/api/teachers');
+    fill(document.getElementById('payoutTeacher'),
+        teachers.map((teacher) => ({value: teacher.id, label: teacher.name})),
+        document.getElementById('payoutTeacher').value || null, t('web.common.all'));
+
+    await Promise.all([refreshExpenses(), refreshPayouts()]);
+}
+
+/**
+ * الإجمالي والورقة يخرجان من القائمة نفسها، والخادم هو من يصفّي.
+ *
+ * <p>من يبحث عن "كهرباء" ثم يقرأ إجمالياً يشمل كل المصروفات ينسب مصروفات الشهر كلها
+ * إلى فاتورة الكهرباء. ولذلك تحمل الورقة نفس المُعاملات التي حملها هذا الطلب.</p>
+ */
+async function refreshExpenses() {
+    const scope = expenseScope();
+    const report = await get('/api/expenses?' + scope);
+    document.getElementById('expensesPdf').href = '/api/reports/expenses.pdf?' + scope;
+
+    show('expenseSummary', report.scope + '   -   '
+        + t('web.expenses.summary', report.rows.length, report.formattedTotal,
+            report.formattedLargest), false);
+
+    table('expenseTable',
+        ['web.expenses.col.date', 'web.expenses.col.time',
+            'web.expenses.col.description', 'web.expenses.col.amount'],
+        report.rows,
+        (row) => [dayOf(row.at), clockOf(row.at), row.description, row.formatted],
+        'web.expenses.empty');
+}
+
+function expenseScope() {
+    const from = document.getElementById('expenseFrom').value || today();
+    const to = document.getElementById('expenseTo').value || today();
+    const query = document.getElementById('expenseQuery').value.trim();
+    return 'from=' + from + '&to=' + to + '&query=' + encodeURIComponent(query);
+}
+
+async function refreshPayouts() {
+    const teacher = document.getElementById('payoutTeacher').value;
+    const statement = document.getElementById('statementPdf');
+    // كشفُ حساب بلا معلم لا معنى له: الرابط يُعطَّل بدل أن يفتح صفحةَ خطأ
+    statement.href = teacher ? '/api/reports/teacher-statement.pdf?teacherId=' + teacher : '#';
+    statement.title = teacher ? '' : t('web.payouts.pickTeacher');
+
+    const rows = await get('/api/teacher-payouts' + (teacher ? '?teacherId=' + teacher : ''));
+    table('payoutTable',
+        ['web.payouts.col.date', 'web.payouts.col.group', 'web.payouts.col.teacher',
+            'web.payouts.col.attendance', 'web.payouts.col.commission',
+            'web.payouts.col.revenue', 'web.payouts.col.payout'],
+        rows,
+        (row) => [row.sessionDate, row.groupName, row.teacherName,
+            fraction(row.attendees, row.enrolled), row.commissionName,
+            row.formattedRevenue, row.formattedPayout],
+        'web.payouts.empty',
+        (row) => button('web.payouts.pay', () => payOut(row)));
+}
+
+/** مالٌ يخرج من الدرج ولا يُسترد، فيُسأل عنه - كما يسأل زرُّ النسخ الاحتياطي */
+async function payOut(row) {
+    try {
+        if (!window.confirm(t('web.payouts.confirm', row.formattedPayout, row.teacherName,
+                row.groupName, row.sessionDate))) {
+            return;
+        }
+        const teacher = document.getElementById('payoutTeacher').value;
+        await post('/api/teacher-payouts/' + row.sessionId
+            + (teacher ? '?teacherId=' + teacher : ''));
+        show('payoutResult', '', false);
+        await Promise.all([refreshPayouts(), refreshTill()]);
+    } catch (error) {
+        show('payoutResult', error.message, true);
+    }
 }
 
 /* ------------------------------------------------------------------ التقارير */
@@ -962,6 +1103,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('groupCustomName').addEventListener('change', (event) => {
         setCustomName(event.target.checked, document.getElementById('groupName').value);
+    });
+
+    document.getElementById('expenseReportForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        refreshExpenses().catch(report);
+    });
+
+    document.getElementById('payoutForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        refreshPayouts().catch(report);
     });
 
     document.getElementById('reportForm').addEventListener('input', refreshReportLinks);

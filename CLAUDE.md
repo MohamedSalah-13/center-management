@@ -567,6 +567,28 @@ translated, so they arrive from `/api/students/levels` and `/api/groups/days` �
 what gets sent back, the translated one is what gets shown, and the day list arrives Saturday-first
 because `WeekDays` knows that and a browser does not.
 
+**The money endpoints are three questions, not one screen.** `/api/expenses` reads a *period*
+where `/api/till` records and shows a *day* — the same split as `ExpenseReport.fxml` beside
+`Expenses.fxml`. `/api/students/{id}/payments` is where a balance came from, and carries each
+row's **type**, because a list that does not separate money in from session fees is read as
+payments and doubles what the student appears to have paid. And `/api/teacher-payouts` lists what
+is owed and pays one session.
+
+Three decisions inside them are worth keeping:
+
+- **The expense search runs on the server, not in the browser.** The total, the rows and the PDF
+  have to come from one filtered list: somebody who searches "electricity" and then reads a total
+  covering every expense attributes the whole month's spending to one bill. The scope line the
+  server builds — the same `expenseReport.filterDescription` key the desktop uses — is what gets
+  printed, so a page found later is never read as the whole period.
+- **A payout is a `POST` on a session, never an amount.** The amount is computed from the
+  teacher's agreement and that session's revenue; an amount in the request body would mean the
+  caller decides what is paid. The response is the list again, so no row that was just paid stays
+  on screen to be clicked twice.
+- **Shift closing needed nothing new.** `/api/till/summary`, `/api/till/day` and
+  `/api/reports/shift.pdf` already answer it; a second endpoint for the same question is how one
+  question ends up with two answers, which is why `GET /api/attendance/sessions` was deleted.
+
 `CourseGroupService.findById` and `SessionService.findById` exist for the same reason and are
 both `JOIN FETCH`: a desktop screen holds the row the user picked out of a list it just read,
 while a request holds a number in its path — and the names on that row are read after the
@@ -1529,6 +1551,12 @@ Three things the screen encodes:
   year of every movement to discard nine tenths of it over a period. Its end is the *start of
   the next day* with `<`, so an expense entered at 23:40 on the last day is inside the report —
   the kind of gap that only shows up as a total that will not match the till book.
+- **Every till movement must say what it was for.** `description` has been `NOT NULL` since the
+  first migration, but `recordStudentPayment` and `recordExpense` passed it straight through, so
+  the rule lived in the two screens that check it. The HTTP edge was the next screen and forgot,
+  and the column answered with a `500` reading "unexpected error" — about money the person at the
+  till believed had gone in. `validateDescription` is beside `validateAmount` now: an amount in
+  the drawer with no description reconciles against nothing.
 - **The total is computed once, on screen, and passed to `deliverExpenseReport`** (same as
   `deliverArrearsReport`). Both the summary line and the sheet's footer come from the same
   number over the same filtered list, search box included — and the search text is printed in
@@ -1748,7 +1776,10 @@ The test classes below exist because these failure modes are invisible to the co
   with no centre bound — or with the *previous* request's centre still on the pooled thread.
   `ApiEdgeTest` and `TenantBindingFilterTest` cover those four, and `StudentEdgeTest` covers the
   fifth an entity input used to hide: a body field the draft does not declare — `"active":true` on
-  a student edit — has to reach nothing, and the id in a `PUT` has to come from the path. And `center-app` is a library
+  a student edit — has to reach nothing, and the id in a `PUT` has to come from the path. And a
+  sequence across four endpoints fails where no single service test looks: `MoneyEdgeTest` pays,
+  scans, closes and pays out in one journey, because every link in it is correct on its own and
+  the fault is in the joins. And `center-app` is a library
   whose ports are deliberately unimplemented, so a forgotten adapter breaks no test there and
   only fails at startup — `WebContextSmokeTest` is where it fails instead, the same job
   `ApplicationContextSmokeTest` does on the desktop.
@@ -1768,7 +1799,7 @@ Add coverage when touching any of those. `@DataJpaTest` needs `@Import(SecurityC
 because the boot class is itself a bean injecting `PasswordEncoder`.
 
 **A test lives in the module that holds its subject**, which is why the suite is split
-88 / 274 / 52 / 61 — core, app, desktop, web.
+88 / 274 / 52 / 69 — core, app, desktop, web.
 Two classes in `center-app`'s test tree exist only because it is a library and not a program:
 
 - `AppTestApplication` — `@DataJpaTest` searches *upward* for a `@SpringBootConfiguration` to
