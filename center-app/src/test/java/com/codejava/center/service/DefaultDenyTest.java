@@ -13,6 +13,7 @@ import com.codejava.center.repository.CourseGroupRepository;
 import com.codejava.center.repository.TeacherRepository;
 import com.codejava.center.security.AccessDeniedException;
 import com.codejava.center.security.RoleEnforcementAspect;
+import com.codejava.center.service.dto.StudentDraft;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,13 +38,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * التي يقرّر فيها {@code ledgerStartDate} أيّ الحركات تُحتسب أصلاً.</p>
  */
 @DataJpaTest
-@Import({SessionService.class, SettingsService.class, AuditService.class,
+@Import({SessionService.class, SettingsService.class, AuditService.class, StudentService.class,
         SecurityConfig.class, TimeConfig.class, TestActor.class,
         RoleEnforcementAspect.class, AspectProxying.class})
 class DefaultDenyTest {
 
     @Autowired private SessionService sessionService;
     @Autowired private SettingsService settingsService;
+    @Autowired private StudentService studentService;
     @Autowired private TestActor actor;
     @Autowired private CourseGroupRepository groupRepository;
     @Autowired private TeacherRepository teacherRepository;
@@ -99,6 +101,40 @@ class DefaultDenyTest {
     @Test
     void whatTheSchedulerWritesStaysUnguardedOnPurpose() {
         assertThatCode(() -> settingsService.recordAlertScanAt(java.time.LocalDateTime.now()))
+                .doesNotThrowAnyException();
+    }
+
+    /**
+     * تسجيل الطالب كان بلا حارس، وهو كتابة.
+     *
+     * <p>ولم يكن الأمر خفياً بفعل الشاشة وحدها: {@code saveStudent} كانت الطريق التي
+     * يُنشأ بها كلُّ طالب في السنتر، فبلا حارس يكتبها أيُّ خيطٍ بلا جلسة.</p>
+     */
+    @Test
+    void registeringAStudentWithNobodySignedInIsRefused() {
+        assertThatThrownBy(() -> studentService.saveStudent(
+                new StudentDraft(null, null, "طالب", null, null, null)))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void archivingAStudentWithNobodySignedInIsRefused() {
+        assertThatThrownBy(() -> studentService.setArchived(1L, true))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    /**
+     * والسكرتير يسجّل: شاشة الطلاب لا تُخفى عنه في القائمة الجانبية.
+     *
+     * <p>حارسٌ أضيق من الشاشة يعني رفضاً في وجه من صُمّمت الشاشة له - وهي القاعدة
+     * نفسها التي جعلت بوابة الحضور وفتح الحصص {@code {ADMIN, SECRETARY}}.</p>
+     */
+    @Test
+    void aSecretaryMayRegisterAStudent() {
+        actor.setCurrentUser(userWithRole(Role.SECRETARY));
+
+        assertThatCode(() -> studentService.saveStudent(
+                new StudentDraft(null, null, "طالب الاستقبال", null, null, null)))
                 .doesNotThrowAnyException();
     }
 

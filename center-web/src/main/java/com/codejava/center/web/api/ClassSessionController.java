@@ -4,6 +4,7 @@ import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Session;
 import com.codejava.center.service.CourseGroupService;
 import com.codejava.center.service.SessionService;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -71,7 +72,7 @@ public class ClassSessionController {
     }
 
     @PostMapping
-    public SessionView open(@RequestBody OpenRequest request) {
+    public SessionView open(@Valid @RequestBody OpenRequest request) {
         CourseGroup group = courseGroupService.findById(request.groupId());
         return view(sessionService.openSession(group, request.date()));
     }

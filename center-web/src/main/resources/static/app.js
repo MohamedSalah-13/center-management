@@ -66,6 +66,8 @@ async function call(method, url, body) {
 
 const get = (url) => call('GET', url);
 const post = (url, body) => call('POST', url, body);
+const put = (url, body) => call('PUT', url, body);
+const remove = (url) => call('DELETE', url);
 
 /* ------------------------------------------------------------------ العرض */
 
@@ -118,15 +120,52 @@ function table(id, headerKeys, rows, cells, emptyKey, action) {
             line.insertCell().textContent = value === null || value === undefined ? t('web.common.none') : value;
         });
         if (action) {
-            // الزرّ يُبنى على الصفّ الذي أمام العين: الإغلاق يُطلب وأنت تنظر إلى سطره،
-            // لا بعد أن تكتب رقماً في حقل بعيد عنه
-            const button = action(row);
+            // الأزرار تُبنى على الصفّ الذي أمام العين: التعديل والأرشفة يُطلبان وأنت
+            // تنظر إلى سطر صاحبهما، لا بعد أن تكتب رقماً في حقل بعيد عنه
             const cell = line.insertCell();
-            if (button) {
-                cell.appendChild(button);
-            }
+            const built = action(row);
+            (Array.isArray(built) ? built : [built])
+                .filter(Boolean)
+                .forEach((element) => cell.appendChild(element));
         }
     });
+}
+
+/** زرّ صفٍّ بنصّه المترجَم */
+function button(key, onClick) {
+    const node = document.createElement('button');
+    node.type = 'button';
+    node.textContent = t(key);
+    node.addEventListener('click', onClick);
+    return node;
+}
+
+/**
+ * ملء قائمة اختيار.
+ *
+ * القيمة هي الثابت والنصُّ هو المترجَم، دائماً: قائمةٌ قيمتها نصٌّ معروض تُرسِل إلى
+ * الخادم ما يتغيّر بلغة من يقف أمام الشاشة.
+ */
+function fill(select, options, selected, emptyLabel) {
+    select.innerHTML = '';
+    if (emptyLabel !== undefined) {
+        const none = document.createElement('option');
+        none.value = '';
+        none.textContent = emptyLabel;
+        select.appendChild(none);
+    }
+    options.forEach((option) => {
+        const node = document.createElement('option');
+        node.value = option.value;
+        node.textContent = option.label;
+        select.appendChild(node);
+    });
+    select.value = selected === null || selected === undefined ? '' : String(selected);
+}
+
+/** "12 / 20" - رقمان بلا نصّ، فلا يحتاجان ترجمة */
+function fraction(attended, held) {
+    return attended + ' / ' + held;
 }
 
 /** الوقت وحده من ختمٍ كامل: الجدول يعرض يوماً واحداً، والتاريخ فيه مكرَّر */
@@ -140,7 +179,7 @@ function today() {
 
 /* ------------------------------------------------------------------ الشاشات */
 
-const views = ['day', 'attendance', 'till', 'students', 'reports'];
+const views = ['day', 'attendance', 'till', 'students', 'groups', 'reports'];
 
 function openView(name) {
     views.forEach((view) => {
@@ -157,6 +196,8 @@ function openView(name) {
         loadTill().catch(report);
     } else if (name === 'students') {
         loadStudents().catch(report);
+    } else if (name === 'groups') {
+        loadGroups().catch(report);
     }
 }
 
@@ -326,15 +367,350 @@ async function loadEnrolments() {
 
 /* ------------------------------------------------------------------ الطلاب */
 
+/** الصفوف الدراسية كما تصل من الخادم: الثابت يُرسَل والمترجَم يُعرض */
+let levels = [];
+
+/** الطالب المعروض في لوحة الاشتراكات - لا في النموذج: اللوحتان تُفتحان معاً */
+let enrolmentSubject = null;
+
 async function loadStudents() {
+    if (!levels.length) {
+        levels = await get('/api/students/levels');
+        fill(document.getElementById('studentLevel'),
+            levels.map((level) => ({value: level.name, label: level.label})),
+            null, t('web.common.none'));
+    }
+    await refreshStudents();
+}
+
+async function refreshStudents() {
     const query = document.getElementById('studentQuery').value.trim();
-    const rows = await get('/api/students?query=' + encodeURIComponent(query));
+    const archived = document.getElementById('includeArchived').checked;
+    const rows = await get('/api/students?includeArchived=' + archived
+        + '&query=' + encodeURIComponent(query));
+
     table('studentTable',
         ['web.students.col.name', 'web.students.col.barcode', 'web.students.col.phone',
-            'web.students.col.parentPhone', 'web.students.col.level'],
+            'web.students.col.parentPhone', 'web.students.col.level', 'web.students.col.state'],
         rows,
-        (row) => [row.name, row.barcode, row.phone, row.parentPhone, row.level],
-        'web.students.empty');
+        (row) => [row.name, row.barcode, row.phone, row.parentPhone, row.level,
+            t(row.active ? 'web.students.state.active' : 'web.students.state.archived')],
+        'web.students.empty',
+        (row) => [
+            button('web.students.edit', () => editStudent(row)),
+            button('web.enrolments.title', () => showEnrolments(row).catch(report)),
+            button(row.active ? 'web.students.archive' : 'web.students.restore',
+                () => setArchived(row)),
+            button('web.students.delete', () => deleteStudent(row))
+        ]);
+}
+
+function editStudent(row) {
+    document.getElementById('studentId').value = row.id;
+    // الصفُّ كما هو محفوظ: السؤال عن الاشتراكات المخالفة يُطرح حين يتغيّر وحده،
+    // وطالبٌ له مخالفةٌ قديمة - من قبل هذه الميزة - يُسأل عنها كلما حُفظ هاتفه
+    document.getElementById('studentLevelBefore').value = row.level || '';
+    document.getElementById('studentName').value = row.name || '';
+    document.getElementById('studentBarcode').value = row.barcode || '';
+    document.getElementById('studentPhone').value = row.phone || '';
+    document.getElementById('studentParentPhone').value = row.parentPhone || '';
+    // الصفُّ يُطابَق بالاسم المترجَم لأن القائمة لا تحمل غيره في جدول الطلاب
+    const level = levels.find((candidate) => candidate.label === row.level);
+    document.getElementById('studentLevel').value = level ? level.name : '';
+    show('studentResult', '', false);
+}
+
+function clearStudentForm() {
+    document.getElementById('studentId').value = '';
+    document.getElementById('studentLevelBefore').value = '';
+    ['studentName', 'studentBarcode', 'studentPhone', 'studentParentPhone']
+        .forEach((id) => { document.getElementById(id).value = ''; });
+    document.getElementById('studentLevel').value = '';
+}
+
+/**
+ * الحفظ، ومعه تأكيدُ تغيير الصف.
+ *
+ * قيدُ الصف يُفحص عند الاشتراك وحده، فتغييره بعده يتجاوزه باباً خلفياً. والمنع خطأ -
+ * الترقية في أول العام تقع لكل طالب مرة كل سنة - فالمخرج أن يُرى الأثر قبل الحفظ،
+ * كما تفعل شاشة سطح المكتب. وصفحةٌ بلا هذا السؤال تكون قد ألغت القيد لمن يستعمل الويب.
+ */
+async function saveStudent() {
+    const id = document.getElementById('studentId').value;
+    const level = document.getElementById('studentLevel').value;
+    const body = {
+        name: document.getElementById('studentName').value.trim(),
+        barcode: document.getElementById('studentBarcode').value.trim(),
+        phone: document.getElementById('studentPhone').value.trim(),
+        parentPhone: document.getElementById('studentParentPhone').value.trim(),
+        schoolLevel: level || null
+    };
+
+    const before = levels.find(
+        (candidate) => candidate.label === document.getElementById('studentLevelBefore').value);
+    const levelChanged = (before ? before.name : '') !== level;
+
+    if (id && levelChanged && !await levelChangeAccepted(id, body.name, level)) {
+        return;
+    }
+
+    const saved = id ? await put('/api/students/' + id, body) : await post('/api/students', body);
+    show('studentResult', t('web.students.saved', saved.name), false);
+    clearStudentForm();
+    await refreshStudents();
+    if (enrolmentSubject && enrolmentSubject.id === saved.id) {
+        await showEnrolments(saved);
+    }
+}
+
+async function levelChangeAccepted(id, name, level) {
+    const clashes = await get('/api/students/' + id + '/level-clashes'
+        + (level ? '?level=' + encodeURIComponent(level) : ''));
+    if (!clashes.length) {
+        return true;
+    }
+    const chosen = levels.find((candidate) => candidate.name === level);
+    const lines = clashes
+        .map((clash) => t('web.students.levelChangeGroup', clash.groupName, clash.level))
+        .join('\n');
+    return window.confirm(t('web.students.levelChangeWarning', name,
+        chosen ? chosen.label : t('web.common.none'), lines));
+}
+
+async function setArchived(row) {
+    try {
+        if (row.active && !window.confirm(t('web.students.confirmArchive', row.name))) {
+            return;
+        }
+        await post('/api/students/' + row.id + (row.active ? '/archive' : '/restore'));
+        show('studentResult', '', false);
+        await refreshStudents();
+    } catch (error) {
+        show('studentResult', error.message, true);
+    }
+}
+
+async function deleteStudent(row) {
+    try {
+        if (!window.confirm(t('web.students.confirmDelete', row.name))) {
+            return;
+        }
+        await remove('/api/students/' + row.id);
+        show('studentResult', '', false);
+        clearStudentForm();
+        await refreshStudents();
+    } catch (error) {
+        // الرسالة تقول إن له حضوراً أو حركات وتدلّ على الأرشفة - وهي تأتي من الخدمة
+        show('studentResult', error.message, true);
+    }
+}
+
+/* ------------------------------------------------------------- الاشتراكات */
+
+async function showEnrolments(student) {
+    enrolmentSubject = student;
+    show('enrolmentSubject', t('web.enrolments.for', student.name), false);
+    show('enrolResult', '', false);
+
+    // مجموعات صف الطالب وحدها: القيد يُفرض في الخدمة، وعرضُ ما سيُرفض إرباكٌ بلا فائدة
+    const level = levels.find((candidate) => candidate.label === student.level);
+    const groups = level ? await get('/api/groups?level=' + encodeURIComponent(level.name)) : [];
+    fill(document.getElementById('enrolGroup'),
+        groups.map((group) => ({value: group.id, label: group.name})),
+        null, groups.length ? t('web.common.none') : t('web.enrolments.noGroups'));
+
+    await refreshEnrolments();
+}
+
+async function refreshEnrolments() {
+    if (!enrolmentSubject) {
+        show('enrolmentSubject', t('web.enrolments.pickStudent'), false);
+        table('enrolmentTable', [], [], () => [], 'web.enrolments.empty');
+        return;
+    }
+
+    const rows = await get('/api/students/' + enrolmentSubject.id + '/enrollments');
+    table('enrolmentTable',
+        ['web.enrolments.col.group', 'web.enrolments.col.joinDate', 'web.enrolments.col.leaveDate',
+            'web.enrolments.col.state', 'web.enrolments.col.sessions', 'web.enrolments.col.rate'],
+        rows,
+        (row) => [row.groupName, row.joinDate, row.leaveDate,
+            t(row.active ? 'web.enrolments.state.active' : 'web.enrolments.state.ended'),
+            fraction(row.sessionsAttended, row.sessionsHeld),
+            row.attendanceRate === null ? null : row.attendanceRate + '%'],
+        'web.enrolments.empty',
+        // المنتهي لا زرّ له: إنهاؤه وقع، وإعادتُه اشتراكٌ جديد من القائمة أعلاه
+        (row) => row.active ? button('web.enrolments.end', () => endEnrolment(row)) : null);
+}
+
+async function endEnrolment(row) {
+    try {
+        if (!window.confirm(t('web.enrolments.confirmEnd', enrolmentSubject.name, row.groupName))) {
+            return;
+        }
+        await remove('/api/students/' + enrolmentSubject.id + '/enrollments/' + row.groupId);
+        show('enrolResult', '', false);
+        await refreshEnrolments();
+    } catch (error) {
+        show('enrolResult', error.message, true);
+    }
+}
+
+/* ------------------------------------------------------------------ المجموعات */
+
+let days = [];
+let teachers = [];
+
+async function loadGroups() {
+    if (!days.length) {
+        days = await get('/api/groups/days');
+        const box = document.getElementById('groupDays');
+        box.innerHTML = '';
+        days.forEach((day) => {
+            const label = document.createElement('label');
+            const check = document.createElement('input');
+            check.type = 'checkbox';
+            check.value = day.name;
+            label.appendChild(check);
+            label.appendChild(document.createTextNode(' ' + day.label));
+            box.appendChild(label);
+        });
+    }
+    if (!levels.length) {
+        levels = await get('/api/students/levels');
+    }
+    fill(document.getElementById('groupLevel'),
+        levels.map((level) => ({value: level.name, label: level.label})),
+        document.getElementById('groupLevel').value || null, t('web.common.none'));
+
+    teachers = await get('/api/teachers');
+    fill(document.getElementById('groupTeacher'),
+        teachers.map((teacher) => ({value: teacher.id, label: teacher.name})),
+        document.getElementById('groupTeacher').value || null, t('web.common.none'));
+
+    await refreshGroups();
+}
+
+async function refreshGroups() {
+    const rows = await get('/api/groups');
+    table('groupTable',
+        ['web.groups.col.name', 'web.groups.col.teacher', 'web.groups.col.level',
+            'web.groups.col.days', 'web.groups.col.time', 'web.groups.col.price',
+            'web.groups.col.capacity', 'web.groups.col.members'],
+        rows,
+        (row) => [row.name, row.teacherName, row.level, row.meetingDays,
+            row.startTime && row.endTime ? row.startTime + ' - ' + row.endTime : null,
+            row.price, row.maxCapacity, row.members],
+        'web.groups.empty',
+        (row) => [
+            button('web.groups.edit', () => editGroup(row)),
+            button('web.groups.roster', () => showRoster(row).catch(report)),
+            button('web.groups.delete', () => deleteGroup(row))
+        ]);
+}
+
+function editGroup(row) {
+    document.getElementById('groupId').value = row.id;
+    document.getElementById('groupTeacher').value = row.teacherId === null ? '' : row.teacherId;
+    document.getElementById('groupLevel').value = row.levelName || '';
+    document.getElementById('groupCapacity').value = row.maxCapacity === null ? '' : row.maxCapacity;
+    document.getElementById('groupPrice').value = row.sessionPrice === null ? '' : row.sessionPrice;
+    document.getElementById('groupStart').value = row.startTime ? row.startTime.substring(0, 5) : '';
+    document.getElementById('groupEnd').value = row.endTime ? row.endTime.substring(0, 5) : '';
+    checkedDays(row.dayNames || []);
+    setCustomName(!row.autoName, row.name);
+    show('groupResult', '', false);
+}
+
+function checkedDays(names) {
+    document.querySelectorAll('#groupDays input').forEach((box) => {
+        box.checked = names.includes(box.value);
+    });
+}
+
+function selectedDays() {
+    return Array.from(document.querySelectorAll('#groupDays input'))
+        .filter((box) => box.checked)
+        .map((box) => box.value);
+}
+
+/**
+ * حقل الاسم يتبع المربع.
+ *
+ * اسمٌ يكتبه المستخدم يعني إيقاف الاشتقاق، والحقلان يتحركان معاً دائماً: حقلٌ مفتوح
+ * والاشتقاق شغّال يعني أن ما كُتب فيه يُمحى عند الحفظ بلا أن يقول أحد شيئاً.
+ */
+function setCustomName(custom, name) {
+    const check = document.getElementById('groupCustomName');
+    const field = document.getElementById('groupName');
+    check.checked = custom;
+    field.disabled = !custom;
+    field.value = custom ? (name || '') : '';
+}
+
+function clearGroupForm() {
+    document.getElementById('groupId').value = '';
+    ['groupCapacity', 'groupPrice', 'groupStart', 'groupEnd']
+        .forEach((id) => { document.getElementById(id).value = ''; });
+    document.getElementById('groupTeacher').value = '';
+    document.getElementById('groupLevel').value = '';
+    checkedDays([]);
+    setCustomName(false, '');
+}
+
+async function saveGroup() {
+    const id = document.getElementById('groupId').value;
+    const teacher = document.getElementById('groupTeacher').value;
+    const level = document.getElementById('groupLevel').value;
+    const price = document.getElementById('groupPrice').value;
+    const capacity = document.getElementById('groupCapacity').value;
+    const custom = document.getElementById('groupCustomName').checked;
+
+    const body = {
+        teacherId: teacher ? Number(teacher) : null,
+        schoolLevel: level || null,
+        maxCapacity: capacity ? Number(capacity) : null,
+        sessionPrice: price === '' ? null : price,
+        meetingDays: selectedDays(),
+        startTime: document.getElementById('groupStart').value || null,
+        endTime: document.getElementById('groupEnd').value || null,
+        autoName: !custom,
+        name: custom ? document.getElementById('groupName').value.trim() : null
+    };
+
+    const saved = id ? await put('/api/groups/' + id, body) : await post('/api/groups', body);
+    show('groupResult', t('web.groups.saved', saved.name), false);
+    clearGroupForm();
+    await refreshGroups();
+}
+
+async function deleteGroup(row) {
+    try {
+        if (!window.confirm(t('web.groups.confirmDelete', row.name))) {
+            return;
+        }
+        await remove('/api/groups/' + row.id);
+        show('groupResult', '', false);
+        clearGroupForm();
+        await refreshGroups();
+    } catch (error) {
+        show('groupResult', error.message, true);
+    }
+}
+
+async function showRoster(group) {
+    document.getElementById('rosterTitle').textContent = t('web.groups.rosterTitle', group.name);
+    const rows = await get('/api/groups/' + group.id + '/roster');
+    table('rosterTable',
+        ['web.groups.roster.col.name', 'web.groups.roster.col.barcode',
+            'web.groups.roster.col.phone', 'web.groups.roster.col.parentPhone',
+            'web.groups.roster.col.joinDate', 'web.groups.roster.col.sessions',
+            'web.groups.roster.col.rate'],
+        rows,
+        (row) => [row.studentName, row.barcode, row.phone, row.parentPhone, row.joinDate,
+            fraction(row.sessionsAttended, row.sessionsHeld),
+            row.attendanceRate === null ? null : row.attendanceRate + '%'],
+        'web.groups.roster.empty');
 }
 
 /* ------------------------------------------------------------------ التقارير */
@@ -407,6 +783,14 @@ function leaveApp() {
     document.getElementById('app').classList.add('hidden');
     document.getElementById('signIn').classList.remove('hidden');
     document.getElementById('alertList').innerHTML = '';
+
+    // ما قُرئ لحسابِ من خرج لا يبقى لمن يدخل بعده: اسمُ طالبٍ معلّقاً فوق شاشة
+    // الدخول هو بعينه ما تُغلَق لأجله بطاقاتُ التنبيهات. وعلى منصّةٍ متعددة السناتر
+    // القائمةُ المحفوظة تكون قائمةَ سنترٍ آخر
+    enrolmentSubject = null;
+    levels = [];
+    teachers = [];
+    days = [];
 }
 
 async function loadMessages() {
@@ -537,7 +921,47 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('studentForm').addEventListener('submit', (event) => {
         event.preventDefault();
-        loadStudents().catch(report);
+        refreshStudents().catch(report);
+    });
+
+    document.getElementById('studentEditForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        saveStudent().catch((error) => show('studentResult', error.message, true));
+    });
+
+    document.getElementById('studentClear').addEventListener('click', () => {
+        clearStudentForm();
+        show('studentResult', '', false);
+    });
+
+    document.getElementById('enrolForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const group = document.getElementById('enrolGroup').value;
+        if (!enrolmentSubject || !group) {
+            return;
+        }
+        try {
+            await post('/api/students/' + enrolmentSubject.id + '/enrollments',
+                {groupId: Number(group)});
+            show('enrolResult', '', false);
+            await refreshEnrolments();
+        } catch (error) {
+            show('enrolResult', error.message, true);
+        }
+    });
+
+    document.getElementById('groupEditForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        saveGroup().catch((error) => show('groupResult', error.message, true));
+    });
+
+    document.getElementById('groupClear').addEventListener('click', () => {
+        clearGroupForm();
+        show('groupResult', '', false);
+    });
+
+    document.getElementById('groupCustomName').addEventListener('change', (event) => {
+        setCustomName(event.target.checked, document.getElementById('groupName').value);
     });
 
     document.getElementById('reportForm').addEventListener('input', refreshReportLinks);

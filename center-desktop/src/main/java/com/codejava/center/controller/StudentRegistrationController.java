@@ -6,6 +6,7 @@ import com.codejava.center.domain.enums.SchoolLevel;
 import com.codejava.center.service.ReportService;
 import com.codejava.center.service.EnrollmentService;
 import com.codejava.center.service.StudentService;
+import com.codejava.center.service.dto.StudentDraft;
 import com.codejava.center.util.Dialogs;
 import com.codejava.center.util.FxAsync;
 import com.codejava.center.util.I18n;
@@ -315,21 +316,25 @@ public class StudentRegistrationController {
                         newLevel == null ? I18n.get("common.none") : newLevel.getDisplayName()));
     }
 
+    /**
+     * النموذج يُقرأ في {@link StudentDraft} لا في الكيان.
+     *
+     * <p>وحالةُ الأرشفة لم تعد تُذكر هنا: كانت الشاشة تكتب {@code setActive(true)}
+     * للجديد وحده حتى لا يُعيد تعديلُ هاتفٍ طالباً مؤرشفاً إلى بوابة الحضور. الحقل
+     * ليس في المسودة أصلاً، فالقاعدة صارت في الخدمة - حيث تحمي كلَّ من يكتب، بما
+     * فيه ما لم يُكتب بعد.</p>
+     */
     private void applyFormAndSave(Student student, boolean isNew) {
-        student.setName(nameField.getText());
-        student.setPhone(phoneField.getText());
-        student.setParentPhone(parentPhoneField.getText());
-        student.setSchoolLevel(schoolLevelCombo.getValue());
-        student.setBarcode(barcodeField.getText().isEmpty() ? null : barcodeField.getText());
-
-        // الطالب الجديد مسجَّل، والقائم يبقى على حاله: تعديل هاتف مؤرشف كان
-        // سيعيده إلى المسجَّلين وإلى بوابة الحضور بلا أن يطلب أحد ذلك ولا يُكتب في السجل
-        if (isNew) {
-            student.setActive(true);
-        }
+        StudentDraft draft = new StudentDraft(
+                student.getId(),
+                barcodeField.getText(),
+                nameField.getText(),
+                phoneField.getText(),
+                parentPhoneField.getText(),
+                schoolLevelCombo.getValue());
 
         // الحفظ في الخلفية: كان يجري على خيط الواجهة فيجمّد الشاشة حتى ترد قاعدة البيانات
-        FxAsync.supply(() -> studentService.saveStudent(student), saved -> {
+        FxAsync.supply(() -> studentService.saveStudent(draft), saved -> {
             if (isNew) {
                 studentsList.add(saved);
                 Dialogs.success(I18n.format("student.saved", saved.getBarcode()));
