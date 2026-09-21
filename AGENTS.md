@@ -370,6 +370,33 @@ is on the path so the constraint is declared next to the field and holds for eve
 other write surfaces still take entities; each one becomes a draft as `center-web` gives it an
 endpoint, and that is the rule: **no JPA entity is ever an HTTP input.**
 
+`StudentDraft` and `CourseGroupDraft` are the next two, and each is defined as much by the field
+it leaves out as by the ones it carries.
+
+- **`StudentDraft` has no `isActive`.** Archiving is its own decision, with its own method and its
+  own audit action, and it is the only way out for a student whose attendance and payments block a
+  delete. A save that could flip it means editing a phone number puts an archived student back on
+  the attendance gate with nothing in the trail saying so. The desktop screen guarded that by hand
+  (`if (isNew) student.setActive(true)`), and a rule that lives in a screen is a rule the next
+  screen forgets — `StudentEdgeTest` now sends `"active":true` in the body and watches it do
+  nothing.
+- **`CourseGroupDraft` takes `teacherId`, not a `Teacher`.** A teacher entity arriving in a request
+  body carries the name, commission type and commission value the sender typed; a number can only
+  say *which* teacher, and the row is read from the database.
+
+The drafts also settled two things the entity input had hidden, because with a screen filling the
+same instance "did this change?" was unanswerable. `saveStudent` now **loads the stored row and
+applies the draft to it**, so a blank barcode on an edit means *keep it* rather than *issue a new
+one* — a re-issued barcode is a printed card in somebody's hand that stops opening the gate — and
+the uniqueness checks run **whenever the value changed**, not only on create, so an edit that takes
+another student's name is refused in Arabic instead of by a MySQL constraint naming the table and
+the column.
+
+And three writes that had no guard at all now carry `{ADMIN, SECRETARY}`: `saveStudent`,
+`setArchived` and `deleteStudent`. Not `{ADMIN}` — the students screen is reception's and is not
+hidden from the secretary in the sidebar, and a guard narrower than the screen is a refusal in the
+face of the person the screen was built for.
+
 **Two database defaults were lying.** `spring.datasource.password` had `${DB_PASSWORD:}` — an
 empty default — while this file claimed there was none, so a missing variable produced a MySQL
 access-denied message that reads like a wrong password. It is `${DB_PASSWORD}` now and startup
@@ -515,13 +542,30 @@ distinguishes.
 The same push deleted `GET /api/attendance/sessions`, which answered the same question. One
 question with two endpoints ends as one question with two answers.
 
-`/api/groups` came with it and is **read-only on purpose**. Opening a session means choosing a
-group, so the list is half the feature rather than scope creep. Creating and editing are not
-here because `CourseGroupService.saveGroup` still takes a `CourseGroup`, and no JPA entity is
-ever an HTTP input — that screen is preceded by a draft, the way `UserDraft` preceded the users
-screen, and that work is in `center-app` rather than at the edge. The same is true of
-`saveStudent`, `saveTeacher`, `SettingsService.save` and `saveRule`: four more screens, four
-more drafts first.
+`/api/groups` came with it read-only, because opening a session means choosing a group. It writes
+now, and `/api/students` with it, both behind the drafts described above — that work was in
+`center-app`, not at the edge, and it had to land first. What still takes an entity is
+`saveTeacher`, `SettingsService.save` and `saveRule`: three more screens, three more drafts first.
+`/api/teachers` is therefore read-only for exactly the reason `/api/groups` was, and is the list
+the group form needs; it stays `@RequiresRole(ADMIN)` because a teacher row carries what that
+teacher is paid, and it hands back three fields rather than the row.
+
+**The id comes from the path and the body has no id field.** A body carrying its own id lets one
+request say two things about which student it edits, and the path is what the server log recorded
+and what a reviewer reads later. It is not enough to ignore the field: it is not declared, so
+`{"id": 9}` in a `PUT /api/students/7` binds to nothing.
+
+**The level-change confirmation crossed with them, and that is not a nicety.** The school-level
+gate is checked at enrolment only, so changing a student's level afterwards walks around it;
+blocking the change would be wrong, since every student is promoted once a year. The desktop shows
+the contradicted enrolments and asks. `GET /api/students/{id}/level-clashes?level=` is the same
+question at the edge, asked before the save — an edge without it would have switched the constraint
+off for everyone who uses the web.
+
+**The page still holds no Arabic.** School levels and week days are constants whose names are
+translated, so they arrive from `/api/students/levels` and `/api/groups/days` — the stable name is
+what gets sent back, the translated one is what gets shown, and the day list arrives Saturday-first
+because `WeekDays` knows that and a browser does not.
 
 `CourseGroupService.findById` and `SessionService.findById` exist for the same reason and are
 both `JOIN FETCH`: a desktop screen holds the row the user picked out of a list it just read,
@@ -1702,7 +1746,9 @@ The test classes below exist because these failure modes are invisible to the co
 - An HTTP edge fails in ways no service test sees: a refusal that arrives as an HTML login page
   with status `200`, a write accepted without a CSRF token, a request that reaches a controller
   with no centre bound — or with the *previous* request's centre still on the pooled thread.
-  `ApiEdgeTest` and `TenantBindingFilterTest` cover those four. And `center-app` is a library
+  `ApiEdgeTest` and `TenantBindingFilterTest` cover those four, and `StudentEdgeTest` covers the
+  fifth an entity input used to hide: a body field the draft does not declare — `"active":true` on
+  a student edit — has to reach nothing, and the id in a `PUT` has to come from the path. And `center-app` is a library
   whose ports are deliberately unimplemented, so a forgotten adapter breaks no test there and
   only fails at startup — `WebContextSmokeTest` is where it fails instead, the same job
   `ApplicationContextSmokeTest` does on the desktop.
@@ -1722,7 +1768,7 @@ Add coverage when touching any of those. `@DataJpaTest` needs `@Import(SecurityC
 because the boot class is itself a bean injecting `PasswordEncoder`.
 
 **A test lives in the module that holds its subject**, which is why the suite is split
-88 / 263 / 52 / 48 — core, app, desktop, web.
+88 / 274 / 52 / 61 — core, app, desktop, web.
 Two classes in `center-app`'s test tree exist only because it is a library and not a program:
 
 - `AppTestApplication` — `@DataJpaTest` searches *upward* for a `@SpringBootConfiguration` to

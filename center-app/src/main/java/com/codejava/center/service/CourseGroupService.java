@@ -1,7 +1,10 @@
 package com.codejava.center.service;
 
 import com.codejava.center.domain.CourseGroup;
+import com.codejava.center.domain.Teacher;
 import com.codejava.center.repository.CourseGroupRepository;
+import com.codejava.center.repository.TeacherRepository;
+import com.codejava.center.service.dto.CourseGroupDraft;
 import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.domain.enums.SchoolLevel;
@@ -14,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -23,6 +27,7 @@ import java.util.Set;
 public class CourseGroupService {
 
     private final CourseGroupRepository courseGroupRepository;
+    private final TeacherRepository teacherRepository;
     private final AuditService auditService;
 
     /**
@@ -45,38 +50,66 @@ public class CourseGroupService {
                 .orElseThrow(() -> new IllegalArgumentException(I18n.get("error.group.notFound")));
     }
 
+    /**
+     * حفظ مجموعة جديدة أو تعديل قائمة.
+     *
+     * <p>المدخل {@link CourseGroupDraft} لا الكيان: المعلم يصل رقماً ويُقرأ صفُّه من
+     * القاعدة - انظر تعليق المسودة - والصفُّ القائم يُقرأ ثم يُطبَّق عليه ما فيها،
+     * فما ليست المسودةُ صاحبةَ قراره لا يتغير.</p>
+     */
     @Transactional
     @RequiresRole(Role.ADMIN)
-    public CourseGroup saveGroup(CourseGroup group) {
-        if (group.getTeacher() == null) {
+    public CourseGroup saveGroup(CourseGroupDraft draft) {
+        if (draft.teacherId() == null) {
             throw new IllegalArgumentException(I18n.get("error.group.teacherRequired"));
         }
-        if (group.getMaxCapacity() == null || group.getMaxCapacity() <= 0) {
+        if (draft.maxCapacity() == null || draft.maxCapacity() <= 0) {
             throw new IllegalArgumentException(I18n.get("error.group.capacityPositive"));
         }
-        if (group.getSessionPrice() == null || group.getSessionPrice().signum() < 0) {
+        if (draft.sessionPrice() == null || draft.sessionPrice().signum() < 0) {
             throw new IllegalArgumentException(I18n.get("error.group.priceNegative"));
         }
         // الصف شرط قبول الطالب في المجموعة؛ مجموعة بلا صف تقبل الجميع، وهو نقيض المطلوب
-        if (group.getSchoolLevel() == null) {
+        if (draft.schoolLevel() == null) {
             throw new IllegalArgumentException(I18n.get("error.group.levelRequired"));
         }
-        if (group.getMeetingDays() == null || group.getMeetingDays().isEmpty()) {
+        if (draft.meetingDays() == null || draft.meetingDays().isEmpty()) {
             throw new IllegalArgumentException(I18n.get("error.group.daysRequired"));
         }
-        if (group.getStartTime() == null || group.getEndTime() == null) {
+        if (draft.startTime() == null || draft.endTime() == null) {
             throw new IllegalArgumentException(I18n.get("error.group.timeRequired"));
         }
-        if (!group.getEndTime().isAfter(group.getStartTime())) {
+        if (!draft.endTime().isAfter(draft.startTime())) {
             throw new IllegalArgumentException(I18n.get("error.group.endBeforeStart"));
         }
 
-        rejectIfTeacherIsBusy(group);
+        Teacher teacher = teacherRepository.findById(draft.teacherId())
+                .orElseThrow(() -> new IllegalStateException(I18n.get("error.teacher.notFound")));
 
-        group.setSessionPrice(MoneyUtils.normalize(group.getSessionPrice()));
+        boolean isNew = draft.isNew();
+        CourseGroup group = isNew
+                ? CourseGroup.builder().build()
+                : courseGroupRepository.findById(draft.id())
+                        .orElseThrow(() -> new IllegalStateException(I18n.get("error.group.notFound")));
+
+        group.setTeacher(teacher);
+        group.setSchoolLevel(draft.schoolLevel());
+        group.setMaxCapacity(draft.maxCapacity());
+        // نسخةٌ خاصة بالكيان: مجموعةٌ واصلةٌ من جسم طلب قد تكون غير قابلة للتعديل،
+        // والترتيب يُحفظ كما اختاره المستخدم لأن المحوِّل يكتبها نصاً واحداً
+        group.setMeetingDays(new LinkedHashSet<>(draft.meetingDays()));
+        group.setStartTime(draft.startTime());
+        group.setEndTime(draft.endTime());
+        group.setAutoName(draft.autoName());
+        group.setName(draft.name());
+        group.setSessionPrice(MoneyUtils.normalize(draft.sessionPrice()));
         applyName(group);
 
-        boolean isNew = group.getId() == null;
+        // بعد اكتمال الصف لا قبله: الصفُّ القائم مُدارٌ الآن، وأيُّ استعلامٍ يسبقه
+        // يُجري flush تلقائياً فيكتبه كما هو في تلك اللحظة - وباسمٍ لم يُشتق بعدُ
+        // يعني عموداً NOT NULL فارغاً ورفضاً من القاعدة مكان رسالة التعارض
+        rejectIfTeacherIsBusy(group);
+
         CourseGroup saved = courseGroupRepository.save(group);
 
         // سعر الحصة يُسجَّل مع كل تعديل: هو ما يُخصم من رصيد كل طالب عند حضوره،

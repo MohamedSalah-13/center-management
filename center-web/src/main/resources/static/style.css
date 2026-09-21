@@ -97,6 +97,30 @@ button.link {
     color: var(--muted);
 }
 
+/* السطرُ الواحد لا يحمل تلميحاً بعرضه: القسمة تدفعه إلى سطر لنفسه */
+.row .hint {
+    flex-basis: 100%;
+    margin: 0;
+}
+
+/* أيام الأسبوع: مربعاتٌ متجاورة تُقرأ سطراً واحداً لا عموداً */
+.days {
+    display: inline-flex;
+    gap: 0.6em;
+    flex-wrap: wrap;
+}
+
+.days label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25em;
+}
+
+/* زرّان أو أربعة في خلية واحدة يلتصقان بلا هذه */
+td button {
+    margin-inline-end: 0.35em;
+}
+
 header {
     display: flex;
     align-items: center;

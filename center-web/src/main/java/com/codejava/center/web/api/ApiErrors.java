@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 /**
  * أخطاءُ الخدمات إلى أجوبة HTTP، برسائلها المترجمة كما هي.
@@ -52,6 +53,17 @@ public class ApiErrors {
                 .findFirst()
                 .orElseGet(() -> I18n.get("error.validation.failed"));
         return of(HttpStatus.BAD_REQUEST, message);
+    }
+
+    /**
+     * مُعامل في الرابط لا يُفهم: صفٌّ ليس في {@code SchoolLevel}، أو تاريخٌ بصيغة أخرى.
+     *
+     * <p>بغير هذا يمرّ إلى المُمسك العام فيصل {@code 500} بجملة "حدث خطأ غير متوقع" -
+     * وهو ليس غير متوقع ولا هو خطأ عندنا: من كتب الرابط يصلحه.</p>
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiError> badParameter(MethodArgumentTypeMismatchException e) {
+        return of(HttpStatus.BAD_REQUEST, e.getName() + ": " + I18n.get("error.validation.failed"));
     }
 
     @ExceptionHandler(IllegalStateException.class)

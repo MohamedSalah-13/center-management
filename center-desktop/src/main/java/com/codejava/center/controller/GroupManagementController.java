@@ -4,6 +4,7 @@ import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Teacher;
 import com.codejava.center.domain.enums.SchoolLevel;
 import com.codejava.center.service.CourseGroupService;
+import com.codejava.center.service.dto.CourseGroupDraft;
 import com.codejava.center.service.EnrollmentService;
 import com.codejava.center.service.GroupSchedules;
 import com.codejava.center.service.ReportService;
@@ -363,12 +364,12 @@ public class GroupManagementController {
 
     @FXML
     public void handleSaveAction(ActionEvent event) {
-        CourseGroup newGroup = readForm(new CourseGroup());
-        if (newGroup == null) {
+        CourseGroupDraft draft = readForm(null);
+        if (draft == null) {
             return;
         }
 
-        FxAsync.supply(() -> courseGroupService.saveGroup(newGroup), savedGroup -> {
+        FxAsync.supply(() -> courseGroupService.saveGroup(draft), savedGroup -> {
             groupsList.add(savedGroup); // إضافة فورية للجدول
             refreshTimeFilterItems();
             clearForm();
@@ -377,10 +378,15 @@ public class GroupManagementController {
     }
 
     /**
-     * قراءة النموذج في كيان، أو {@code null} مع رسالة إن كان ناقصاً.
+     * قراءة النموذج في {@link CourseGroupDraft}، أو {@code null} مع رسالة إن كان ناقصاً.
      * ما يمكن فحصه هنا يُفحص هنا، والقيود الحقيقية (التعارض، الصف) في الخدمة.
+     *
+     * <p>لم تعد تكتب في الصف المحدَّد: كانت تملأ {@code selectedGroup} نفسه - وهو الكائن
+     * المعروض في الجدول - فيظهر ما لم يُحفظ بعدُ كأنه محفوظ إن فشل الحفظ أو رُفض.</p>
+     *
+     * @param id المجموعة المُعدَّلة، أو {@code null} لمجموعة جديدة
      */
-    private CourseGroup readForm(CourseGroup target) {
+    private CourseGroupDraft readForm(Long id) {
         Teacher teacher = teacherComboBox.getValue();
         SchoolLevel level = levelComboBox.getValue();
         String capacityStr = capacityField.getText().trim();
@@ -397,18 +403,19 @@ public class GroupManagementController {
         }
 
         try {
-            target.setTeacher(teacher);
-            target.setSchoolLevel(level);
-            target.setMaxCapacity(Integer.parseInt(capacityStr));
-            target.setSessionPrice(new BigDecimal(priceStr));
-            target.setMeetingDays(days);
-            target.setStartTime(readTime(startHourSpinner, startMinuteSpinner));
-            target.setEndTime(readTime(endHourSpinner, endMinuteSpinner));
-            target.setAutoName(!customNameCheck.isSelected());
-            target.setName(customNameCheck.isSelected()
-                    ? groupNameField.getText().trim()
-                    : GroupSchedules.compose(target));
-            return target;
+            boolean autoName = !customNameCheck.isSelected();
+            LocalTime start = readTime(startHourSpinner, startMinuteSpinner);
+            return new CourseGroupDraft(id, teacher.getId(),
+                    autoName
+                            ? GroupSchedules.compose(level, teacher.getName(), days, start)
+                            : groupNameField.getText().trim(),
+                    autoName,
+                    level,
+                    Integer.parseInt(capacityStr),
+                    new BigDecimal(priceStr),
+                    days,
+                    start,
+                    readTime(endHourSpinner, endMinuteSpinner));
         } catch (NumberFormatException e) {
             Dialogs.error(I18n.get("common.numberError"), I18n.get("group.numbersInvalid"));
             return null;
@@ -504,12 +511,13 @@ public class GroupManagementController {
     public void handleUpdateAction(ActionEvent event) {
         if (selectedGroup == null) return;
 
-        CourseGroup target = readForm(selectedGroup);
-        if (target == null) {
+        CourseGroup target = selectedGroup;
+        CourseGroupDraft draft = readForm(target.getId());
+        if (draft == null) {
             return;
         }
 
-        FxAsync.supply(() -> courseGroupService.saveGroup(target), updatedGroup -> {
+        FxAsync.supply(() -> courseGroupService.saveGroup(draft), updatedGroup -> {
             // تحديث الجدول بصرياً - البحث عن الموضع في القائمة المصدر وليس في العرض
             // (الجدول مربوط بـ SortedList/FilteredList ولذلك يختلف ترتيب صفوفه عن groupsList)
             int selectedIndex = groupsList.indexOf(target);

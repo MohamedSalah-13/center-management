@@ -5,6 +5,7 @@ import com.codejava.center.domain.CourseGroup;
 import com.codejava.center.domain.Teacher;
 import com.codejava.center.domain.enums.SchoolLevel;
 import com.codejava.center.repository.TeacherRepository;
+import com.codejava.center.service.dto.CourseGroupDraft;
 import com.codejava.center.util.I18n;
 import com.codejava.center.TestActor;
 import com.codejava.center.util.WeekDays;
@@ -51,10 +52,10 @@ class CourseGroupServiceTest {
 
     @Test
     void rejectsAnotherGroupForTheSameTeacherAtAnOverlappingTime() {
-        courseGroupService.saveGroup(group(teacher, SchoolLevel.PREP1,
+        courseGroupService.saveGroup(draft(teacher, SchoolLevel.PREP1,
                 Set.of(DayOfWeek.SATURDAY, DayOfWeek.TUESDAY), 16, 18));
 
-        CourseGroup clashing = group(teacher, SchoolLevel.PREP2, Set.of(DayOfWeek.TUESDAY), 17, 19);
+        CourseGroupDraft clashing = draft(teacher, SchoolLevel.PREP2, Set.of(DayOfWeek.TUESDAY), 17, 19);
 
         assertThatThrownBy(() -> courseGroupService.saveGroup(clashing))
                 .isInstanceOf(IllegalStateException.class)
@@ -70,10 +71,10 @@ class CourseGroupServiceTest {
                 .commissionType("FIXED_AMOUNT").commissionValue(new BigDecimal("100.00"))
                 .build());
 
-        courseGroupService.saveGroup(group(teacher, SchoolLevel.PREP1, Set.of(DayOfWeek.SATURDAY), 16, 18));
+        courseGroupService.saveGroup(draft(teacher, SchoolLevel.PREP1, Set.of(DayOfWeek.SATURDAY), 16, 18));
 
         assertThatCode(() -> courseGroupService.saveGroup(
-                group(other, SchoolLevel.PREP1, Set.of(DayOfWeek.SATURDAY), 16, 18)))
+                draft(other, SchoolLevel.PREP1, Set.of(DayOfWeek.SATURDAY), 16, 18)))
                 .doesNotThrowAnyException();
     }
 
@@ -84,16 +85,18 @@ class CourseGroupServiceTest {
     @Test
     void editingAGroupDoesNotConflictWithItself() {
         CourseGroup saved = courseGroupService.saveGroup(
-                group(teacher, SchoolLevel.PREP1, Set.of(DayOfWeek.SATURDAY), 16, 18));
+                draft(teacher, SchoolLevel.PREP1, Set.of(DayOfWeek.SATURDAY), 16, 18));
 
-        saved.setSessionPrice(new BigDecimal("75.00"));
+        CourseGroupDraft repriced = repriced(editing(saved.getId(),
+                draft(teacher, SchoolLevel.PREP1, Set.of(DayOfWeek.SATURDAY), 16, 18)),
+                new BigDecimal("75.00"));
 
-        assertThatCode(() -> courseGroupService.saveGroup(saved)).doesNotThrowAnyException();
+        assertThatCode(() -> courseGroupService.saveGroup(repriced)).doesNotThrowAnyException();
     }
 
     @Test
     void rejectsAGroupWithoutSchoolLevel() {
-        CourseGroup noLevel = group(teacher, null, Set.of(DayOfWeek.SATURDAY), 16, 18);
+        CourseGroupDraft noLevel = draft(teacher, null, Set.of(DayOfWeek.SATURDAY), 16, 18);
 
         assertThatThrownBy(() -> courseGroupService.saveGroup(noLevel))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -102,7 +105,7 @@ class CourseGroupServiceTest {
 
     @Test
     void rejectsAGroupWithoutDays() {
-        CourseGroup noDays = group(teacher, SchoolLevel.PREP1, Set.of(), 16, 18);
+        CourseGroupDraft noDays = draft(teacher, SchoolLevel.PREP1, Set.of(), 16, 18);
 
         assertThatThrownBy(() -> courseGroupService.saveGroup(noDays))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -111,7 +114,7 @@ class CourseGroupServiceTest {
 
     @Test
     void rejectsAnEndTimeBeforeTheStartTime() {
-        CourseGroup reversed = group(teacher, SchoolLevel.PREP1, Set.of(DayOfWeek.SATURDAY), 18, 16);
+        CourseGroupDraft reversed = draft(teacher, SchoolLevel.PREP1, Set.of(DayOfWeek.SATURDAY), 18, 16);
 
         assertThatThrownBy(() -> courseGroupService.saveGroup(reversed))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -121,7 +124,7 @@ class CourseGroupServiceTest {
     @Test
     void buildsTheNameFromLevelTeacherDaysAndTime() {
         CourseGroup saved = courseGroupService.saveGroup(
-                group(teacher, SchoolLevel.PREP1, Set.of(DayOfWeek.SATURDAY), 16, 18));
+                draft(teacher, SchoolLevel.PREP1, Set.of(DayOfWeek.SATURDAY), 16, 18));
 
         assertThat(saved.getName()).isEqualTo(GroupSchedules.compose(SchoolLevel.PREP1,
                 teacher.getName(), Set.of(DayOfWeek.SATURDAY), LocalTime.of(16, 0)));
@@ -131,10 +134,10 @@ class CourseGroupServiceTest {
     @Test
     void rebuildsTheNameWhenTheScheduleChanges() {
         CourseGroup saved = courseGroupService.saveGroup(
-                group(teacher, SchoolLevel.PREP1, Set.of(DayOfWeek.SATURDAY), 16, 18));
+                draft(teacher, SchoolLevel.PREP1, Set.of(DayOfWeek.SATURDAY), 16, 18));
 
-        saved.setMeetingDays(Set.of(DayOfWeek.MONDAY));
-        CourseGroup moved = courseGroupService.saveGroup(saved);
+        CourseGroup moved = courseGroupService.saveGroup(editing(saved.getId(),
+                draft(teacher, SchoolLevel.PREP1, Set.of(DayOfWeek.MONDAY), 16, 18)));
 
         assertThat(moved.getName()).contains(WeekDays.displayName(DayOfWeek.MONDAY));
         assertThat(moved.getName()).doesNotContain(WeekDays.displayName(DayOfWeek.SATURDAY));
@@ -151,13 +154,14 @@ class CourseGroupServiceTest {
     @Test
     void returnsTheGroupWithItsTeacherLoadedAfterAnUpdate() {
         CourseGroup saved = courseGroupService.saveGroup(
-                group(teacher, SchoolLevel.PREP1, Set.of(DayOfWeek.SATURDAY), 16, 18));
+                draft(teacher, SchoolLevel.PREP1, Set.of(DayOfWeek.SATURDAY), 16, 18));
 
         entityManager.flush();
-        entityManager.clear(); // الكيان صار منفصلاً، كما يعود من الشاشة
+        entityManager.clear(); // سياق إدامة فارغ، كما يبدأ كل طلب وكل ضغطة زر
 
-        saved.setSessionPrice(new BigDecimal("60.00"));
-        CourseGroup updated = courseGroupService.saveGroup(saved);
+        CourseGroup updated = courseGroupService.saveGroup(repriced(editing(saved.getId(),
+                draft(teacher, SchoolLevel.PREP1, Set.of(DayOfWeek.SATURDAY), 16, 18)),
+                new BigDecimal("60.00")));
 
         assertThat(Hibernate.isInitialized(updated.getTeacher()))
                 .as("معلم المجموعة العائدة يجب أن يكون محمَّلاً قبل إغلاق المعاملة")
@@ -167,23 +171,36 @@ class CourseGroupServiceTest {
 
     @Test
     void keepsACustomNameUntouched() {
-        CourseGroup custom = group(teacher, SchoolLevel.PREP1, Set.of(DayOfWeek.SATURDAY), 16, 18);
-        custom.setAutoName(false);
-        custom.setName("مجموعة المتفوقين");
+        CourseGroupDraft custom = named(
+                draft(teacher, SchoolLevel.PREP1, Set.of(DayOfWeek.SATURDAY), 16, 18),
+                "مجموعة المتفوقين");
 
         assertThat(courseGroupService.saveGroup(custom).getName()).isEqualTo("مجموعة المتفوقين");
     }
 
-    private CourseGroup group(Teacher owner, SchoolLevel level, Set<DayOfWeek> days,
-                              int startHour, int endHour) {
-        return CourseGroup.builder()
-                .teacher(owner)
-                .schoolLevel(level)
-                .meetingDays(days)
-                .startTime(LocalTime.of(startHour, 0))
-                .endTime(LocalTime.of(endHour, 0))
-                .maxCapacity(20)
-                .sessionPrice(new BigDecimal("50.00"))
-                .build();
+    private CourseGroupDraft draft(Teacher owner, SchoolLevel level, Set<DayOfWeek> days,
+                                   int startHour, int endHour) {
+        return new CourseGroupDraft(null, owner.getId(), null, true, level, 20,
+                new BigDecimal("50.00"), days, LocalTime.of(startHour, 0), LocalTime.of(endHour, 0));
+    }
+
+    /** المسودة نفسها موجَّهةً إلى مجموعة قائمة - وهو ما يفعله زر التعديل */
+    private static CourseGroupDraft editing(Long id, CourseGroupDraft source) {
+        return new CourseGroupDraft(id, source.teacherId(), source.name(), source.autoName(),
+                source.schoolLevel(), source.maxCapacity(), source.sessionPrice(),
+                source.meetingDays(), source.startTime(), source.endTime());
+    }
+
+    private static CourseGroupDraft repriced(CourseGroupDraft source, BigDecimal price) {
+        return new CourseGroupDraft(source.id(), source.teacherId(), source.name(), source.autoName(),
+                source.schoolLevel(), source.maxCapacity(), price,
+                source.meetingDays(), source.startTime(), source.endTime());
+    }
+
+    /** اسمٌ يكتبه المستخدم يعني إيقاف الاشتقاق: الحقلان يتحركان معاً دائماً */
+    private static CourseGroupDraft named(CourseGroupDraft source, String name) {
+        return new CourseGroupDraft(source.id(), source.teacherId(), name, false,
+                source.schoolLevel(), source.maxCapacity(), source.sessionPrice(),
+                source.meetingDays(), source.startTime(), source.endTime());
     }
 }

@@ -7,6 +7,7 @@ import com.codejava.center.domain.enums.AuditAction;
 import com.codejava.center.domain.enums.SchoolLevel;
 import com.codejava.center.repository.StudentGroupRepository;
 import com.codejava.center.repository.CourseGroupRepository;
+import com.codejava.center.repository.StudentRepository;
 import com.codejava.center.service.dto.MembershipRow;
 import com.codejava.center.domain.enums.Role;
 import com.codejava.center.security.RequiresRole;
@@ -32,11 +33,38 @@ public class EnrollmentService {
 
     private final StudentGroupRepository studentGroupRepository;
     private final CourseGroupRepository courseGroupRepository;
+    private final StudentRepository studentRepository;
     private final AuditService auditService;
+
+    /**
+     * اشتراكٌ برقمين، لمن لا يحمل الكيانين.
+     *
+     * <p>شاشةُ سطح المكتب تحمل الطالبَ والمجموعةَ اللذين اختارهما المستخدم من قائمتين
+     * قرأتهما توّاً؛ والطلبُ لا يحمل إلا رقمين في جسمه. وهذه لا تأخذ كياناً واصلاً من
+     * الشبكة - {@code Student} من جسم طلبٍ يحمل ما كتبه المُرسِل، ورقمُه وحده لا يمكنه
+     * أن يقول إلا "هذا الطالب".</p>
+     *
+     * <p>والبابان يؤدّيان إلى جسمٍ واحد بحارسٍ على كلٍّ منهما: استدعاءٌ داخليٌّ من أحدهما
+     * للآخر يمرّ من داخل الكائن فلا تراه الـ AOP، فيصير الحارس الثاني تزييناً.</p>
+     */
+    @Transactional
+    @RequiresRole({Role.ADMIN, Role.SECRETARY})
+    public StudentGroup subscribe(Long studentId, Long groupId) {
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new IllegalArgumentException(I18n.get("error.student.notFound")));
+        CourseGroup group = courseGroupRepository.findById(groupId)
+                .orElseThrow(() -> new IllegalArgumentException(I18n.get("error.group.notFound")));
+
+        return enrol(student, group);
+    }
 
     @Transactional
     @RequiresRole({Role.ADMIN, Role.SECRETARY})
     public StudentGroup subscribe(Student student, CourseGroup group) {
+        return enrol(student, group);
+    }
+
+    private StudentGroup enrol(Student student, CourseGroup group) {
         // قفل المجموعة يجعل فحص السعة والحفظ قراراً متسلسلاً بين كل أجهزة السنتر.
         CourseGroup lockedGroup = courseGroupRepository.findByIdForEnrollment(group.getId())
                 .orElseThrow(() -> new IllegalArgumentException(I18n.get("error.group.notFound")));

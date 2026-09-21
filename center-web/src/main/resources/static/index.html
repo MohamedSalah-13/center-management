@@ -46,6 +46,7 @@
             <button data-view="attendance" data-text="web.nav.attendance"></button>
             <button data-view="till" data-text="web.nav.till"></button>
             <button data-view="students" data-text="web.nav.students"></button>
+            <button data-view="groups" data-text="web.nav.groups"></button>
             <button data-view="reports" data-text="web.nav.reports"></button>
         </nav>
         <span class="spacer"></span>
@@ -134,11 +135,77 @@
 
     <section id="view-students" class="view hidden">
         <h2 data-text="web.students.title"></h2>
+
+        <form id="studentEditForm" class="row">
+            <strong data-text="web.students.formTitle"></strong>
+            <input id="studentId" type="hidden">
+            <input id="studentLevelBefore" type="hidden">
+            <label data-text="web.students.name" for="studentName"></label>
+            <input id="studentName" required>
+            <label data-text="web.students.barcode" for="studentBarcode"></label>
+            <input id="studentBarcode" autocomplete="off">
+            <label data-text="web.students.phone" for="studentPhone"></label>
+            <input id="studentPhone" autocomplete="off">
+            <label data-text="web.students.parentPhone" for="studentParentPhone"></label>
+            <input id="studentParentPhone" autocomplete="off">
+            <label data-text="web.students.level" for="studentLevel"></label>
+            <select id="studentLevel"></select>
+            <button type="submit" data-text="web.students.save"></button>
+            <button type="button" id="studentClear" data-text="web.students.new"></button>
+            <p class="hint" data-text="web.students.barcodeHint"></p>
+        </form>
+        <p id="studentResult" class="result"></p>
+
         <form id="studentForm" class="row">
             <input id="studentQuery" data-placeholder="web.students.search">
+            <label><input id="includeArchived" type="checkbox"> <span data-text="web.students.includeArchived"></span></label>
             <button type="submit" data-text="web.common.refresh"></button>
         </form>
         <table id="studentTable"></table>
+
+        <h3 data-text="web.enrolments.title"></h3>
+        <p id="enrolmentSubject" class="result"></p>
+        <form id="enrolForm" class="row">
+            <label data-text="web.enrolments.group" for="enrolGroup"></label>
+            <select id="enrolGroup"></select>
+            <button type="submit" data-text="web.enrolments.enrol"></button>
+        </form>
+        <p id="enrolResult" class="result"></p>
+        <table id="enrolmentTable"></table>
+    </section>
+
+    <section id="view-groups" class="view hidden">
+        <h2 data-text="web.groups.title"></h2>
+
+        <form id="groupEditForm" class="row">
+            <strong data-text="web.groups.formTitle"></strong>
+            <input id="groupId" type="hidden">
+            <label data-text="web.groups.teacher" for="groupTeacher"></label>
+            <select id="groupTeacher"></select>
+            <label data-text="web.groups.level" for="groupLevel"></label>
+            <select id="groupLevel"></select>
+            <label data-text="web.groups.capacity" for="groupCapacity"></label>
+            <input id="groupCapacity" type="number" min="1" step="1">
+            <label data-text="web.groups.price" for="groupPrice"></label>
+            <input id="groupPrice" type="number" min="0" step="0.01">
+            <label data-text="web.groups.start" for="groupStart"></label>
+            <input id="groupStart" type="time">
+            <label data-text="web.groups.end" for="groupEnd"></label>
+            <input id="groupEnd" type="time">
+            <span data-text="web.groups.days"></span>
+            <span id="groupDays" class="days"></span>
+            <label><input id="groupCustomName" type="checkbox"> <span data-text="web.groups.customName"></span></label>
+            <input id="groupName" data-placeholder="web.groups.name" disabled>
+            <button type="submit" data-text="web.groups.save"></button>
+            <button type="button" id="groupClear" data-text="web.groups.new"></button>
+            <p class="hint" data-text="web.groups.nameHint"></p>
+        </form>
+        <p id="groupResult" class="result"></p>
+
+        <table id="groupTable"></table>
+
+        <h3 id="rosterTitle"></h3>
+        <table id="rosterTable"></table>
     </section>
 
     <section id="view-reports" class="view hidden">
