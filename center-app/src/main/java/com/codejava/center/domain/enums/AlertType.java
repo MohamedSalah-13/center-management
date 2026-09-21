@@ -81,6 +81,15 @@ public enum AlertType {
     /** مضى على آخر نسخة ناجحة أكثر مما ينبغي: الفشل ليلةً بعد ليلة لا يُكتشف إلا بهذا */
     BACKUP_OVERDUE(AlertCategory.SYSTEM, AlertSeverity.CRITICAL, false, null, 2, 1),
 
+    /**
+     * النسخة كُتبت ولم تخرج من الجهاز - يُطلق من المجدوِل بعد نسخةٍ ناجحة.
+     *
+     * <p>وهو غيرُ {@code BACKUP_FAILED} عن قصد: هناك لا ملفَّ أصلاً، وهنا ملفٌّ سليم
+     * على القرص نفسه الذي يحمل القاعدة. قراءةُ الثاني على أنه الأول تُرسل من يقرأ
+     * يبحث عن ملفٍّ موجودٍ عنده، وقراءةُ الأول على أنه الثاني أسوأ.</p>
+     */
+    BACKUP_NOT_OFFSITE(AlertCategory.SYSTEM, AlertSeverity.CRITICAL, false, null, null, 0),
+
     /** محاولات دخول فاشلة متكررة */
     FAILED_LOGIN_BURST(AlertCategory.SYSTEM, AlertSeverity.CRITICAL, false, 5, 1, 1),
 

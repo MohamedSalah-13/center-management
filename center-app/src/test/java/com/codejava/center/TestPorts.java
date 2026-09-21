@@ -1,6 +1,7 @@
 package com.codejava.center;
 
 import com.codejava.center.core.backup.BackupTarget;
+import com.codejava.center.core.backup.OffsiteBackup;
 import com.codejava.center.core.print.SheetHeaderPolicy;
 import com.codejava.center.core.secret.BackupSecretStore;
 import com.codejava.center.core.secret.MessagingSecretStore;
@@ -24,7 +25,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class TestPorts implements BackupSecretStore, MessagingSecretStore, SheetHeaderPolicy,
-        UiDispatcher, BackupTarget, MessagingLinkPreferences {
+        UiDispatcher, BackupTarget, OffsiteBackup, MessagingLinkPreferences {
 
     /** بلا تشفير: الغياب يُقال صراحةً، ولا كلمة مرور فارغة تُشفَّر بها نسخة */
     @Override
@@ -81,6 +82,27 @@ public class TestPorts implements BackupSecretStore, MessagingSecretStore, Sheet
     @Override
     public String toolDirectory() {
         return "";
+    }
+
+    /**
+     * لا وجهةَ خارج الجهاز: اختبارٌ يرفع ملفاً إلى الشبكة ليس اختباراً.
+     *
+     * <p>و{@code null} هنا يعني "لم يُطلب" لا "معطَّل"، فلا يُطلق تنبيهاً ولا يكتب
+     * سطراً - وهو ما يُبقي كلّ اختبارٍ يأخذ نسخة على سلوكه قبل هذه الدفعة.</p>
+     */
+    @Override
+    public String endpoint() {
+        return null;
+    }
+
+    @Override
+    public char[] token() {
+        return null;
+    }
+
+    @Override
+    public String folder() {
+        return null;
     }
 
     @Override

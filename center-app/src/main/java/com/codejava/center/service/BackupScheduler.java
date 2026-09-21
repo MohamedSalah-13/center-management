@@ -173,7 +173,16 @@ public class BackupScheduler {
             BackupOutcome outcome = backupService.executeBackup(settings.getBackupPath(),
                     settings.getBackupRetentionCount());
             settingsService.recordAutoBackupAt(LocalDateTime.now(clock));
-            log.info("تمت النسخة الاحتياطية التلقائية: {} ({})", outcome.file(), outcome.pruned().details());
+            log.info("تمت النسخة الاحتياطية التلقائية: {} ({}; {})",
+                    outcome.file(), outcome.pruned().details(), outcome.offsite().details());
+
+            // النسخةُ نجحت والختمُ كُتب - ومع ذلك هي على القرص نفسه الذي تحمي منه.
+            // تنبيهٌ ثانٍ لا فشلٌ في الأول: ملفٌّ موجود، وموضعُه هو المشكلة
+            if (outcome.offsite().failedAfterBeingAsked()) {
+                log.error("النسخة الاحتياطية لم تخرج من الجهاز: {}", outcome.offsite().problem());
+                alertEngine.raise(AlertType.BACKUP_NOT_OFFSITE, AlertDraft.internal(
+                        null, null, LocalDate.now(clock).toString(), outcome.offsite().problem()));
+            }
         } catch (RuntimeException e) {
             // لا يُعاد الرمي: المشغّل يعتبر المهمة منتهية على أي حال، ورميه يفقد الرسالة المترجمة
             log.error("فشلت النسخة الاحتياطية التلقائية: {}", e.getMessage(), e);

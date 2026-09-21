@@ -1,6 +1,7 @@
 package com.codejava.center.web;
 
 import com.codejava.center.core.backup.BackupTarget;
+import com.codejava.center.core.backup.OffsiteBackup;
 import com.codejava.center.core.print.SheetHeaderPolicy;
 import com.codejava.center.core.security.CurrentActor;
 import com.codejava.center.core.ui.UiDispatcher;
@@ -32,6 +33,13 @@ public class WebPortsConfig {
     @Bean
     public EnvironmentSecrets environmentSecrets(Environment environment) {
         return new EnvironmentSecrets(environment);
+    }
+
+    /** وجهةُ النسخة خارج هذا الخادم: مستودعٌ من البيئة، ومجلَّدٌ لكل سنتر */
+    @Bean
+    public OffsiteBackup serverOffsiteBackup(Environment environment, CurrentCentre centre,
+                                             ObjectProvider<TenantRegistry> registry) {
+        return new ServerOffsiteBackup(environment, centre, registry);
     }
 
     @Bean
