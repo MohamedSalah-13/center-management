@@ -38,6 +38,28 @@
     </form>
 </div>
 
+<div id="setUp" class="screen centred hidden">
+    <form class="card" id="setupForm" autocomplete="off">
+        <h1 data-text="web.setup.title"></h1>
+        <p class="hint" data-text="web.setup.description"></p>
+
+        <p class="hint" data-text="web.setup.usernameLine"></p>
+
+        <label data-text="web.setup.token" for="setupToken"></label>
+        <input id="setupToken" type="password" autocomplete="off" required>
+        <p class="hint" data-text="web.setup.tokenHint"></p>
+
+        <label data-text="web.setup.password" for="setupPassword"></label>
+        <input id="setupPassword" type="password" autocomplete="new-password" required>
+
+        <label data-text="web.setup.confirm" for="setupConfirm"></label>
+        <input id="setupConfirm" type="password" autocomplete="new-password" required>
+
+        <button type="submit" data-text="web.setup.submit"></button>
+        <p class="error" id="setupError"></p>
+    </form>
+</div>
+
 <div id="app" class="screen hidden">
     <header>
         <strong data-text="web.app.title"></strong>

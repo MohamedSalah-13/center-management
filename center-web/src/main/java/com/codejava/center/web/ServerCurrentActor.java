@@ -2,6 +2,7 @@ package com.codejava.center.web;
 
 import com.codejava.center.core.security.ActorIdentity;
 import com.codejava.center.core.security.CurrentActor;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -22,6 +23,23 @@ import org.springframework.security.core.context.SecurityContextHolder;
  * <p>{@code null} حين لا مصادقة، وهو ما يقرؤه {@code RoleEnforcementAspect} على أنه
  * "لا جلسة" فيرفض ويكتب السطر. لا مستخدم مجهول ولا دور افتراضي: المصادقة إمّا وقعت
  * وإمّا لم تقع.</p>
+ *
+ * <h2>و{@code AnonymousAuthenticationToken} ليس مصادقة</h2>
+ *
+ * <p>وهذا السطرُ كان ناقصاً، وكلَّف نقطةً كاملة. Spring Security يضع رمزاً مجهولاً في
+ * السياق لكل طلبٍ بلا جلسة - <b>و{@code isAuthenticated()} فيه يردّ {@code true}</b>،
+ * فيمرّ من الفحص أعلاه بصلاحيةٍ واحدة اسمها {@code ROLE_ANONYMOUS}. فتصير هويةُ الفاعل
+ * دوراً اسمه {@code ANONYMOUS}، و{@code AuditService} يكتبه بـ{@code Role.valueOf}
+ * فيرمي.</p>
+ *
+ * <p>والأثرُ يقع على كل نقطةٍ مفتوحة بلا جلسة تكتب سطراً في سجلّ المراقبة، وأخطرُها
+ * <b>تفعيلُ رمز الدعوة</b>: الطريقُ الوحيد الذي يحصل به سنترٌ جديد على مديره الأوّل على
+ * منصة. كان يردّ 400 برسالةٍ نصُّها {@code No enum constant ... Role.ANONYMOUS} - وهي
+ * لا تقول لمن يقرؤها شيئاً عن رمزه ولا عن كلمته.</p>
+ *
+ * <p>ولم يُمسك بها اختبار لأن مسار المنصة يحتاج حاوية، ولأن كل اختبارات الحافة الأخرى
+ * تحمل جلسةً بالضرورة - فالمجهول لا يمرّ بها أصلاً. وظهرت أولَ ما فُتحت نقطةٌ ثانية
+ * بلا جلسة تكتب في السجلّ: تهيئةُ المدير الأوّل.</p>
  */
 public class ServerCurrentActor implements CurrentActor {
 
@@ -32,7 +50,9 @@ public class ServerCurrentActor implements CurrentActor {
     public ActorIdentity currentActor() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()
-                || authentication.getPrincipal() == null) {
+                || authentication.getPrincipal() == null
+                // isAuthenticated() يردّ true على الرمز المجهول: الفحص عليه بنوعه
+                || authentication instanceof AnonymousAuthenticationToken) {
             return null;
         }
 

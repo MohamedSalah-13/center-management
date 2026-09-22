@@ -3,9 +3,6 @@ package com.codejava.center.web;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-
 /**
  * من يملك المنصة نفسها - لا من يعمل في سنترٍ عليها.
  *
@@ -26,36 +23,26 @@ public class PlatformOperator {
 
     static final String TOKEN = "CENTER_PLATFORM_TOKEN";
 
-    private static final String BEARER = "Bearer ";
-
-    private final byte[] expected;
+    private final BearerToken token;
 
     public PlatformOperator(Environment environment) {
-        String value = environment.getProperty(TOKEN);
-        this.expected = value == null || value.isBlank()
-                ? null
-                : value.getBytes(StandardCharsets.UTF_8);
+        this.token = BearerToken.from(environment, TOKEN);
     }
 
     /**
-     * المقارنة بزمنٍ ثابت.
+     * المقارنة بزمنٍ ثابت - في {@link BearerToken}، مع بابِ التهيئة.
      *
      * <p>{@code String.equals} يخرج عند أول حرف مختلف، والفرق في الزمن يُقاس - فيُبنى
      * الرمز حرفاً حرفاً. وهو هنا أهمّ منه في كلمة مرور: الرمز واحد للمنصة كلها، ومن
-     * يبلغه يفتح سناتر ويوقف اشتراكات.</p>
+     * يبلغه يفتح سناتر ويوقف اشتراكات. ولذلك بالذات لا يُنسخ هذا السطر: بابٌ ثانٍ
+     * يُكتب بـ{@code equals} لا شيء فيه يبدو مختلفاً.</p>
      */
     public boolean authorises(String authorizationHeader) {
-        if (expected == null || authorizationHeader == null
-                || !authorizationHeader.startsWith(BEARER)) {
-            return false;
-        }
-        byte[] offered = authorizationHeader.substring(BEARER.length())
-                .getBytes(StandardCharsets.UTF_8);
-        return MessageDigest.isEqual(expected, offered);
+        return token.authorises(authorizationHeader);
     }
 
     /** أثمّة رمزٌ مضبوط أصلاً؟ يقرؤها سجلّ الإقلاع ليقول إن سطح المنصة مغلق */
     public boolean configured() {
-        return expected != null;
+        return token.configured();
     }
 }

@@ -1,0 +1,8 @@
+# يعمل قبل أن يُبنى السياق، أي قبل أن يفتح Flyway اتصالاً - وهو الموضع الوحيد الذي
+# يسبق الرسالة المضلِّلة. راجع RequiredCredentials.
+#
+# والتسجيل في center-app لا في البرنامجين: الملف على مسار الصنفين معاً، فالعطب
+# الواحد يُصلَح مرة. (التسجيل التلقائي للإعدادات انتقل إلى .imports في Boot 3،
+# أما EnvironmentPostProcessor فما زال هنا.)
+org.springframework.boot.env.EnvironmentPostProcessor=\
+com.codejava.center.config.RequiredCredentials

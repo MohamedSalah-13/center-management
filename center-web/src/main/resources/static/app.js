@@ -35,8 +35,8 @@ function csrfToken() {
     return match ? decodeURIComponent(match[1]) : null;
 }
 
-async function call(method, url, body) {
-    const headers = {};
+async function call(method, url, body, extraHeaders) {
+    const headers = Object.assign({}, extraHeaders);
     const token = csrfToken();
     if (token) {
         headers['X-XSRF-TOKEN'] = token;
@@ -65,7 +65,7 @@ async function call(method, url, body) {
 }
 
 const get = (url) => call('GET', url);
-const post = (url, body) => call('POST', url, body);
+const post = (url, body, headers) => call('POST', url, body, headers);
 const put = (url, body) => call('PUT', url, body);
 const remove = (url) => call('DELETE', url);
 
@@ -1642,6 +1642,46 @@ function closeAlertStream() {
     }
 }
 
+/* ------------------------------------------------------------- التهيئة الأولى */
+
+/**
+ * قاعدةٌ بلا حساب: تُعرض التهيئة بدل الدخول.
+ *
+ * ولا تُسأل هذه إلا مرةً عند الإقلاع: بعد أن يوجد حساب، /api/setup يردّ required=false
+ * إلى الأبد - وسؤالُه عند كل عرضٍ لشاشة الدخول استعلامُ قاعدةٍ لجوابٍ لا يتغيّر.
+ *
+ * وعلى منصّةٍ متعددة السناتر لا وجود للنقطة أصلاً (البرهانُ هناك رمزُ دعوةٍ مربوطٌ
+ * بسنتر)، فالـ404 يعني "اعرض الدخول" لا عطلاً.
+ */
+async function showSetupIfNeeded() {
+    let state;
+    try {
+        state = await get('/api/setup');
+    } catch (error) {
+        return false;
+    }
+    if (!state.required) {
+        return false;
+    }
+
+    document.getElementById('signIn').classList.add('hidden');
+    document.getElementById('setUp').classList.remove('hidden');
+
+    // رمزٌ غير مضبوط: يُقال ذلك صراحةً بدل نموذجٍ يُرفض كلُّ ما يُرسَل منه، إذ
+    // لا شيء يكتبه من يجلس هنا يجعله يعمل - العطلُ في بيئة الخادم
+    if (!state.possible) {
+        document.getElementById('setupForm').querySelector('button').disabled = true;
+        show('setupError', t('web.setup.unavailable'), true);
+    }
+    return true;
+}
+
+function leaveSetup() {
+    document.getElementById('setUp').classList.add('hidden');
+    document.getElementById('signIn').classList.remove('hidden');
+    show('loginError', t('web.setup.done'), false);
+}
+
 /* ------------------------------------------------------------------ الدخول */
 
 function enterApp(me) {
@@ -1696,6 +1736,31 @@ async function loadMessages() {
 
 document.addEventListener('DOMContentLoaded', async () => {
     await loadMessages();
+    await showSetupIfNeeded();
+
+    document.getElementById('setupForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        show('setupError', '', false);
+        const tokenField = document.getElementById('setupToken');
+        const passwordField = document.getElementById('setupPassword');
+        const confirmField = document.getElementById('setupConfirm');
+        try {
+            await post('/api/setup', {
+                password: passwordField.value,
+                confirmation: confirmField.value
+            // الرمز في ترويسة لا في الجسم: ما يُكتب في جسمٍ يُسجَّل في سجلّات الوسطاء
+            // كما تُسجَّل الأجسام، وهذا الرمز يفتح حساب المدير
+            }, { Authorization: 'Bearer ' + tokenField.value });
+
+            // لا يُترك شيء منها لمن يجلس بعده - الرمز نفسه قبل كلمة المرور
+            tokenField.value = '';
+            passwordField.value = '';
+            confirmField.value = '';
+            leaveSetup();
+        } catch (error) {
+            show('setupError', error.message, true);
+        }
+    });
 
     document.getElementById('loginForm').addEventListener('submit', async (event) => {
         event.preventDefault();

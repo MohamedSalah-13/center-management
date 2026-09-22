@@ -4,6 +4,7 @@ import com.codejava.center.core.security.ActorIdentity;
 import com.codejava.center.domain.enums.Role;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -69,6 +70,29 @@ class ServerCurrentActorTest {
         SecurityContextHolder.clearContext();
 
         assertThat(actor.currentActor()).isNull();
+    }
+
+    /**
+     * <b>الرمزُ المجهول ليس فاعلاً.</b>
+     *
+     * <p>Spring Security يضعه في السياق لكل طلبٍ بلا جلسة، و{@code isAuthenticated()}
+     * فيه يردّ {@code true} - فكان يمرّ بدورٍ اسمه {@code ANONYMOUS}، و{@code AuditService}
+     * يكتبه بـ{@code Role.valueOf} فيرمي.</p>
+     *
+     * <p>والأثرُ لم يكن نظرياً: <b>تفعيلُ رمز الدعوة</b> - الطريقُ الوحيد الذي يحصل به
+     * سنترٌ جديد على مديره الأوّل على منصة - كان يردّ 400 نصُّها
+     * {@code No enum constant ... Role.ANONYMOUS}. وهي لا تقول لصاحب السنتر شيئاً عن
+     * رمزه ولا عن كلمته، ولا لمن يقرأ السجلّ أنّ الخطأ في الحارس لا في الطلب.</p>
+     */
+    @Test
+    void anAnonymousTokenIsNoSessionAtAllAndNotARoleNamedAnonymous() {
+        SecurityContextHolder.getContext().setAuthentication(
+                new AnonymousAuthenticationToken("key", "anonymousUser",
+                        List.of(new SimpleGrantedAuthority("ROLE_ANONYMOUS"))));
+
+        assertThat(actor.currentActor())
+                .as("طلبٌ بلا جلسة: لا فاعل - لا فاعلٌ اسمه ANONYMOUS")
+                .isNull();
     }
 
     private void authenticateAs(String username, String authority) {
