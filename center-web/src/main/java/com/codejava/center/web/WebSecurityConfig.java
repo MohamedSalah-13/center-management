@@ -77,7 +77,10 @@ public class WebSecurityConfig {
                         // الكوكي يُرسَل تلقائياً مع كل طلب إلى نطاقنا أياً كان من بدأه.
                         // ولا شيء تلقائيّ هنا - رمزُ المشغّل يُكتب في ترويسة بيد من
                         // يطلب، ورمزُ الدعوة في جسم الطلب - فلا سلطةَ عابرة تُزوَّر
-                        .ignoringRequestMatchers("/api/platform/**"))
+                        // والتهيئة معها ولنفس السبب بالضبط: سلطتُها رمزٌ يكتبه المتصل
+                        // في ترويسة، لا كوكي يركب مع كل طلبٍ مهما بدأه. وما لا يُرسَل
+                        // تلقائياً لا يُزوَّر من صفحةٍ في لسانٍ آخر
+                        .ignoringRequestMatchers("/api/platform/**", "/api/setup"))
                 .authorizeHttpRequests(requests -> requests
                         // الواجهة الساكنة وشاشة الدخول: لا تسأل القاعدة عن شيء
                         .requestMatchers("/", "/index.html", "/app.js", "/style.css",
@@ -89,6 +92,10 @@ public class WebSecurityConfig {
                         .requestMatchers("/api/platform/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/session")
                         .permitAll()
+                        // تهيئةُ المدير الأوّل تسبق وجودَ حسابٍ يُدخَل به، فلا جلسةَ
+                        // تحرسها. يحرسها SetupToken برمزٍ من البيئة وبفراغ جدول
+                        // المستخدمين معاً، وهي غيرُ موجودة أصلاً على منصة
+                        .requestMatchers("/api/setup").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(handling -> handling
                         .authenticationEntryPoint(WebSecurityConfig::unauthenticated)

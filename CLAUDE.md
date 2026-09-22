@@ -384,6 +384,26 @@ through the same `isServedOn`, so an unpaid centre is refused exactly as an unkn
 withholding backups and alerts alone collects no money and leaves a centre running with no backup,
 which punishes the customer in the one place it only hurts them.
 
+**A single-centre server creates its first admin over HTTP, with two proofs and not one.**
+`InitialSetupService` existed from the first release with **no HTTP surface at all**, so a server
+serving one centre on a fresh database booted, served, and let nobody in: the only setup screen was
+the desktop's, which made deploying the server require the desktop. `POST /api/setup`
+(`SetupController`, registered only when tenancy is off — the mirror of `SingleCentreConfig`) is
+that door, and it is guarded by `CENTER_SETUP_TOKEN` **and** the empty-users check together,
+because each alone is a hole. The token alone is a permanent create-an-admin door for anyone who
+can read the process environment — a service file, a deploy log. The emptiness alone is the
+desktop's proof, and it does not survive the move: on a machine, whoever sits at the computer
+holding the database owns it; on a server, whoever reaches the port first in the window between
+creating the database and setting up becomes the admin. That is the same sentence invite codes
+were written for, and it does not change with the number of centres. `SetupToken` and
+`PlatformOperator` are two variables and not one: handing a customer the token that opens their own
+centre must not hand them authority over every centre. Both compare through `BearerToken`, which is
+one class precisely so the constant-time comparison and the "absent denies" rule are not copied.
+
+The endpoint is CSRF-exempt for the reason `/api/platform/**` is — its authority is a bearer token
+the caller writes into a header, not a cookie that rides along whoever started the request — and it
+does not exist on a platform at all, where the invite code, bound to one centre, is the proof.
+
 **Invite codes replace "the users table is empty" as proof.** On a machine in a centre,
 whoever sits at the computer holding the database is its owner, so emptiness is proof enough.
 On a server anyone who learns a slug can reach an empty table, so the proof is a code
@@ -528,15 +548,42 @@ from `CurrentActor` — and it has no id at all, because `type` is the row's key
 
 **Two database defaults were lying.** `spring.datasource.password` had `${DB_PASSWORD:}` — an
 empty default — while this file claimed there was none, so a missing variable produced a MySQL
-access-denied message that reads like a wrong password. It is `${DB_PASSWORD}` now and startup
-names the variable. And `useSSL=false` was *disabling* encryption in the shipped URL; it is
-`sslMode=PREFERRED`, with the note that anything crossing a network must set `sslMode=REQUIRED`,
-since PREFERRED accepts plaintext silently.
+access-denied message that reads like a wrong password. It is `${DB_PASSWORD}` now. And
+`useSSL=false` was *disabling* encryption in the shipped URL; it is `sslMode=PREFERRED`, with the
+note that anything crossing a network must set `sslMode=REQUIRED`, since PREFERRED accepts
+plaintext silently.
+
+**And removing the default was not enough — this file claimed for a while that startup named the
+variable, and it did not.** Boot's placeholder resolver leaves what it cannot resolve as literal
+text, so `${DB_PASSWORD}` went to MySQL *as the password* and the access-denied message came back
+exactly as before. `config/RequiredCredentials` (an `EnvironmentPostProcessor`, registered from
+`center-app`'s `META-INF/spring.factories`) is what makes the claim true: it runs before the
+context is built — before Flyway opens a connection — and refuses with the variable's name in the
+message. Three things it encodes: it lives in `center-app` because both programs write the same
+line and the bug was one bug; it checks only for an **unresolved placeholder**, so an absent key
+and an empty password both pass (an empty one is a real choice, and it is what every test here
+uses); and the message is English in code, like `center.tenancy.platform.url`'s, because it is
+read in a startup log by whoever deploys, before a locale is installed at all.
+
+A message that points at the wrong place is worse than a vague one: the vague one keeps the
+reader looking, this one convinced them they had found it.
 
 On the other edge (`center-web`): `ServerCurrentActor` reads `SecurityContextHolder` so identity
 is scoped to the request rather than to the process (a singleton `UserSession` on a server means
 the last person to sign in decides what everyone else sees), strips the framework's `ROLE_`
 prefix, and returns `null` with no authentication — which the aspect reads as "no session".
+
+**"No authentication" had to be taught to include Spring's anonymous token**, and that gap cost a
+whole endpoint. `AnonymousAuthenticationToken` answers `isAuthenticated()` with **`true`**, so it
+passed the null check and arrived as an actor whose role was the string `ANONYMOUS` —
+`AuditService` then wrote it with `Role.valueOf` and threw. The blast radius is every session-less
+endpoint that writes an audit line, and the one that mattered is **redeeming an invite**: the only
+way a new centre on a platform ever gets its first admin answered `400` with
+`No enum constant … Role.ANONYMOUS`, which says nothing about the code or the password the sender
+actually typed. No test caught it because the platform path needs a container and every other edge
+test necessarily carries a session; it surfaced the moment a *second* session-less endpoint that
+audits was opened — the first-admin setup below. The check is on the token's type, and
+`ServerCurrentActorTest` pins it.
 `EnvironmentSecrets` answers the two secret ports from environment variables instead of the
 Windows registry. The task *executor* is wrapped (`WebAsyncConfig`) so background work keeps the
 context; the task *scheduler* deliberately is not, or the nightly backup would run as whoever
@@ -2052,7 +2099,7 @@ Add coverage when touching any of those. `@DataJpaTest` needs `@Import(SecurityC
 because the boot class is itself a bean injecting `PasswordEncoder`.
 
 **A test lives in the module that holds its subject**, which is why the suite is split
-97 / 319 / 52 / 95 — core, app, desktop, web.
+97 / 326 / 52 / 104 — core, app, desktop, web.
 Two classes in `center-app`'s test tree exist only because it is a library and not a program:
 
 - `AppTestApplication` — `@DataJpaTest` searches *upward* for a `@SpringBootConfiguration` to
