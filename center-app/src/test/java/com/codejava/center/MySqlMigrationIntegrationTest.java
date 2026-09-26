@@ -18,6 +18,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -39,6 +40,8 @@ class MySqlMigrationIntegrationTest {
             .withDatabaseName("center_db")
             .withUsername("center_test")
             .withPassword("center_test_password")
+            // بيانات الاختبار مؤقتة؛ الذاكرة تتجنب بطء قرص Docker على ويندوز.
+            .withTmpFs(Map.of("/var/lib/mysql", "rw,size=768m"))
             // تهيئة mysql:8.0 الأولى تتجاوز الدقيقتين الافتراضيتين على جهاز بطيء.
             .withStartupTimeoutSeconds(300);
 

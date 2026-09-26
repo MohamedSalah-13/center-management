@@ -15,12 +15,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class ContainedPathTest {
 
-    private static final Path ROOT = Path.of("/srv/center/backups/cairo");
+    private static final Path ROOT = Path.of("backups", "cairo").toAbsolutePath();
 
     @Test
     void aPathInsideTheRootPassesThroughNormalised() {
-        assertThat(ContainedPath.resolve(ROOT, Path.of("/srv/center/backups/cairo/nightly")))
-                .isEqualTo(Path.of("/srv/center/backups/cairo/nightly"));
+        assertThat(ContainedPath.resolve(ROOT, ROOT.resolve("daily/../nightly")))
+                .isEqualTo(ROOT.resolve("nightly"));
     }
 
     @Test
@@ -31,15 +31,15 @@ class ContainedPathTest {
     /** الشكل الذي وُجد هذا الصنف لأجله */
     @Test
     void climbingOutWithDotDotIsRefused() {
-        assertThatThrownBy(() -> ContainedPath.resolve(ROOT, Path.of("/srv/center/backups/cairo/../giza")))
+        assertThatThrownBy(() -> ContainedPath.resolve(ROOT, ROOT.resolve("../giza")))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void aPathSomewhereElseEntirelyIsRefused() {
-        assertThatThrownBy(() -> ContainedPath.resolve(ROOT, Path.of("/etc")))
+        assertThatThrownBy(() -> ContainedPath.resolve(ROOT, ROOT.getParent().resolveSibling("elsewhere")))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThat(ContainedPath.isInside(ROOT, Path.of("/srv/center/backups/giza"))).isFalse();
+        assertThat(ContainedPath.isInside(ROOT, ROOT.resolveSibling("giza"))).isFalse();
     }
 
     /**
@@ -48,14 +48,14 @@ class ContainedPathTest {
      */
     @Test
     void aSiblingWhoseNameStartsWithTheRootIsNotInside() {
-        assertThat(ContainedPath.isInside(ROOT, Path.of("/srv/center/backups/cairo2"))).isFalse();
+        assertThat(ContainedPath.isInside(ROOT, ROOT.resolveSibling("cairo2"))).isFalse();
     }
 
     /** جذرٌ غائب يعني بلا حدّ، وهو جواب سطح المكتب: قرصُ صاحبه قرصُه */
     @Test
     void withNoRootAnyPathIsAllowed() {
-        assertThat(ContainedPath.resolve(null, Path.of("/anywhere/at/all")))
-                .isEqualTo(Path.of("/anywhere/at/all"));
+        assertThat(ContainedPath.resolve(null, Path.of("anywhere", "at", "all")))
+                .isEqualTo(Path.of("anywhere", "at", "all").toAbsolutePath());
     }
 
     @Test

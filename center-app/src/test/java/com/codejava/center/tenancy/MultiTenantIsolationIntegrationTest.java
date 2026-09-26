@@ -28,6 +28,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -55,6 +56,8 @@ class MultiTenantIsolationIntegrationTest {
             .withDatabaseName("center_db")
             .withUsername("center_test")
             .withPassword("center_test_password")
+            // بيانات الاختبار مؤقتة؛ الذاكرة تتجنب بطء قرص Docker على ويندوز.
+            .withTmpFs(Map.of("/var/lib/mysql", "rw,size=768m"))
             .withStartupTimeoutSeconds(300);
 
     @DynamicPropertySource
