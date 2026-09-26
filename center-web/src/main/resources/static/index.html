@@ -66,12 +66,12 @@
         <nav>
             <button data-view="day" data-text="web.nav.day"></button>
             <button data-view="attendance" data-text="web.nav.attendance"></button>
-            <button data-view="till" data-text="web.nav.till"></button>
+            <button data-admin-only data-view="till" data-text="web.nav.till"></button>
             <button data-view="students" data-text="web.nav.students"></button>
-            <button data-view="groups" data-text="web.nav.groups"></button>
-            <button data-view="finance" data-text="web.nav.finance"></button>
-            <button data-view="admin" data-text="web.nav.admin"></button>
-            <button data-view="alerts" data-text="web.nav.alerts"></button>
+            <button data-admin-only data-view="groups" data-text="web.nav.groups"></button>
+            <button data-admin-only data-view="finance" data-text="web.nav.finance"></button>
+            <button data-admin-only data-view="admin" data-text="web.nav.admin"></button>
+            <button data-admin-only data-view="alerts" data-text="web.nav.alerts"></button>
             <button data-view="reports" data-text="web.nav.reports"></button>
         </nav>
         <span class="spacer"></span>
@@ -438,8 +438,8 @@
             <input id="reportTo" type="date">
         </form>
         <ul class="reports">
-            <li><a id="arrearsPdf" href="#" target="_blank" rel="noopener" data-text="web.reports.arrears"></a></li>
-            <li><a id="shiftPdf" href="#" target="_blank" rel="noopener" data-text="web.reports.shift"></a></li>
+            <li data-admin-only><a id="arrearsPdf" href="#" target="_blank" rel="noopener" data-text="web.reports.arrears"></a></li>
+            <li data-admin-only><a id="shiftPdf" href="#" target="_blank" rel="noopener" data-text="web.reports.shift"></a></li>
             <li><a id="attendanceLogPdf" href="#" target="_blank" rel="noopener" data-text="web.reports.attendanceLog"></a></li>
         </ul>
     </section>

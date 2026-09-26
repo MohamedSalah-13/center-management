@@ -196,7 +196,14 @@ function monthStart() {
 
 const views = ['day', 'attendance', 'till', 'students', 'groups', 'finance', 'admin', 'alerts', 'reports'];
 
+let currentRole = null;
+
 function openView(name) {
+    const nav = document.querySelector('nav button[data-view="' + name + '"]');
+    // الإخفاء للعرض؛ الخدمات تبقى الحد الحقيقي للصلاحيات.
+    if (nav && nav.hasAttribute('data-admin-only') && currentRole !== 'ADMIN') {
+        return;
+    }
     views.forEach((view) => {
         document.getElementById('view-' + view).classList.toggle('hidden', view !== name);
     });
@@ -900,7 +907,11 @@ async function loadSettings() {
         t('web.common.none'));
     // التكرار ثلاثةُ ثوابت في center-core، وأسماؤها تصل مع بقية النصوص
     fill(document.getElementById('setBackupFrequency'),
-        ['DAILY', 'WEEKLY', 'MONTHLY'].map((name) => ({value: name, label: name})), null,
+        [
+            {value: 'DAILY', label: t('web.settings.frequency.daily')},
+            {value: 'WEEKLY', label: t('web.settings.frequency.weekly')},
+            {value: 'MONTHLY', label: t('web.settings.frequency.monthly')}
+        ], null,
         t('web.common.none'));
 
     await refreshSettings();
@@ -1685,6 +1696,10 @@ function leaveSetup() {
 /* ------------------------------------------------------------------ الدخول */
 
 function enterApp(me) {
+    currentRole = me.role;
+    document.querySelectorAll('[data-admin-only]').forEach((node) => {
+        node.classList.toggle('hidden', currentRole !== 'ADMIN');
+    });
     document.getElementById('signIn').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
     document.getElementById('who').textContent = me.username + ' - ' + me.roleName;
@@ -1694,6 +1709,7 @@ function enterApp(me) {
 }
 
 function leaveApp() {
+    currentRole = null;
     closeAlertStream();
     document.getElementById('app').classList.add('hidden');
     document.getElementById('signIn').classList.remove('hidden');
