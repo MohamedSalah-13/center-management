@@ -123,6 +123,7 @@ function table(id, headerKeys, rows, cells, emptyKey, action) {
             // الأزرار تُبنى على الصفّ الذي أمام العين: التعديل والأرشفة يُطلبان وأنت
             // تنظر إلى سطر صاحبهما، لا بعد أن تكتب رقماً في حقل بعيد عنه
             const cell = line.insertCell();
+            cell.className = 'row-actions';
             const built = action(row);
             (Array.isArray(built) ? built : [built])
                 .filter(Boolean)
@@ -135,6 +136,7 @@ function table(id, headerKeys, rows, cells, emptyKey, action) {
 function button(key, onClick) {
     const node = document.createElement('button');
     node.type = 'button';
+    if (key.endsWith('.delete')) node.classList.add('danger');
     node.textContent = t(key);
     node.addEventListener('click', onClick);
     return node;
@@ -196,7 +198,52 @@ function monthStart() {
 
 const views = ['day', 'attendance', 'till', 'students', 'groups', 'finance', 'admin', 'alerts', 'reports'];
 
+/** التبويبات تُخفي الأقسام دون إعادة إنشائها، فتظل المدخلات غير المحفوظة. */
+function openPanel(group, name) {
+    const list = document.querySelector('[data-tabs="' + group + '"]');
+    const chosen = list.querySelector('[data-panel="' + name + '"]');
+    if (!chosen || chosen.disabled) return;
+    list.querySelectorAll('[role="tab"]').forEach((tab) => {
+        const active = tab === chosen;
+        tab.setAttribute('aria-selected', String(active));
+        tab.tabIndex = active ? 0 : -1;
+    });
+    document.querySelectorAll('[data-panel-group="' + group + '"]').forEach((panel) => {
+        panel.classList.toggle('hidden', panel.dataset.panelName !== name);
+    });
+    chosen.focus();
+}
+
+function enablePanel(group, name) {
+    document.querySelector('[data-tabs="' + group + '"] [data-panel="' + name + '"]').disabled = false;
+}
+
+function installPanelTabs() {
+    document.querySelectorAll('[data-tabs]').forEach((list) => {
+        const group = list.dataset.tabs;
+        list.querySelectorAll('[role="tab"]').forEach((tab) => {
+            tab.addEventListener('click', () => openPanel(group, tab.dataset.panel));
+            tab.addEventListener('keydown', (event) => {
+                const tabs = Array.from(list.querySelectorAll('[role="tab"]')).filter((item) => !item.disabled);
+                const index = tabs.indexOf(tab);
+                const rtl = document.documentElement.dir === 'rtl';
+                let next;
+                if (event.key === 'Home') next = 0;
+                else if (event.key === 'End') next = tabs.length - 1;
+                else if (event.key === 'ArrowRight') next = (index + (rtl ? -1 : 1) + tabs.length) % tabs.length;
+                else if (event.key === 'ArrowLeft') next = (index + (rtl ? 1 : -1) + tabs.length) % tabs.length;
+                else return;
+                event.preventDefault();
+                openPanel(group, tabs[next].dataset.panel);
+                tabs[next].focus();
+            });
+        });
+    });
+}
+
 let currentRole = null;
+// إعادة فتح الشاشة لا تستبدل مسودة الإعدادات بما هو محفوظ على الخادم.
+const dirtyForms = new Set();
 
 function openView(name) {
     const nav = document.querySelector('nav button[data-view="' + name + '"]');
@@ -434,6 +481,7 @@ async function refreshStudents() {
 }
 
 function editStudent(row) {
+    openPanel('students', 'edit');
     document.getElementById('studentId').value = row.id;
     // الصفُّ كما هو محفوظ: السؤال عن الاشتراكات المخالفة يُطرح حين يتغيّر وحده،
     // وطالبٌ له مخالفةٌ قديمة - من قبل هذه الميزة - يُسأل عنها كلما حُفظ هاتفه
@@ -543,6 +591,9 @@ async function deleteStudent(row) {
  * الأخرى.</p>
  */
 function showStudent(student) {
+    enablePanel('students', 'enrolments');
+    enablePanel('students', 'payments');
+    openPanel('students', 'enrolments');
     showEnrolments(student).catch((error) => show('enrolResult', error.message, true));
     showPayments(student).catch((error) => show('paymentSummary', error.message, true));
 }
@@ -675,6 +726,7 @@ async function refreshGroups() {
 }
 
 function editGroup(row) {
+    openPanel('groups', 'edit');
     document.getElementById('groupId').value = row.id;
     document.getElementById('groupTeacher').value = row.teacherId === null ? '' : row.teacherId;
     document.getElementById('groupLevel').value = row.levelName || '';
@@ -764,6 +816,8 @@ async function deleteGroup(row) {
 }
 
 async function showRoster(group) {
+    enablePanel('groups', 'roster');
+    openPanel('groups', 'roster');
     document.getElementById('rosterTitle').textContent = t('web.groups.rosterTitle', group.name);
     const rows = await get('/api/groups/' + group.id + '/roster');
     table('rosterTable',
@@ -896,6 +950,7 @@ async function loadAdmin() {
 /* --------------------------------------------------------------- الإعدادات */
 
 async function loadSettings() {
+    if (dirtyForms.has('settingsForm')) return;
     const [currencies, channels] = await Promise.all([
         get('/api/settings/currencies'),
         get('/api/settings/channels')
@@ -968,6 +1023,7 @@ async function saveSettings() {
         ledgerStartDate: document.getElementById('setLedgerStart').value || null
     });
 
+    dirtyForms.delete('settingsForm');
     show('settingsResult', t('web.settings.saved'), false);
     show('settingsState', t('web.settings.state',
         stampOf(saved.lastAutoBackupAt) || t('web.common.none'),
@@ -1004,6 +1060,7 @@ async function refreshTeachers() {
 }
 
 function editTeacher(row) {
+    openPanel('teachers', 'edit');
     document.getElementById('teacherId').value = row.id;
     document.getElementById('teacherName').value = row.name || '';
     document.getElementById('teacherSubject').value = row.subject || '';
@@ -1054,7 +1111,8 @@ async function deleteTeacher(row) {
 async function loadUsers() {
     const roles = await get('/api/users/roles');
     fill(document.getElementById('userRole'),
-        roles.map((role) => ({value: role.name, label: role.label})), null);
+        roles.map((role) => ({value: role.name, label: role.label})),
+        document.getElementById('userRole').value || null);
     await refreshUsers();
 }
 
@@ -1078,6 +1136,7 @@ async function refreshUsers() {
  * يعني "اتركها كما هي" - وهو ما تقوله جملةُ التلميح تحت النموذج.</p>
  */
 function editUser(row) {
+    openPanel('users', 'edit');
     document.getElementById('userId').value = row.id;
     document.getElementById('userName').value = row.username || '';
     document.getElementById('userRole').value = row.role || '';
@@ -1244,7 +1303,7 @@ async function loadAlerts() {
         refreshScanSettings().catch((error) => show('scanState', error.message, true)),
         refreshRules().catch((error) => show('ruleResult', error.message, true)),
         refreshChannel().catch((error) => show('notifyChannel', error.message, true)),
-        refreshNotifyLog().catch((error) => show('notifyResult', error.message, true))
+        refreshNotifyLog().catch((error) => show('notifyLogResult', error.message, true))
     ]);
     notifyTypeChanged();
 }
@@ -1326,6 +1385,7 @@ async function scanNow() {
 /* ------------------------------------------------------------ موعد الفحص */
 
 async function refreshScanSettings() {
+    if (dirtyForms.has('scanSettingsForm')) return;
     showScanSettings(await get('/api/alerts/scan-settings'));
 }
 
@@ -1345,7 +1405,8 @@ async function saveScanSettings() {
         enabled: document.getElementById('scanEnabled').checked,
         time: document.getElementById('scanTime').value || null
     }));
-    show('ruleResult', t('web.alerts.scanSaved'), false);
+    dirtyForms.delete('scanSettingsForm');
+    show('scanSettingsResult', t('web.alerts.scanSaved'), false);
 }
 
 /* ---------------------------------------------------------------- القواعد */
@@ -1390,6 +1451,7 @@ function rulesMessagingParents() {
  */
 function editRule(row) {
     editedRule = row;
+    document.getElementById('ruleTable').parentElement.classList.add('hidden');
     document.getElementById('ruleForm').classList.remove('hidden');
     document.getElementById('ruleSubject').textContent = row.typeName;
     document.getElementById('ruleDescription').textContent = row.description || '';
@@ -1418,6 +1480,7 @@ function showRuleField(id, label, value) {
     caption.textContent = shown ? label : '';
     caption.classList.toggle('hidden', !shown);
     field.classList.toggle('hidden', !shown);
+    field.closest('.form-field').classList.toggle('hidden', !shown);
     field.value = shown && value !== null && value !== undefined ? value : '';
 }
 
@@ -1431,6 +1494,7 @@ function showAudienceNote() {
 function closeRuleForm() {
     editedRule = null;
     document.getElementById('ruleForm').classList.add('hidden');
+    document.getElementById('ruleTable').parentElement.classList.remove('hidden');
 }
 
 /**
@@ -1736,8 +1800,22 @@ function leaveApp() {
     notifyScope = null;
     closeRuleForm();
 
-    // ولا يبقى في حقلٍ ما كُتب فيه: كلمةُ مرورِ حسابٍ يُنشأ لا تُترك لمن يجلس بعده
-    clearPasswordFields();
+    // القسم المختار والمسودات والتفاصيل تتبع الحساب الذي خرج، لا الحساب التالي.
+    dirtyForms.clear();
+    document.querySelectorAll('.view form').forEach((form) => form.reset());
+    document.querySelectorAll('.view table, .view p[id]').forEach((node) => { node.textContent = ''; });
+    ['tab-students-enrolments', 'tab-students-payments', 'tab-groups-roster'].forEach((id) => {
+        document.getElementById(id).disabled = true;
+    });
+    document.querySelectorAll('[data-tabs]').forEach((list) => {
+        const first = list.querySelector('[role="tab"]:not(:disabled)');
+        openPanel(list.dataset.tabs, first.dataset.panel);
+    });
+    clearStudentForm();
+    clearGroupForm();
+    clearTeacherForm();
+    clearUserForm();
+    show('appError', '', false);
 }
 
 async function loadMessages() {
@@ -1798,6 +1876,38 @@ document.addEventListener('DOMContentLoaded', async () => {
         } finally {
             leaveApp();
         }
+    });
+
+    installPanelTabs();
+    ['settingsForm', 'scanSettingsForm'].forEach((id) => {
+        const form = document.getElementById(id);
+        ['input', 'change'].forEach((event) => {
+            form.addEventListener(event, () => dirtyForms.add(id));
+        });
+    });
+    document.querySelectorAll('[data-back]').forEach((control) => {
+        control.addEventListener('click', () => openPanel(control.dataset.back, 'list'));
+    });
+    document.getElementById('teacherAdd').addEventListener('click', () => {
+        clearTeacherForm();
+        openPanel('teachers', 'edit');
+        document.getElementById('teacherName').focus();
+    });
+    document.getElementById('userAdd').addEventListener('click', () => {
+        clearUserForm();
+        openPanel('users', 'edit');
+        document.getElementById('userName').focus();
+    });
+
+    document.getElementById('studentAdd').addEventListener('click', () => {
+        clearStudentForm();
+        openPanel('students', 'edit');
+        document.getElementById('studentName').focus();
+    });
+    document.getElementById('groupAdd').addEventListener('click', () => {
+        clearGroupForm();
+        openPanel('groups', 'edit');
+        document.getElementById('groupTeacher').focus();
     });
 
     document.querySelectorAll('nav button').forEach((button) => {
@@ -1991,7 +2101,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('scanSettingsForm').addEventListener('submit', (event) => {
         event.preventDefault();
-        saveScanSettings().catch((error) => show('scanState', error.message, true));
+        saveScanSettings().catch((error) => show('scanSettingsResult', error.message, true));
     });
 
     document.getElementById('ruleAudience').addEventListener('change', showAudienceNote);

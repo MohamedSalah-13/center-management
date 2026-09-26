@@ -11,445 +11,789 @@
   "لا نصّ يراه المستخدم في كود" المكتوبة لملفات FXML.
 -->
 <html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title data-text="web.app.title"></title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title data-text="web.app.title"></title>
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
 
-<div id="signIn" class="screen centred">
-    <form class="card" id="loginForm" autocomplete="on">
-        <h1 data-text="web.login.title"></h1>
+        <div id="signIn" class="screen centred">
+            <form class="card" id="loginForm" autocomplete="on">
+                <h1 data-text="web.login.title"></h1>
 
-        <label data-text="web.login.centre" for="centre"></label>
-        <input id="centre" name="centre" autocomplete="organization">
-        <p class="hint" data-text="web.login.centreHint"></p>
+                <label data-text="web.login.centre" for="centre"></label>
+                <input id="centre" name="centre" autocomplete="organization">
+                <p class="hint" data-text="web.login.centreHint"></p>
 
-        <label data-text="web.login.username" for="username"></label>
-        <input id="username" name="username" autocomplete="username" required>
+                <label data-text="web.login.username" for="username"></label>
+                <input id="username" name="username" autocomplete="username" required>
 
-        <label data-text="web.login.password" for="password"></label>
-        <input id="password" name="password" type="password" autocomplete="current-password" required>
+                <label data-text="web.login.password" for="password"></label>
+                <input id="password" name="password" type="password" autocomplete="current-password" required>
 
-        <button type="submit" data-text="web.login.submit"></button>
-        <p class="error" id="loginError"></p>
-    </form>
-</div>
+                <button type="submit" data-text="web.login.submit"></button>
+                <p class="error" id="loginError"></p>
+            </form>
+        </div>
 
-<div id="setUp" class="screen centred hidden">
-    <form class="card" id="setupForm" autocomplete="off">
-        <h1 data-text="web.setup.title"></h1>
-        <p class="hint" data-text="web.setup.description"></p>
+        <div id="setUp" class="screen centred hidden">
+            <form class="card" id="setupForm" autocomplete="off">
+                <h1 data-text="web.setup.title"></h1>
+                <p class="hint" data-text="web.setup.description"></p>
 
-        <p class="hint" data-text="web.setup.usernameLine"></p>
+                <p class="hint" data-text="web.setup.usernameLine"></p>
 
-        <label data-text="web.setup.token" for="setupToken"></label>
-        <input id="setupToken" type="password" autocomplete="off" required>
-        <p class="hint" data-text="web.setup.tokenHint"></p>
+                <label data-text="web.setup.token" for="setupToken"></label>
+                <input id="setupToken" type="password" autocomplete="off" required>
+                <p class="hint" data-text="web.setup.tokenHint"></p>
 
-        <label data-text="web.setup.password" for="setupPassword"></label>
-        <input id="setupPassword" type="password" autocomplete="new-password" required>
+                <label data-text="web.setup.password" for="setupPassword"></label>
+                <input id="setupPassword" type="password" autocomplete="new-password" required>
 
-        <label data-text="web.setup.confirm" for="setupConfirm"></label>
-        <input id="setupConfirm" type="password" autocomplete="new-password" required>
+                <label data-text="web.setup.confirm" for="setupConfirm"></label>
+                <input id="setupConfirm" type="password" autocomplete="new-password" required>
 
-        <button type="submit" data-text="web.setup.submit"></button>
-        <p class="error" id="setupError"></p>
-    </form>
-</div>
+                <button type="submit" data-text="web.setup.submit"></button>
+                <p class="error" id="setupError"></p>
+            </form>
+        </div>
 
-<div id="app" class="screen hidden">
-    <header>
-        <strong data-text="web.app.title"></strong>
-        <nav>
-            <button data-view="day" data-text="web.nav.day"></button>
-            <button data-view="attendance" data-text="web.nav.attendance"></button>
-            <button data-admin-only data-view="till" data-text="web.nav.till"></button>
-            <button data-view="students" data-text="web.nav.students"></button>
-            <button data-admin-only data-view="groups" data-text="web.nav.groups"></button>
-            <button data-admin-only data-view="finance" data-text="web.nav.finance"></button>
-            <button data-admin-only data-view="admin" data-text="web.nav.admin"></button>
-            <button data-admin-only data-view="alerts" data-text="web.nav.alerts"></button>
-            <button data-view="reports" data-text="web.nav.reports"></button>
-        </nav>
-        <span class="spacer"></span>
-        <span id="alertCount" class="badge" hidden></span>
-        <span id="who"></span>
-        <button id="signOut" class="link" data-text="web.signOut"></button>
-    </header>
+        <div id="app" class="screen hidden">
+            <header>
+                <strong data-text="web.app.title"></strong>
+                <nav>
+                    <button data-view="day" data-text="web.nav.day"></button>
+                    <button data-view="attendance" data-text="web.nav.attendance"></button>
+                    <button data-admin-only data-view="till" data-text="web.nav.till"></button>
+                    <button data-view="students" data-text="web.nav.students"></button>
+                    <button data-admin-only data-view="groups" data-text="web.nav.groups"></button>
+                    <button data-admin-only data-view="finance" data-text="web.nav.finance"></button>
+                    <button data-admin-only data-view="admin" data-text="web.nav.admin"></button>
+                    <button data-admin-only data-view="alerts" data-text="web.nav.alerts"></button>
+                    <button data-view="reports" data-text="web.nav.reports"></button>
+                </nav>
+                <span class="spacer"></span>
+                <span id="alertCount" class="badge" hidden></span>
+                <span id="who"></span>
+                <button id="signOut" class="link" data-text="web.signOut"></button>
+            </header>
 
-    <p class="error" id="appError"></p>
+            <p class="error" id="appError"></p>
 
-    <section id="view-attendance" class="view">
-        <h2 data-text="web.attendance.title"></h2>
-        <form id="scanForm" class="row">
-            <label data-text="web.attendance.session" for="sessionId"></label>
-            <select id="sessionId"></select>
-            <label data-text="web.attendance.barcode" for="barcode"></label>
-            <input id="barcode" autocomplete="off">
-            <button type="submit" data-text="web.nav.attendance"></button>
-        </form>
-        <p id="scanResult" class="result"></p>
-        <table id="attendanceTable"></table>
-    </section>
+            <section id="view-attendance" class="view">
+                <h2 data-text="web.attendance.title"></h2>
+                <p class="view-description" data-text="web.ui.attendanceHint"></p>
+                <form id="scanForm" class="data-form">
+                    <div class="form-field">
+                        <label data-text="web.attendance.session" for="sessionId"></label>
+                        <select id="sessionId"></select>
+                    </div>
+                    <div class="form-field">
+                        <label data-text="web.attendance.barcode" for="barcode"></label>
+                        <input id="barcode" autocomplete="off">
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" data-text="web.nav.attendance"></button>
+                    </div>
+                </form>
+                <p id="scanResult" class="result"></p>
+                <div class="table-scroll" tabindex="0"><table id="attendanceTable"></table></div>
+            </section>
 
-    <section id="view-day" class="view hidden">
-        <h2 data-text="web.day.title"></h2>
-        <form id="dayForm" class="row">
-            <label data-text="web.common.date" for="dayDate"></label>
-            <input id="dayDate" type="date">
-            <button type="submit" data-text="web.common.refresh"></button>
-        </form>
-        <p id="dayBrief" class="result"></p>
-        <p id="dayNext" class="result"></p>
-        <table id="dayTable"></table>
+            <section id="view-day" class="view hidden">
+                <h2 data-text="web.day.title"></h2>
+                <p class="view-description" data-text="web.ui.dayHint"></p>
+                <div class="section-tabs" role="tablist" data-tabs="day">
+                    <button type="button" role="tab" id="tab-day-schedule" aria-controls="panel-day-schedule" aria-selected="true" tabindex="0" data-panel="schedule" data-text="web.day.title"></button>
+                    <button type="button" role="tab" id="tab-day-sessions" aria-controls="panel-day-sessions" aria-selected="false" tabindex="-1" data-panel="sessions" data-text="web.sessions.title"></button>
+                </div>
 
-        <h3 data-text="web.sessions.title"></h3>
-        <form id="openSessionForm" class="row">
-            <label data-text="web.sessions.group" for="sessionGroup"></label>
-            <select id="sessionGroup"></select>
-            <label data-text="web.sessions.date" for="sessionDate"></label>
-            <input id="sessionDate" type="date">
-            <button type="submit" data-text="web.sessions.open"></button>
-        </form>
-        <p id="sessionResult" class="result"></p>
-        <form id="sessionFilterForm" class="row">
-            <label><input id="openOnly" type="checkbox" checked> <span data-text="web.sessions.openOnly"></span></label>
-            <button type="submit" data-text="web.common.refresh"></button>
-        </form>
-        <table id="sessionTable"></table>
-    </section>
+                <div id="panel-day-schedule" role="tabpanel" aria-labelledby="tab-day-schedule" data-panel-group="day" data-panel-name="schedule">
+                    <form id="dayForm" class="filter-form">
+                        <div class="form-field">
+                            <label data-text="web.common.date" for="dayDate"></label>
+                            <input id="dayDate" type="date">
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" data-text="web.common.refresh"></button>
+                        </div>
+                    </form>
+                    <p id="dayBrief" class="result"></p>
+                    <p id="dayNext" class="result"></p>
+                    <div class="table-scroll" tabindex="0"><table id="dayTable"></table></div>
 
-    <section id="view-till" class="view hidden">
-        <h2 data-text="web.till.title"></h2>
-        <form id="payForm" class="row">
-            <label data-text="web.till.barcode" for="payBarcode"></label>
-            <input id="payBarcode" autocomplete="off">
-            <button type="button" id="loadEnrolments" data-text="web.till.load"></button>
-            <label data-text="web.till.group" for="payGroup"></label>
-            <select id="payGroup"></select>
-            <label data-text="web.till.amount" for="payAmount"></label>
-            <input id="payAmount" type="number" step="0.01" min="0">
-            <label data-text="web.till.description" for="payDescription"></label>
-            <input id="payDescription">
-            <button type="submit" data-text="web.till.collect"></button>
-        </form>
+                </div>
 
-        <form id="expenseForm" class="row">
-            <strong data-text="web.till.expenseTitle"></strong>
-            <label data-text="web.till.amount" for="expenseAmount"></label>
-            <input id="expenseAmount" type="number" step="0.01" min="0">
-            <label data-text="web.till.description" for="expenseDescription"></label>
-            <input id="expenseDescription">
-            <button type="submit" data-text="web.till.record"></button>
-        </form>
+                <div id="panel-day-sessions" role="tabpanel" aria-labelledby="tab-day-sessions" data-panel-group="day" data-panel-name="sessions" class="hidden">
+                    <h3 data-text="web.sessions.title"></h3>
+                    <form id="openSessionForm" class="data-form">
+                        <div class="form-field">
+                            <label data-text="web.sessions.group" for="sessionGroup"></label>
+                            <select id="sessionGroup"></select>
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.sessions.date" for="sessionDate"></label>
+                            <input id="sessionDate" type="date">
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" data-text="web.sessions.open"></button>
+                        </div>
+                    </form>
+                    <p id="sessionResult" class="result"></p>
+                    <form id="sessionFilterForm" class="filter-form">
+                        <label><input id="openOnly" type="checkbox" checked> <span data-text="web.sessions.openOnly"></span></label>
+                        <div class="form-actions">
+                            <button type="submit" data-text="web.common.refresh"></button>
+                        </div>
+                    </form>
+                    <div class="table-scroll" tabindex="0"><table id="sessionTable"></table></div>
+                </div>
+            </section>
 
-        <p id="tillResult" class="result"></p>
+            <section id="view-till" class="view hidden">
+                <h2 data-text="web.till.title"></h2>
+                <p class="view-description" data-text="web.ui.tillHint"></p>
+                <p id="tillResult" class="result"></p>
+                <div class="section-tabs" role="tablist" data-tabs="till">
+                    <button type="button" role="tab" id="tab-till-payment" aria-controls="panel-till-payment" aria-selected="true" tabindex="0" data-panel="payment" data-text="web.till.collect"></button>
+                    <button type="button" role="tab" id="tab-till-expense" aria-controls="panel-till-expense" aria-selected="false" tabindex="-1" data-panel="expense" data-text="web.till.expenseTitle"></button>
+                    <button type="button" role="tab" id="tab-till-movements" aria-controls="panel-till-movements" aria-selected="false" tabindex="-1" data-panel="movements" data-text="web.till.dayTitle"></button>
+                </div>
 
-        <h3 data-text="web.till.dayTitle"></h3>
-        <form id="tillDayForm" class="row">
-            <label data-text="web.common.date" for="tillDate"></label>
-            <input id="tillDate" type="date">
-            <button type="submit" data-text="web.common.refresh"></button>
-        </form>
-        <p id="tillSummary" class="result"></p>
-        <table id="tillTable"></table>
-    </section>
+                <div id="panel-till-payment" role="tabpanel" aria-labelledby="tab-till-payment" data-panel-group="till" data-panel-name="payment">
+                    <form id="payForm" class="data-form">
+                        <div class="form-field">
+                            <label data-text="web.till.barcode" for="payBarcode"></label>
+                            <input id="payBarcode" autocomplete="off">
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" id="loadEnrolments" data-text="web.till.load"></button>
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.till.group" for="payGroup"></label>
+                            <select id="payGroup"></select>
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.till.amount" for="payAmount"></label>
+                            <input id="payAmount" type="number" step="0.01" min="0">
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.till.description" for="payDescription"></label>
+                            <input id="payDescription">
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" data-text="web.till.collect"></button>
+                        </div>
+                    </form>
 
-    <section id="view-students" class="view hidden">
-        <h2 data-text="web.students.title"></h2>
+                </div>
 
-        <form id="studentEditForm" class="row">
-            <strong data-text="web.students.formTitle"></strong>
-            <input id="studentId" type="hidden">
-            <input id="studentLevelBefore" type="hidden">
-            <label data-text="web.students.name" for="studentName"></label>
-            <input id="studentName" required>
-            <label data-text="web.students.barcode" for="studentBarcode"></label>
-            <input id="studentBarcode" autocomplete="off">
-            <label data-text="web.students.phone" for="studentPhone"></label>
-            <input id="studentPhone" autocomplete="off">
-            <label data-text="web.students.parentPhone" for="studentParentPhone"></label>
-            <input id="studentParentPhone" autocomplete="off">
-            <label data-text="web.students.level" for="studentLevel"></label>
-            <select id="studentLevel"></select>
-            <button type="submit" data-text="web.students.save"></button>
-            <button type="button" id="studentClear" data-text="web.students.new"></button>
-            <p class="hint" data-text="web.students.barcodeHint"></p>
-        </form>
-        <p id="studentResult" class="result"></p>
+                <div id="panel-till-expense" role="tabpanel" aria-labelledby="tab-till-expense" data-panel-group="till" data-panel-name="expense" class="hidden">
+                    <form id="expenseForm" class="data-form">
+                        <strong data-text="web.till.expenseTitle"></strong>
+                        <div class="form-field">
+                            <label data-text="web.till.amount" for="expenseAmount"></label>
+                            <input id="expenseAmount" type="number" step="0.01" min="0">
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.till.description" for="expenseDescription"></label>
+                            <input id="expenseDescription">
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" data-text="web.till.record"></button>
+                        </div>
+                    </form>
 
-        <form id="studentForm" class="row">
-            <input id="studentQuery" data-placeholder="web.students.search">
-            <label><input id="includeArchived" type="checkbox"> <span data-text="web.students.includeArchived"></span></label>
-            <button type="submit" data-text="web.common.refresh"></button>
-        </form>
-        <table id="studentTable"></table>
 
-        <h3 data-text="web.enrolments.title"></h3>
-        <p id="enrolmentSubject" class="result"></p>
-        <form id="enrolForm" class="row">
-            <label data-text="web.enrolments.group" for="enrolGroup"></label>
-            <select id="enrolGroup"></select>
-            <button type="submit" data-text="web.enrolments.enrol"></button>
-        </form>
-        <p id="enrolResult" class="result"></p>
-        <table id="enrolmentTable"></table>
+                </div>
 
-        <h3 data-text="web.payments.title"></h3>
-        <p id="paymentSummary" class="result"></p>
-        <table id="paymentTable"></table>
-    </section>
+                <div id="panel-till-movements" role="tabpanel" aria-labelledby="tab-till-movements" data-panel-group="till" data-panel-name="movements" class="hidden">
+                    <h3 data-text="web.till.dayTitle"></h3>
+                    <form id="tillDayForm" class="filter-form">
+                        <div class="form-field">
+                            <label data-text="web.common.date" for="tillDate"></label>
+                            <input id="tillDate" type="date">
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" data-text="web.common.refresh"></button>
+                        </div>
+                    </form>
+                    <p id="tillSummary" class="result"></p>
+                    <div class="table-scroll" tabindex="0"><table id="tillTable"></table></div>
+                </div>
+            </section>
 
-    <section id="view-groups" class="view hidden">
-        <h2 data-text="web.groups.title"></h2>
+            <section id="view-students" class="view hidden">
+                <h2 data-text="web.students.title"></h2>
+                <p class="view-description" data-text="web.ui.studentsHint"></p>
+                <p id="studentResult" class="result"></p>
+                <div class="section-tabs" role="tablist" data-tabs="students">
+                    <button type="button" role="tab" id="tab-students-list" aria-controls="panel-students-list" aria-selected="true" tabindex="0" data-panel="list" data-text="web.tabs.studentList"></button>
+                    <button type="button" role="tab" id="tab-students-edit" aria-controls="panel-students-edit" aria-selected="false" tabindex="-1" data-panel="edit" data-text="web.students.formTitle"></button>
+                    <button type="button" role="tab" id="tab-students-enrolments" aria-controls="panel-students-enrolments" aria-selected="false" tabindex="-1" data-panel="enrolments" data-text="web.enrolments.title" disabled></button>
+                    <button type="button" role="tab" id="tab-students-payments" aria-controls="panel-students-payments" aria-selected="false" tabindex="-1" data-panel="payments" data-text="web.payments.title" disabled></button>
+                </div>
 
-        <form id="groupEditForm" class="row">
-            <strong data-text="web.groups.formTitle"></strong>
-            <input id="groupId" type="hidden">
-            <label data-text="web.groups.teacher" for="groupTeacher"></label>
-            <select id="groupTeacher"></select>
-            <label data-text="web.groups.level" for="groupLevel"></label>
-            <select id="groupLevel"></select>
-            <label data-text="web.groups.capacity" for="groupCapacity"></label>
-            <input id="groupCapacity" type="number" min="1" step="1">
-            <label data-text="web.groups.price" for="groupPrice"></label>
-            <input id="groupPrice" type="number" min="0" step="0.01">
-            <label data-text="web.groups.start" for="groupStart"></label>
-            <input id="groupStart" type="time">
-            <label data-text="web.groups.end" for="groupEnd"></label>
-            <input id="groupEnd" type="time">
-            <span data-text="web.groups.days"></span>
-            <span id="groupDays" class="days"></span>
-            <label><input id="groupCustomName" type="checkbox"> <span data-text="web.groups.customName"></span></label>
-            <input id="groupName" data-placeholder="web.groups.name" disabled>
-            <button type="submit" data-text="web.groups.save"></button>
-            <button type="button" id="groupClear" data-text="web.groups.new"></button>
-            <p class="hint" data-text="web.groups.nameHint"></p>
-        </form>
-        <p id="groupResult" class="result"></p>
+                <div id="panel-students-list" role="tabpanel" aria-labelledby="tab-students-list" data-panel-group="students" data-panel-name="list">
+                    <div class="panel-actions"><button type="button" id="studentAdd" data-text="web.students.new"></button></div>
+                    <form id="studentForm" class="filter-form">
+                        <div class="form-field">
+                            <label for="studentQuery" data-text="web.students.search"></label>
+                            <input id="studentQuery" data-placeholder="web.students.search">
+                        </div>
+                        <label><input id="includeArchived" type="checkbox"> <span data-text="web.students.includeArchived"></span></label>
+                        <div class="form-actions">
+                            <button type="submit" data-text="web.common.refresh"></button>
+                        </div>
+                    </form>
+                    <div class="table-scroll" tabindex="0"><table id="studentTable"></table></div>
 
-        <table id="groupTable"></table>
+                </div>
 
-        <h3 id="rosterTitle"></h3>
-        <table id="rosterTable"></table>
-    </section>
+                <div id="panel-students-edit" role="tabpanel" aria-labelledby="tab-students-edit" data-panel-group="students" data-panel-name="edit" class="hidden">
+                    <form id="studentEditForm" class="data-form">
+                        <strong data-text="web.students.formTitle"></strong>
+                        <input id="studentId" type="hidden">
+                        <input id="studentLevelBefore" type="hidden">
+                        <div class="form-field">
+                            <label data-text="web.students.name" for="studentName"></label>
+                            <input id="studentName" required>
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.students.barcode" for="studentBarcode"></label>
+                            <input id="studentBarcode" autocomplete="off">
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.students.phone" for="studentPhone"></label>
+                            <input id="studentPhone" autocomplete="off">
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.students.parentPhone" for="studentParentPhone"></label>
+                            <input id="studentParentPhone" autocomplete="off">
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.students.level" for="studentLevel"></label>
+                            <select id="studentLevel"></select>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" data-text="web.students.save"></button>
+                            <button type="button" id="studentClear" data-text="web.students.new"></button>
+                        </div>
+                        <p class="hint" data-text="web.students.barcodeHint"></p>
+                        <div class="form-actions"><button type="button" class="secondary" data-back="students" data-text="web.ui.backToList"></button></div></form>
 
-    <section id="view-finance" class="view hidden">
-        <h2 data-text="web.expenses.title"></h2>
-        <form id="expenseReportForm" class="row">
-            <label data-text="web.reports.from" for="expenseFrom"></label>
-            <input id="expenseFrom" type="date">
-            <label data-text="web.reports.to" for="expenseTo"></label>
-            <input id="expenseTo" type="date">
-            <input id="expenseQuery" data-placeholder="web.expenses.search">
-            <button type="submit" data-text="web.common.refresh"></button>
-            <a id="expensesPdf" href="#" target="_blank" rel="noopener" data-text="web.expenses.pdf"></a>
-        </form>
-        <p id="expenseSummary" class="result"></p>
-        <table id="expenseTable"></table>
+                </div>
 
-        <h3 data-text="web.payouts.title"></h3>
-        <form id="payoutForm" class="row">
-            <label data-text="web.payouts.teacher" for="payoutTeacher"></label>
-            <select id="payoutTeacher"></select>
-            <button type="submit" data-text="web.common.refresh"></button>
-            <a id="statementPdf" href="#" target="_blank" rel="noopener" data-text="web.payouts.statement"></a>
-        </form>
-        <p id="payoutResult" class="result"></p>
-        <table id="payoutTable"></table>
-    </section>
+                <div id="panel-students-enrolments" role="tabpanel" aria-labelledby="tab-students-enrolments" data-panel-group="students" data-panel-name="enrolments" class="hidden">
+                    <h3 data-text="web.enrolments.title"></h3>
+                    <p id="enrolmentSubject" class="result"></p>
+                    <form id="enrolForm" class="data-form">
+                        <div class="form-field">
+                            <label data-text="web.enrolments.group" for="enrolGroup"></label>
+                            <select id="enrolGroup"></select>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" data-text="web.enrolments.enrol"></button>
+                        </div>
+                    </form>
+                    <p id="enrolResult" class="result"></p>
+                    <div class="table-scroll" tabindex="0"><table id="enrolmentTable"></table></div>
 
-    <section id="view-admin" class="view hidden">
-        <h2 data-text="web.settings.title"></h2>
-        <form id="settingsForm" class="row">
-            <label data-text="web.settings.centerName" for="setCenterName"></label>
-            <input id="setCenterName">
-            <label data-text="web.settings.centerPhone" for="setCenterPhone"></label>
-            <input id="setCenterPhone">
-            <label data-text="web.settings.currency" for="setCurrency"></label>
-            <select id="setCurrency"></select>
-            <label data-text="web.settings.logoPath" for="setLogoPath"></label>
-            <input id="setLogoPath">
-            <label data-text="web.settings.ledgerStart" for="setLedgerStart"></label>
-            <input id="setLedgerStart" type="date">
+                </div>
 
-            <label><input id="setAutoBackup" type="checkbox"> <span data-text="web.settings.autoBackup"></span></label>
-            <label data-text="web.settings.backupPath" for="setBackupPath"></label>
-            <input id="setBackupPath">
-            <label data-text="web.settings.backupFrequency" for="setBackupFrequency"></label>
-            <select id="setBackupFrequency"></select>
-            <label data-text="web.settings.backupTime" for="setBackupTime"></label>
-            <input id="setBackupTime" type="time">
-            <label data-text="web.settings.backupRetention" for="setBackupRetention"></label>
-            <input id="setBackupRetention" type="number" min="0" step="1">
+                <div id="panel-students-payments" role="tabpanel" aria-labelledby="tab-students-payments" data-panel-group="students" data-panel-name="payments" class="hidden">
+                    <h3 data-text="web.payments.title"></h3>
+                    <p id="paymentSummary" class="result"></p>
+                    <div class="table-scroll" tabindex="0"><table id="paymentTable"></table></div>
+                </div>
+            </section>
 
-            <label data-text="web.settings.channel" for="setChannel"></label>
-            <select id="setChannel"></select>
-            <label data-text="web.settings.apiUrl" for="setApiUrl"></label>
-            <input id="setApiUrl">
-            <label data-text="web.settings.senderId" for="setSenderId"></label>
-            <input id="setSenderId">
-            <label data-text="web.settings.templateName" for="setTemplateName"></label>
-            <input id="setTemplateName">
-            <label data-text="web.settings.templateLanguage" for="setTemplateLanguage"></label>
-            <input id="setTemplateLanguage">
-            <label data-text="web.settings.bodyTemplate" for="setBodyTemplate"></label>
-            <input id="setBodyTemplate">
+            <section id="view-groups" class="view hidden">
+                <h2 data-text="web.groups.title"></h2>
+                <p class="view-description" data-text="web.ui.groupsHint"></p>
+                <p id="groupResult" class="result"></p>
+                <div class="section-tabs" role="tablist" data-tabs="groups">
+                    <button type="button" role="tab" id="tab-groups-list" aria-controls="panel-groups-list" aria-selected="true" tabindex="0" data-panel="list" data-text="web.tabs.groupList"></button>
+                    <button type="button" role="tab" id="tab-groups-edit" aria-controls="panel-groups-edit" aria-selected="false" tabindex="-1" data-panel="edit" data-text="web.groups.formTitle"></button>
+                    <button type="button" role="tab" id="tab-groups-roster" aria-controls="panel-groups-roster" aria-selected="false" tabindex="-1" data-panel="roster" data-text="web.groups.roster" disabled></button>
+                </div>
 
-            <button type="submit" data-text="web.settings.save"></button>
-            <p class="hint" data-text="web.settings.secretsHint"></p>
-        </form>
-        <p id="settingsState" class="result"></p>
-        <p class="hint" data-text="web.settings.stateHint"></p>
-        <p id="settingsResult" class="result"></p>
+                <div id="panel-groups-list" role="tabpanel" aria-labelledby="tab-groups-list" data-panel-group="groups" data-panel-name="list">
+                    <div class="panel-actions"><button type="button" id="groupAdd" data-text="web.groups.new"></button></div>
+                    <div class="table-scroll" tabindex="0"><table id="groupTable"></table></div>
 
-        <h3 data-text="web.teachers.title"></h3>
-        <form id="teacherForm" class="row">
-            <input id="teacherId" type="hidden">
-            <label data-text="web.teachers.name" for="teacherName"></label>
-            <input id="teacherName" required>
-            <label data-text="web.teachers.subject" for="teacherSubject"></label>
-            <input id="teacherSubject">
-            <label data-text="web.teachers.commissionType" for="teacherCommissionType"></label>
-            <select id="teacherCommissionType"></select>
-            <label data-text="web.teachers.commissionValue" for="teacherCommissionValue"></label>
-            <input id="teacherCommissionValue" type="number" min="0" step="0.01">
-            <button type="submit" data-text="web.teachers.save"></button>
-            <button type="button" id="teacherClear" data-text="web.teachers.new"></button>
-        </form>
-        <p id="teacherResult" class="result"></p>
-        <table id="teacherTable"></table>
+                </div>
 
-        <h3 data-text="web.users.title"></h3>
-        <form id="userForm" class="row">
-            <input id="userId" type="hidden">
-            <label data-text="web.users.username" for="userName"></label>
-            <input id="userName" autocomplete="off" required>
-            <label data-text="web.users.role" for="userRole"></label>
-            <select id="userRole"></select>
-            <label data-text="web.users.password" for="userPassword"></label>
-            <input id="userPassword" type="password" autocomplete="new-password">
-            <label data-text="web.users.confirmation" for="userConfirmation"></label>
-            <input id="userConfirmation" type="password" autocomplete="new-password">
-            <button type="submit" data-text="web.users.save"></button>
-            <button type="button" id="userClear" data-text="web.users.new"></button>
-            <p class="hint" data-text="web.users.passwordHint"></p>
-        </form>
-        <p id="userResult" class="result"></p>
-        <table id="userTable"></table>
+                <div id="panel-groups-edit" role="tabpanel" aria-labelledby="tab-groups-edit" data-panel-group="groups" data-panel-name="edit" class="hidden">
+                    <form id="groupEditForm" class="data-form">
+                        <strong data-text="web.groups.formTitle"></strong>
+                        <input id="groupId" type="hidden">
+                        <div class="form-field">
+                            <label data-text="web.groups.teacher" for="groupTeacher"></label>
+                            <select id="groupTeacher"></select>
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.groups.level" for="groupLevel"></label>
+                            <select id="groupLevel"></select>
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.groups.capacity" for="groupCapacity"></label>
+                            <input id="groupCapacity" type="number" min="1" step="1">
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.groups.price" for="groupPrice"></label>
+                            <input id="groupPrice" type="number" min="0" step="0.01">
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.groups.start" for="groupStart"></label>
+                            <input id="groupStart" type="time">
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.groups.end" for="groupEnd"></label>
+                            <input id="groupEnd" type="time">
+                        </div>
+                        <div class="form-field full-width"><span data-text="web.groups.days"></span>
+                            <span id="groupDays" class="days"></span></div>
+                        <label><input id="groupCustomName" type="checkbox"> <span data-text="web.groups.customName"></span></label>
+                        <div class="form-field">
+                            <label for="groupName" data-text="web.groups.name"></label>
+                            <input id="groupName" data-placeholder="web.groups.name" disabled>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" data-text="web.groups.save"></button>
+                            <button type="button" id="groupClear" data-text="web.groups.new"></button>
+                        </div>
+                        <p class="hint" data-text="web.groups.nameHint"></p>
+                        <div class="form-actions"><button type="button" class="secondary" data-back="groups" data-text="web.ui.backToList"></button></div></form>
 
-        <h3 data-text="web.audit.title"></h3>
-        <form id="auditForm" class="row">
-            <label data-text="web.reports.from" for="auditFrom"></label>
-            <input id="auditFrom" type="date">
-            <label data-text="web.reports.to" for="auditTo"></label>
-            <input id="auditTo" type="date">
-            <label data-text="web.audit.actor" for="auditActor"></label>
-            <select id="auditActor"></select>
-            <label data-text="web.audit.category" for="auditCategory"></label>
-            <select id="auditCategory"></select>
-            <button type="submit" data-text="web.common.refresh"></button>
-        </form>
-        <p id="auditSummary" class="result"></p>
-        <table id="auditTable"></table>
-    </section>
+                </div>
 
-    <section id="view-alerts" class="view hidden">
-        <h2 data-text="web.alerts.inbox"></h2>
-        <form id="alertForm" class="row">
-            <label data-text="web.reports.from" for="alertFrom"></label>
-            <input id="alertFrom" type="date">
-            <label data-text="web.reports.to" for="alertTo"></label>
-            <input id="alertTo" type="date">
-            <label data-text="web.alerts.category" for="alertCategory"></label>
-            <select id="alertCategory"></select>
-            <label data-text="web.alerts.severity" for="alertSeverity"></label>
-            <select id="alertSeverity"></select>
-            <label><input id="alertOpenOnly" type="checkbox" checked> <span data-text="web.alerts.openOnly"></span></label>
-            <button type="submit" data-text="web.common.refresh"></button>
-            <button type="button" id="alertScan" data-text="web.alerts.scanNow"></button>
-        </form>
-        <p id="alertSummary" class="result"></p>
-        <table id="alertTable"></table>
+                <div id="panel-groups-roster" role="tabpanel" aria-labelledby="tab-groups-roster" data-panel-group="groups" data-panel-name="roster" class="hidden">
+                    <h3 id="rosterTitle"></h3>
+                    <div class="table-scroll" tabindex="0"><table id="rosterTable"></table></div>
+                </div>
+            </section>
 
-        <form id="scanSettingsForm" class="row">
-            <label><input id="scanEnabled" type="checkbox"> <span data-text="web.alerts.masterSwitch"></span></label>
-            <label data-text="web.alerts.scanTime" for="scanTime"></label>
-            <input id="scanTime" type="time">
-            <button type="submit" data-text="web.alerts.saveScan"></button>
-        </form>
-        <p id="scanState" class="result"></p>
-        <p class="hint" data-text="web.alerts.scanNote"></p>
+            <section id="view-finance" class="view hidden">
+                <h2 data-text="web.nav.finance"></h2>
+                <p class="view-description" data-text="web.ui.financeHint"></p>
+                <div class="section-tabs" role="tablist" data-tabs="finance">
+                    <button type="button" role="tab" id="tab-finance-expenses" aria-controls="panel-finance-expenses" aria-selected="true" tabindex="0" data-panel="expenses" data-text="web.expenses.title"></button>
+                    <button type="button" role="tab" id="tab-finance-payouts" aria-controls="panel-finance-payouts" aria-selected="false" tabindex="-1" data-panel="payouts" data-text="web.payouts.title"></button>
+                </div>
 
-        <h3 data-text="web.rules.title"></h3>
-        <p id="ruleSummary" class="result"></p>
-        <table id="ruleTable"></table>
-        <form id="ruleForm" class="row hidden">
-            <strong id="ruleSubject"></strong>
-            <p id="ruleDescription" class="hint"></p>
-            <label><input id="ruleEnabled" type="checkbox"> <span data-text="web.rules.enabled"></span></label>
-            <label data-text="web.rules.audience" for="ruleAudience"></label>
-            <select id="ruleAudience"></select>
-            <label data-text="web.rules.severity" for="ruleSeverity"></label>
-            <select id="ruleSeverity"></select>
-            <label id="ruleThresholdLabel" for="ruleThreshold"></label>
-            <input id="ruleThreshold" type="number" min="0" step="1">
-            <label id="ruleWindowLabel" for="ruleWindow"></label>
-            <input id="ruleWindow" type="number" min="1" step="1">
-            <label id="ruleCooldownLabel" data-text="web.rules.cooldown" for="ruleCooldown"></label>
-            <input id="ruleCooldown" type="number" min="0" step="1">
-            <p id="ruleAudienceNote" class="hint"></p>
-            <button type="submit" data-text="web.rules.save"></button>
-            <button type="button" id="ruleCancel" data-text="web.rules.cancel"></button>
-        </form>
-        <p id="ruleResult" class="result"></p>
+                <div id="panel-finance-expenses" role="tabpanel" aria-labelledby="tab-finance-expenses" data-panel-group="finance" data-panel-name="expenses">
+                    <form id="expenseReportForm" class="filter-form">
+                        <div class="form-field">
+                            <label data-text="web.reports.from" for="expenseFrom"></label>
+                            <input id="expenseFrom" type="date">
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.reports.to" for="expenseTo"></label>
+                            <input id="expenseTo" type="date">
+                        </div>
+                        <div class="form-field">
+                            <label for="expenseQuery" data-text="web.expenses.search"></label>
+                            <input id="expenseQuery" data-placeholder="web.expenses.search">
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" data-text="web.common.refresh"></button>
+                            <a id="expensesPdf" href="#" target="_blank" rel="noopener" data-text="web.expenses.pdf"></a>
+                        </div>
+                    </form>
+                    <p id="expenseSummary" class="result"></p>
+                    <div class="table-scroll" tabindex="0"><table id="expenseTable"></table></div>
 
-        <h3 data-text="web.notify.title"></h3>
-        <p id="notifyChannel" class="hint"></p>
-        <form id="notifyForm" class="row">
-            <label data-text="web.notify.type" for="notifyType"></label>
-            <select id="notifyType"></select>
-            <label data-text="web.notify.group" for="notifyGroup"></label>
-            <select id="notifyGroup"></select>
-            <label data-text="web.reports.from" for="notifyFrom"></label>
-            <input id="notifyFrom" type="date">
-            <label data-text="web.reports.to" for="notifyTo"></label>
-            <input id="notifyTo" type="date">
-            <button type="submit" data-text="web.notify.build"></button>
-        </form>
-        <p id="notifySummary" class="result"></p>
-        <table id="notifyTable"></table>
-        <p id="notifyResult" class="result"></p>
-        <p id="notifyHandOff" class="result"></p>
+                </div>
 
-        <h4 data-text="web.notify.logTitle"></h4>
-        <table id="notifyLogTable"></table>
-    </section>
+                <div id="panel-finance-payouts" role="tabpanel" aria-labelledby="tab-finance-payouts" data-panel-group="finance" data-panel-name="payouts" class="hidden">
+                    <h3 data-text="web.payouts.title"></h3>
+                    <form id="payoutForm" class="filter-form">
+                        <div class="form-field">
+                            <label data-text="web.payouts.teacher" for="payoutTeacher"></label>
+                            <select id="payoutTeacher"></select>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" data-text="web.common.refresh"></button>
+                            <a id="statementPdf" href="#" target="_blank" rel="noopener" data-text="web.payouts.statement"></a>
+                        </div>
+                    </form>
+                    <p id="payoutResult" class="result"></p>
+                    <div class="table-scroll" tabindex="0"><table id="payoutTable"></table></div>
+                </div>
+            </section>
 
-    <section id="view-reports" class="view hidden">
-        <h2 data-text="web.reports.title"></h2>
-        <form id="reportForm" class="row">
-            <label data-text="web.reports.from" for="reportFrom"></label>
-            <input id="reportFrom" type="date">
-            <label data-text="web.reports.to" for="reportTo"></label>
-            <input id="reportTo" type="date">
-        </form>
-        <ul class="reports">
-            <li data-admin-only><a id="arrearsPdf" href="#" target="_blank" rel="noopener" data-text="web.reports.arrears"></a></li>
-            <li data-admin-only><a id="shiftPdf" href="#" target="_blank" rel="noopener" data-text="web.reports.shift"></a></li>
-            <li><a id="attendanceLogPdf" href="#" target="_blank" rel="noopener" data-text="web.reports.attendanceLog"></a></li>
-        </ul>
-    </section>
+            <section id="view-admin" class="view hidden">
+                <h2 data-text="web.nav.admin"></h2>
+                <p class="view-description" data-text="web.ui.adminHint"></p>
+                <div class="section-tabs" role="tablist" data-tabs="admin">
+                    <button type="button" role="tab" id="tab-admin-settings" aria-controls="panel-admin-settings" aria-selected="true" tabindex="0" data-panel="settings" data-text="web.settings.title"></button>
+                    <button type="button" role="tab" id="tab-admin-teachers" aria-controls="panel-admin-teachers" aria-selected="false" tabindex="-1" data-panel="teachers" data-text="web.teachers.title"></button>
+                    <button type="button" role="tab" id="tab-admin-users" aria-controls="panel-admin-users" aria-selected="false" tabindex="-1" data-panel="users" data-text="web.users.title"></button>
+                    <button type="button" role="tab" id="tab-admin-audit" aria-controls="panel-admin-audit" aria-selected="false" tabindex="-1" data-panel="audit" data-text="web.audit.title"></button>
+                </div>
 
-    <aside id="alerts">
-        <h3 data-text="web.alerts.title"></h3>
-        <ul id="alertList"></ul>
-    </aside>
-</div>
+                <div id="panel-admin-settings" role="tabpanel" aria-labelledby="tab-admin-settings" data-panel-group="admin" data-panel-name="settings">
+                    <form id="settingsForm" class="settings-form">
+                        <div class="section-tabs" role="tablist" data-tabs="settings">
+                            <button type="button" role="tab" id="tab-settings-general" aria-controls="panel-settings-general" aria-selected="true" tabindex="0" data-panel="general" data-text="web.tabs.general"></button>
+                            <button type="button" role="tab" id="tab-settings-backup" aria-controls="panel-settings-backup" aria-selected="false" tabindex="-1" data-panel="backup" data-text="web.tabs.backup"></button>
+                            <button type="button" role="tab" id="tab-settings-messaging" aria-controls="panel-settings-messaging" aria-selected="false" tabindex="-1" data-panel="messaging" data-text="web.tabs.messaging"></button>
+                        </div>
 
-<script src="app.js"></script>
-</body>
+                        <div id="panel-settings-general" role="tabpanel" aria-labelledby="tab-settings-general" data-panel-group="settings" data-panel-name="general">
+                            <div class="settings-fields">
+                                <div class="setting-field">
+                                    <label data-text="web.settings.centerName" for="setCenterName"></label>
+                                    <input id="setCenterName">
+                                </div>
+                                <div class="setting-field">
+                                    <label data-text="web.settings.centerPhone" for="setCenterPhone"></label>
+                                    <input id="setCenterPhone">
+                                </div>
+                                <div class="setting-field">
+                                    <label data-text="web.settings.currency" for="setCurrency"></label>
+                                    <select id="setCurrency"></select>
+                                </div>
+                                <div class="setting-field">
+                                    <label data-text="web.settings.logoPath" for="setLogoPath"></label>
+                                    <input id="setLogoPath">
+                                </div>
+                                <div class="setting-field">
+                                    <label data-text="web.settings.ledgerStart" for="setLedgerStart"></label>
+                                    <input id="setLedgerStart" type="date">
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div id="panel-settings-backup" role="tabpanel" aria-labelledby="tab-settings-backup" data-panel-group="settings" data-panel-name="backup" class="hidden">
+                            <div class="settings-fields">
+                                <label><input id="setAutoBackup" type="checkbox"> <span data-text="web.settings.autoBackup"></span></label>
+                                <div class="setting-field">
+                                    <label data-text="web.settings.backupPath" for="setBackupPath"></label>
+                                    <input id="setBackupPath">
+                                </div>
+                                <div class="setting-field">
+                                    <label data-text="web.settings.backupFrequency" for="setBackupFrequency"></label>
+                                    <select id="setBackupFrequency"></select>
+                                </div>
+                                <div class="setting-field">
+                                    <label data-text="web.settings.backupTime" for="setBackupTime"></label>
+                                    <input id="setBackupTime" type="time">
+                                </div>
+                                <div class="setting-field">
+                                    <label data-text="web.settings.backupRetention" for="setBackupRetention"></label>
+                                    <input id="setBackupRetention" type="number" min="0" step="1">
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div id="panel-settings-messaging" role="tabpanel" aria-labelledby="tab-settings-messaging" data-panel-group="settings" data-panel-name="messaging" class="hidden">
+                            <div class="settings-fields">
+                                <div class="setting-field">
+                                    <label data-text="web.settings.channel" for="setChannel"></label>
+                                    <select id="setChannel"></select>
+                                </div>
+                                <div class="setting-field">
+                                    <label data-text="web.settings.apiUrl" for="setApiUrl"></label>
+                                    <input id="setApiUrl">
+                                </div>
+                                <div class="setting-field">
+                                    <label data-text="web.settings.senderId" for="setSenderId"></label>
+                                    <input id="setSenderId">
+                                </div>
+                                <div class="setting-field">
+                                    <label data-text="web.settings.templateName" for="setTemplateName"></label>
+                                    <input id="setTemplateName">
+                                </div>
+                                <div class="setting-field">
+                                    <label data-text="web.settings.templateLanguage" for="setTemplateLanguage"></label>
+                                    <input id="setTemplateLanguage">
+                                </div>
+                                <div class="setting-field">
+                                    <label data-text="web.settings.bodyTemplate" for="setBodyTemplate"></label>
+                                    <input id="setBodyTemplate">
+                                </div>
+
+                            </div>
+                        </div>
+                        <button type="submit" data-text="web.settings.save"></button>
+                        <p class="hint" data-text="web.settings.secretsHint"></p>
+                    </form>
+                    <p id="settingsState" class="result"></p>
+                    <p class="hint" data-text="web.settings.stateHint"></p>
+                    <p id="settingsResult" class="result"></p>
+
+                </div>
+
+                <div id="panel-admin-teachers" role="tabpanel" aria-labelledby="tab-admin-teachers" data-panel-group="admin" data-panel-name="teachers" class="hidden">
+                    <p id="teacherResult" class="result"></p>
+                    <div class="section-tabs" role="tablist" data-tabs="teachers">
+                        <button type="button" role="tab" id="tab-teachers-list" aria-controls="panel-teachers-list" aria-selected="true" tabindex="0" data-panel="list" data-text="web.ui.teachersList"></button>
+                        <button type="button" role="tab" id="tab-teachers-edit" aria-controls="panel-teachers-edit" aria-selected="false" tabindex="-1" data-panel="edit" data-text="web.ui.teacherForm"></button>
+                    </div>
+                    <div id="panel-teachers-list" role="tabpanel" aria-labelledby="tab-teachers-list" data-panel-group="teachers" data-panel-name="list">
+                        <div class="panel-actions"><button type="button" id="teacherAdd" data-text="web.teachers.new"></button></div>
+                        <div class="table-scroll" tabindex="0"><table id="teacherTable"></table></div>
+                    </div>
+                    <div id="panel-teachers-edit" role="tabpanel" aria-labelledby="tab-teachers-edit" data-panel-group="teachers" data-panel-name="edit" class="hidden">
+                        <form id="teacherForm" class="data-form">
+                            <input id="teacherId" type="hidden">
+                            <div class="form-field">
+                                <label data-text="web.teachers.name" for="teacherName"></label>
+                                <input id="teacherName" required>
+                            </div>
+                            <div class="form-field">
+                                <label data-text="web.teachers.subject" for="teacherSubject"></label>
+                                <input id="teacherSubject">
+                            </div>
+                            <div class="form-field">
+                                <label data-text="web.teachers.commissionType" for="teacherCommissionType"></label>
+                                <select id="teacherCommissionType"></select>
+                            </div>
+                            <div class="form-field">
+                                <label data-text="web.teachers.commissionValue" for="teacherCommissionValue"></label>
+                                <input id="teacherCommissionValue" type="number" min="0" step="0.01">
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" data-text="web.teachers.save"></button>
+                                <button type="button" id="teacherClear" data-text="web.teachers.new"></button>
+                            </div>
+                            <div class="form-actions"><button type="button" class="secondary" data-back="teachers" data-text="web.ui.backToList"></button></div></form>
+                    </div>
+                </div>
+
+                <div id="panel-admin-users" role="tabpanel" aria-labelledby="tab-admin-users" data-panel-group="admin" data-panel-name="users" class="hidden">
+                    <p id="userResult" class="result"></p>
+                    <div class="section-tabs" role="tablist" data-tabs="users">
+                        <button type="button" role="tab" id="tab-users-list" aria-controls="panel-users-list" aria-selected="true" tabindex="0" data-panel="list" data-text="web.ui.usersList"></button>
+                        <button type="button" role="tab" id="tab-users-edit" aria-controls="panel-users-edit" aria-selected="false" tabindex="-1" data-panel="edit" data-text="web.ui.userForm"></button>
+                    </div>
+                    <div id="panel-users-list" role="tabpanel" aria-labelledby="tab-users-list" data-panel-group="users" data-panel-name="list">
+                        <div class="panel-actions"><button type="button" id="userAdd" data-text="web.users.new"></button></div>
+                        <div class="table-scroll" tabindex="0"><table id="userTable"></table></div>
+                    </div>
+                    <div id="panel-users-edit" role="tabpanel" aria-labelledby="tab-users-edit" data-panel-group="users" data-panel-name="edit" class="hidden">
+                        <form id="userForm" class="data-form">
+                            <input id="userId" type="hidden">
+                            <div class="form-field">
+                                <label data-text="web.users.username" for="userName"></label>
+                                <input id="userName" autocomplete="off" required>
+                            </div>
+                            <div class="form-field">
+                                <label data-text="web.users.role" for="userRole"></label>
+                                <select id="userRole"></select>
+                            </div>
+                            <div class="form-field">
+                                <label data-text="web.users.password" for="userPassword"></label>
+                                <input id="userPassword" type="password" autocomplete="new-password">
+                            </div>
+                            <div class="form-field">
+                                <label data-text="web.users.confirmation" for="userConfirmation"></label>
+                                <input id="userConfirmation" type="password" autocomplete="new-password">
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" data-text="web.users.save"></button>
+                                <button type="button" id="userClear" data-text="web.users.new"></button>
+                            </div>
+                            <p class="hint" data-text="web.users.passwordHint"></p>
+                            <div class="form-actions"><button type="button" class="secondary" data-back="users" data-text="web.ui.backToList"></button></div></form>
+                    </div>
+                </div>
+
+                <div id="panel-admin-audit" role="tabpanel" aria-labelledby="tab-admin-audit" data-panel-group="admin" data-panel-name="audit" class="hidden">
+                    <h3 data-text="web.audit.title"></h3>
+                    <form id="auditForm" class="filter-form">
+                        <div class="form-field">
+                            <label data-text="web.reports.from" for="auditFrom"></label>
+                            <input id="auditFrom" type="date">
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.reports.to" for="auditTo"></label>
+                            <input id="auditTo" type="date">
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.audit.actor" for="auditActor"></label>
+                            <select id="auditActor"></select>
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.audit.category" for="auditCategory"></label>
+                            <select id="auditCategory"></select>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" data-text="web.common.refresh"></button>
+                        </div>
+                    </form>
+                    <p id="auditSummary" class="result"></p>
+                    <div class="table-scroll" tabindex="0"><table id="auditTable"></table></div>
+                </div>
+            </section>
+
+            <section id="view-alerts" class="view hidden">
+                <h2 data-text="web.nav.alerts"></h2>
+                <p class="view-description" data-text="web.ui.alertsHint"></p>
+                <div class="section-tabs" role="tablist" data-tabs="alerts">
+                    <button type="button" role="tab" id="tab-alerts-inbox" aria-controls="panel-alerts-inbox" aria-selected="true" tabindex="0" data-panel="inbox" data-text="web.alerts.inbox"></button>
+                    <button type="button" role="tab" id="tab-alerts-settings" aria-controls="panel-alerts-settings" aria-selected="false" tabindex="-1" data-panel="settings" data-text="web.ui.alertSettings"></button>
+                    <button type="button" role="tab" id="tab-alerts-rules" aria-controls="panel-alerts-rules" aria-selected="false" tabindex="-1" data-panel="rules" data-text="web.rules.title"></button>
+                    <button type="button" role="tab" id="tab-alerts-messages" aria-controls="panel-alerts-messages" aria-selected="false" tabindex="-1" data-panel="messages" data-text="web.notify.title"></button>
+                    <button type="button" role="tab" id="tab-alerts-history" aria-controls="panel-alerts-history" aria-selected="false" tabindex="-1" data-panel="history" data-text="web.notify.logTitle"></button>
+                </div>
+
+                <div id="panel-alerts-inbox" role="tabpanel" aria-labelledby="tab-alerts-inbox" data-panel-group="alerts" data-panel-name="inbox">
+                    <form id="alertForm" class="filter-form">
+                        <div class="form-field">
+                            <label data-text="web.reports.from" for="alertFrom"></label>
+                            <input id="alertFrom" type="date">
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.reports.to" for="alertTo"></label>
+                            <input id="alertTo" type="date">
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.alerts.category" for="alertCategory"></label>
+                            <select id="alertCategory"></select>
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.alerts.severity" for="alertSeverity"></label>
+                            <select id="alertSeverity"></select>
+                        </div>
+                        <label><input id="alertOpenOnly" type="checkbox" checked> <span data-text="web.alerts.openOnly"></span></label>
+                        <div class="form-actions">
+                            <button type="submit" data-text="web.common.refresh"></button>
+                            <button type="button" id="alertScan" data-text="web.alerts.scanNow"></button>
+                        </div>
+                    </form>
+                    <p id="alertSummary" class="result"></p>
+                    <div class="table-scroll" tabindex="0"><table id="alertTable"></table></div>
+
+                </div>
+
+                <div id="panel-alerts-rules" role="tabpanel" aria-labelledby="tab-alerts-rules" data-panel-group="alerts" data-panel-name="rules" class="hidden">
+                    <h3 data-text="web.rules.title"></h3>
+                    <p id="ruleSummary" class="result"></p>
+                    <div class="table-scroll" tabindex="0"><table id="ruleTable"></table></div>
+                    <form id="ruleForm" class="data-form hidden">
+                        <strong id="ruleSubject"></strong>
+                        <p id="ruleDescription" class="hint"></p>
+                        <label><input id="ruleEnabled" type="checkbox"> <span data-text="web.rules.enabled"></span></label>
+                        <div class="form-field">
+                            <label data-text="web.rules.audience" for="ruleAudience"></label>
+                            <select id="ruleAudience"></select>
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.rules.severity" for="ruleSeverity"></label>
+                            <select id="ruleSeverity"></select>
+                        </div>
+                        <div class="form-field">
+                            <label id="ruleThresholdLabel" for="ruleThreshold"></label>
+                            <input id="ruleThreshold" type="number" min="0" step="1">
+                        </div>
+                        <div class="form-field">
+                            <label id="ruleWindowLabel" for="ruleWindow"></label>
+                            <input id="ruleWindow" type="number" min="1" step="1">
+                        </div>
+                        <div class="form-field">
+                            <label id="ruleCooldownLabel" data-text="web.rules.cooldown" for="ruleCooldown"></label>
+                            <input id="ruleCooldown" type="number" min="0" step="1">
+                        </div>
+                        <p id="ruleAudienceNote" class="hint"></p>
+                        <div class="form-actions">
+                            <button type="submit" data-text="web.rules.save"></button>
+                            <button type="button" id="ruleCancel" data-text="web.rules.cancel"></button>
+                        </div>
+                    </form>
+                    <p id="ruleResult" class="result"></p>
+
+                </div>
+
+                <div id="panel-alerts-settings" role="tabpanel" aria-labelledby="tab-alerts-settings" data-panel-group="alerts" data-panel-name="settings" class="hidden">
+                    <form id="scanSettingsForm" class="data-form">
+                        <label><input id="scanEnabled" type="checkbox"> <span data-text="web.alerts.masterSwitch"></span></label>
+                        <div class="form-field">
+                            <label data-text="web.alerts.scanTime" for="scanTime"></label>
+                            <input id="scanTime" type="time">
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" data-text="web.alerts.saveScan"></button>
+                        </div>
+                    </form>
+                    <p id="scanState" class="result"></p>
+                    <p id="scanSettingsResult" class="result"></p>
+                    <p class="hint" data-text="web.alerts.scanNote"></p>
+
+                </div>
+
+                <div id="panel-alerts-messages" role="tabpanel" aria-labelledby="tab-alerts-messages" data-panel-group="alerts" data-panel-name="messages" class="hidden">
+                    <h3 data-text="web.notify.title"></h3>
+                    <p id="notifyChannel" class="hint"></p>
+                    <form id="notifyForm" class="filter-form">
+                        <div class="form-field">
+                            <label data-text="web.notify.type" for="notifyType"></label>
+                            <select id="notifyType"></select>
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.notify.group" for="notifyGroup"></label>
+                            <select id="notifyGroup"></select>
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.reports.from" for="notifyFrom"></label>
+                            <input id="notifyFrom" type="date">
+                        </div>
+                        <div class="form-field">
+                            <label data-text="web.reports.to" for="notifyTo"></label>
+                            <input id="notifyTo" type="date">
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" data-text="web.notify.build"></button>
+                        </div>
+                    </form>
+                    <p id="notifySummary" class="result"></p>
+                    <div class="table-scroll" tabindex="0"><table id="notifyTable"></table></div>
+                    <p id="notifyResult" class="result"></p>
+                    <p id="notifyHandOff" class="result"></p>
+
+                </div>
+
+                <div id="panel-alerts-history" role="tabpanel" aria-labelledby="tab-alerts-history" data-panel-group="alerts" data-panel-name="history" class="hidden">
+                    <h4 data-text="web.notify.logTitle"></h4>
+                    <p id="notifyLogResult" class="result"></p>
+                    <div class="table-scroll" tabindex="0"><table id="notifyLogTable"></table></div>
+                </div>
+            </section>
+
+            <section id="view-reports" class="view hidden">
+                <h2 data-text="web.reports.title"></h2>
+                <p class="view-description" data-text="web.ui.reportsHint"></p>
+                <form id="reportForm" class="filter-form">
+                    <div class="form-field">
+                        <label data-text="web.reports.from" for="reportFrom"></label>
+                        <input id="reportFrom" type="date">
+                    </div>
+                    <div class="form-field">
+                        <label data-text="web.reports.to" for="reportTo"></label>
+                        <input id="reportTo" type="date">
+                    </div>
+                </form>
+                <ul class="reports">
+                    <li data-admin-only><a id="arrearsPdf" href="#" target="_blank" rel="noopener" data-text="web.reports.arrears"></a><p class="hint" data-text="web.ui.report.arrears"></p></li>
+                    <li data-admin-only><a id="shiftPdf" href="#" target="_blank" rel="noopener" data-text="web.reports.shift"></a><p class="hint" data-text="web.ui.report.shift"></p></li>
+                    <li><a id="attendanceLogPdf" href="#" target="_blank" rel="noopener" data-text="web.reports.attendanceLog"></a><p class="hint" data-text="web.ui.report.attendance"></p></li>
+                </ul>
+            </section>
+
+            <aside id="alerts">
+                <details>
+                    <summary data-text="web.alerts.title"></summary>
+                    <ul id="alertList"></ul>
+                </details>
+            </aside>
+        </div>
+
+        <script src="app.js"></script>
+    </body>
 </html>
