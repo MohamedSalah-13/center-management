@@ -17,7 +17,7 @@
         <TextField fx:id="nameField" GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
         <Label text="%teacher.subject" GridPane.columnIndex="2" GridPane.rowIndex="0" />
-        <TextField fx:id="subjectField" GridPane.columnIndex="3" GridPane.rowIndex="0" />
+        <ComboBox fx:id="subjectField" maxWidth="Infinity" GridPane.columnIndex="3" GridPane.rowIndex="0" />
 
         <Label text="%teacher.commissionType" GridPane.columnIndex="0" GridPane.rowIndex="1" />
         <ComboBox fx:id="typeCombo" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="1" />
@@ -29,6 +29,7 @@
             <Button text="%common.saveNew" onAction="#handleSaveAction" style="-fx-background-color: #27ae60; -fx-text-fill: white;" />
             <Button fx:id="updateButton" text="%common.edit" disable="true" onAction="#handleUpdateAction" style="-fx-background-color: #f39c12; -fx-text-fill: white;" />
             <Button fx:id="deleteButton" text="%common.delete" disable="true" onAction="#handleDeleteAction" style="-fx-background-color: #e74c3c; -fx-text-fill: white;" />
+            <Button text="%subject.title" onAction="#handleSubjects" />
             <Button text="%common.cancel" onAction="#clearFields" style="-fx-background-color: #95a5a6; -fx-text-fill: white;" />
         </HBox>
     </GridPane>

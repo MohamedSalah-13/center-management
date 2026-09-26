@@ -61,6 +61,10 @@ public enum AuditAction {
     GROUP_UPDATED(AuditCategory.DATA),
     GROUP_DELETED(AuditCategory.DATA),
 
+    SUBJECT_CREATED(AuditCategory.DATA),
+    SUBJECT_UPDATED(AuditCategory.DATA),
+    SUBJECT_DELETED(AuditCategory.DATA),
+
     TEACHER_CREATED(AuditCategory.DATA),
     TEACHER_UPDATED(AuditCategory.DATA),
     TEACHER_DELETED(AuditCategory.DATA),

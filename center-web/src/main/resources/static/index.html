@@ -431,6 +431,7 @@
                 <div class="section-tabs" role="tablist" data-tabs="admin">
                     <button type="button" role="tab" id="tab-admin-settings" aria-controls="panel-admin-settings" aria-selected="true" tabindex="0" data-panel="settings" data-text="web.settings.title"></button>
                     <button type="button" role="tab" id="tab-admin-teachers" aria-controls="panel-admin-teachers" aria-selected="false" tabindex="-1" data-panel="teachers" data-text="web.teachers.title"></button>
+                    <button type="button" role="tab" id="tab-admin-subjects" aria-controls="panel-admin-subjects" aria-selected="false" tabindex="-1" data-panel="subjects" data-text="web.subject.title"></button>
                     <button type="button" role="tab" id="tab-admin-users" aria-controls="panel-admin-users" aria-selected="false" tabindex="-1" data-panel="users" data-text="web.users.title"></button>
                     <button type="button" role="tab" id="tab-admin-audit" aria-controls="panel-admin-audit" aria-selected="false" tabindex="-1" data-panel="audit" data-text="web.audit.title"></button>
                 </div>
@@ -538,6 +539,7 @@
                     </div>
                     <div id="panel-teachers-list" role="tabpanel" aria-labelledby="tab-teachers-list" data-panel-group="teachers" data-panel-name="list">
                         <div class="panel-actions"><button type="button" id="teacherAdd" data-text="web.teachers.new"></button></div>
+                        <div class="form-field"><label for="teacherSubjectFilter" data-text="web.teachers.filterSubject"></label><select id="teacherSubjectFilter"></select></div>
                         <div class="table-scroll" tabindex="0"><table id="teacherTable"></table></div>
                     </div>
                     <div id="panel-teachers-edit" role="tabpanel" aria-labelledby="tab-teachers-edit" data-panel-group="teachers" data-panel-name="edit" class="hidden">
@@ -549,7 +551,7 @@
                             </div>
                             <div class="form-field">
                                 <label data-text="web.teachers.subject" for="teacherSubject"></label>
-                                <input id="teacherSubject">
+                                <select id="teacherSubject" required></select>
                             </div>
                             <div class="form-field">
                                 <label data-text="web.teachers.commissionType" for="teacherCommissionType"></label>
@@ -567,6 +569,23 @@
                     </div>
                 </div>
 
+                <div id="panel-admin-subjects" role="tabpanel" aria-labelledby="tab-admin-subjects" data-panel-group="admin" data-panel-name="subjects" class="hidden">
+                    <p data-text="web.subject.hint"></p><p id="subjectResult" class="result"></p>
+                    <div class="section-tabs" role="tablist" data-tabs="subjects">
+                        <button type="button" role="tab" id="tab-subjects-list" aria-controls="panel-subjects-list" aria-selected="true" tabindex="0" data-panel="list" data-text="web.subject.list"></button>
+                        <button type="button" role="tab" id="tab-subjects-edit" aria-controls="panel-subjects-edit" aria-selected="false" tabindex="-1" data-panel="edit" data-text="web.subject.form"></button>
+                    </div>
+                    <div id="panel-subjects-list" role="tabpanel" aria-labelledby="tab-subjects-list" data-panel-group="subjects" data-panel-name="list">
+                        <button type="button" id="subjectAdd" data-text="web.common.new"></button>
+                        <div class="table-scroll" tabindex="0"><table id="subjectTable"></table></div>
+                    </div>
+                    <div id="panel-subjects-edit" role="tabpanel" aria-labelledby="tab-subjects-edit" data-panel-group="subjects" data-panel-name="edit" class="hidden">
+                        <form id="subjectForm" class="data-form"><input id="subjectId" type="hidden">
+                            <div class="form-field"><label for="subjectName" data-text="web.subject.name"></label><input id="subjectName" required maxlength="50"></div>
+                            <div class="form-actions"><button type="submit" data-text="web.common.save"></button><button type="button" data-back="subjects" data-text="web.ui.backToList"></button></div>
+                        </form>
+                    </div>
+                </div>
                 <div id="panel-admin-users" role="tabpanel" aria-labelledby="tab-admin-users" data-panel-group="admin" data-panel-name="users" class="hidden">
                     <p id="userResult" class="result"></p>
                     <div class="section-tabs" role="tablist" data-tabs="users">

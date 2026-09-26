@@ -48,7 +48,7 @@ class MembershipQueryTest {
     @BeforeEach
     void setUp() {
         Teacher teacher = teacherRepository.saveAndFlush(Teacher.builder()
-                .name("معلم الكشف").subject("رياضيات")
+                .name("معلم الكشف").subjectDefinition(subject("رياضيات"))
                 .commissionType("PERCENTAGE").commissionValue(new BigDecimal("50.00"))
                 .build());
 
@@ -171,5 +171,12 @@ class MembershipQueryTest {
     private void attend(Student student, Session session) {
         attendanceRepository.saveAndFlush(Attendance.builder()
                 .student(student).session(session).timeIn(LocalDateTime.now()).build());
+    }
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.codejava.center.repository.SubjectRepository subjectRepository;
+    private com.codejava.center.domain.Subject subject(String name) {
+        String key = com.codejava.center.core.catalog.SubjectNames.key(name);
+        return subjectRepository.findByNameKey(key).orElseGet(() -> subjectRepository.saveAndFlush(
+                new com.codejava.center.domain.Subject(name, key)));
     }
 }

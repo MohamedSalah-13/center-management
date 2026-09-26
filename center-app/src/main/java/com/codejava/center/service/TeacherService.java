@@ -30,6 +30,7 @@ import java.util.List;
 public class TeacherService {
 
     private final TeacherRepository teacherRepository;
+    private final com.codejava.center.repository.SubjectRepository subjectRepository;
     private final SessionRepository sessionRepository;
     private final AttendanceRepository attendanceRepository;
     private final StudentGroupRepository studentGroupRepository;
@@ -203,7 +204,9 @@ public class TeacherService {
                         .orElseThrow(() -> new IllegalStateException(I18n.get("error.teacher.notFound")));
 
         teacher.setName(name);
-        teacher.setSubject(draft.subject());
+        if (draft.subjectId() == null) throw new IllegalArgumentException(I18n.get("subject.required"));
+        teacher.setSubjectDefinition(subjectRepository.findById(draft.subjectId())
+                .orElseThrow(() -> new IllegalArgumentException(I18n.get("subject.notFound"))));
         teacher.setCommissionType(draft.commissionType());
         teacher.setCommissionValue(MoneyUtils.normalize(draft.commissionValue()));
 
@@ -213,7 +216,8 @@ public class TeacherService {
         auditService.record(isNew ? AuditAction.TEACHER_CREATED : AuditAction.TEACHER_UPDATED,
                 saved.getId(), saved.getName(),
                 "commission=" + saved.getCommissionType()
-                        + "; value=" + MoneyUtils.format(saved.getCommissionValue()));
+                        + "; value=" + MoneyUtils.format(saved.getCommissionValue())
+                        + "; subjectId=" + saved.getSubjectDefinition().getId());
 
         return saved;
     }

@@ -676,6 +676,7 @@ async function showPayments(student) {
 
 let days = [];
 let teachers = [];
+let subjects = [];
 
 async function loadGroups() {
     if (!days.length) {
@@ -1040,11 +1041,13 @@ async function loadTeachers() {
         fill(document.getElementById('teacherCommissionType'),
             commissionTypes.map((type) => ({value: type.name, label: type.label})), null);
     }
+    await loadSubjects();
     await refreshTeachers();
 }
 
 async function refreshTeachers() {
-    const rows = await get('/api/teachers?withCommission=true');
+    const subjectId = document.getElementById('teacherSubjectFilter').value;
+    const rows = await get('/api/teachers?withCommission=true' + (subjectId ? '&subjectId=' + encodeURIComponent(subjectId) : ''));
     teachers = rows;
 
     table('teacherTable',
@@ -1063,7 +1066,7 @@ function editTeacher(row) {
     openPanel('teachers', 'edit');
     document.getElementById('teacherId').value = row.id;
     document.getElementById('teacherName').value = row.name || '';
-    document.getElementById('teacherSubject').value = row.subject || '';
+    document.getElementById('teacherSubject').value = row.subjectId || '';
     document.getElementById('teacherCommissionType').value = row.commissionType || '';
     document.getElementById('teacherCommissionValue').value =
         row.commissionValue === null ? '' : row.commissionValue;
@@ -1081,7 +1084,7 @@ async function saveTeacher() {
     const value = document.getElementById('teacherCommissionValue').value;
     const body = {
         name: document.getElementById('teacherName').value.trim(),
-        subject: document.getElementById('teacherSubject').value.trim(),
+        subjectId: document.getElementById('teacherSubject').value ? Number(document.getElementById('teacherSubject').value) : null,
         commissionType: document.getElementById('teacherCommissionType').value,
         commissionValue: value === '' ? null : value
     };
@@ -1785,6 +1788,7 @@ function leaveApp() {
     enrolmentSubject = null;
     levels = [];
     teachers = [];
+    subjects = [];
     days = [];
     commissionTypes = [];
 
@@ -1814,6 +1818,7 @@ function leaveApp() {
     clearStudentForm();
     clearGroupForm();
     clearTeacherForm();
+    clearSubjectForm();
     clearUserForm();
     show('appError', '', false);
 }
@@ -2061,6 +2066,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         saveSettings().catch((error) => show('settingsResult', error.message, true));
     });
 
+    document.getElementById('teacherSubjectFilter').addEventListener('change', () => refreshTeachers().catch(e => show('teacherResult', e.message, true)));
+    document.getElementById('subjectAdd').addEventListener('click', () => {
+        clearSubjectForm(); show('subjectResult', '', false); openPanel('subjects', 'edit'); document.getElementById('subjectName').focus();
+    });
+    document.getElementById('subjectForm').addEventListener('submit', event => {
+        event.preventDefault(); saveSubject().catch(e => show('subjectResult', e.message, true));
+    });
     document.getElementById('teacherForm').addEventListener('submit', (event) => {
         event.preventDefault();
         saveTeacher().catch((error) => show('teacherResult', error.message, true));
@@ -2129,3 +2141,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         // لا جلسة؛ شاشة الدخول هي المعروضة أصلاً
     }
 });
+
+async function loadSubjects() {
+    subjects = await get('/api/subjects');
+    const options = subjects.map(row => ({value: row.id, label: row.name}));
+    for (const id of ['teacherSubject', 'teacherSubjectFilter']) {
+        const select = document.getElementById(id);
+        fill(select, options, select.value || null, t(id === 'teacherSubject' ? 'web.subject.choose' : 'web.teachers.allSubjects'));
+    }
+    table('subjectTable', ['web.subject.name'], subjects, row => [row.name], 'web.subject.empty', row => [
+        button('web.common.edit', () => { show('subjectResult', '', false); document.getElementById('subjectId').value = row.id; document.getElementById('subjectName').value = row.name; openPanel('subjects', 'edit'); }),
+        button('web.common.delete', () => deleteSubject(row))
+    ]);
+}
+async function saveSubject() {
+    const id = document.getElementById('subjectId').value;
+    const body = {name: document.getElementById('subjectName').value.trim()};
+    const saved = id ? await put('/api/subjects/' + id, body) : await post('/api/subjects', body);
+    clearSubjectForm();
+    await loadSubjects(); await refreshTeachers();
+    show('subjectResult', t('web.subject.saved', saved.name), false); openPanel('subjects', 'list');
+}
+async function deleteSubject(row) {
+    if (!window.confirm(t('web.subject.confirmDelete', row.name))) return;
+    try { await remove('/api/subjects/' + row.id); await loadSubjects(); show('subjectResult', '', false); }
+    catch (e) { show('subjectResult', e.message, true); }
+}
+
+function clearSubjectForm() {
+    document.getElementById('subjectForm').reset();
+    document.getElementById('subjectId').value = '';
+}

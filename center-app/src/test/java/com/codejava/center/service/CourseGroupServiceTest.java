@@ -45,7 +45,7 @@ class CourseGroupServiceTest {
     @BeforeEach
     void setUp() {
         teacher = teacherRepository.saveAndFlush(Teacher.builder()
-                .name("أ/ محمد").subject("رياضيات")
+                .name("أ/ محمد").subjectDefinition(subject("رياضيات"))
                 .commissionType("PERCENTAGE").commissionValue(new BigDecimal("50.00"))
                 .build());
     }
@@ -67,7 +67,7 @@ class CourseGroupServiceTest {
     @Test
     void allowsTheSameTimeForAnotherTeacher() {
         Teacher other = teacherRepository.saveAndFlush(Teacher.builder()
-                .name("أ/ أحمد").subject("علوم")
+                .name("أ/ أحمد").subjectDefinition(subject("علوم"))
                 .commissionType("FIXED_AMOUNT").commissionValue(new BigDecimal("100.00"))
                 .build());
 
@@ -202,5 +202,12 @@ class CourseGroupServiceTest {
         return new CourseGroupDraft(source.id(), source.teacherId(), name, false,
                 source.schoolLevel(), source.maxCapacity(), source.sessionPrice(),
                 source.meetingDays(), source.startTime(), source.endTime());
+    }
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.codejava.center.repository.SubjectRepository subjectRepository;
+    private com.codejava.center.domain.Subject subject(String name) {
+        String key = com.codejava.center.core.catalog.SubjectNames.key(name);
+        return subjectRepository.findByNameKey(key).orElseGet(() -> subjectRepository.saveAndFlush(
+                new com.codejava.center.domain.Subject(name, key)));
     }
 }

@@ -73,7 +73,7 @@ class ClassSessionEdgeTest {
 
         Teacher teacher = new Teacher();
         teacher.setName("أستاذ رياضيات");
-        teacher.setSubject("رياضيات");
+        teacher.setSubjectDefinition(subject("رياضيات"));
         teacher.setCommissionType("PERCENTAGE");
         teacher.setCommissionValue(new BigDecimal("50.00"));
         teacher = teacherRepository.save(teacher);
@@ -193,5 +193,12 @@ class ClassSessionEdgeTest {
         user.setPassword(passwordEncoder.encode(PASSWORD));
         user.setRole(role);
         userRepository.save(user);
+    }
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.codejava.center.repository.SubjectRepository subjectRepository;
+    private com.codejava.center.domain.Subject subject(String name) {
+        String key = com.codejava.center.core.catalog.SubjectNames.key(name);
+        return subjectRepository.findByNameKey(key).orElseGet(() -> subjectRepository.saveAndFlush(
+                new com.codejava.center.domain.Subject(name, key)));
     }
 }

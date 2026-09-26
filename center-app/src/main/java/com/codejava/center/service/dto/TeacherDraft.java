@@ -25,8 +25,8 @@ public record TeacherDraft(
         @Size(max = 100)
         String name,
 
-        @Size(max = 50)
-        String subject,
+        @jakarta.validation.constraints.NotNull
+        Long subjectId,
 
         @Size(max = 20)
         String commissionType,

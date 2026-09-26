@@ -36,13 +36,13 @@ class TeacherDraftTest {
     @Test
     void aTeacherIsSavedThenEdited() {
         Teacher saved = teacherService.saveTeacher(
-                new TeacherDraft(null, "  أ/ محمد  ", "رياضيات", "PERCENTAGE", new BigDecimal("50")));
+                new TeacherDraft(null, "  أ/ محمد  ", subject("رياضيات").getId(), "PERCENTAGE", new BigDecimal("50")));
 
         assertThat(saved.getName()).isEqualTo("أ/ محمد");
         assertThat(saved.getCommissionValue()).isEqualByComparingTo("50.00");
 
         Teacher edited = teacherService.saveTeacher(
-                new TeacherDraft(saved.getId(), "أ/ محمد", "علوم", "FIXED_AMOUNT", new BigDecimal("80")));
+                new TeacherDraft(saved.getId(), "أ/ محمد", subject("علوم").getId(), "FIXED_AMOUNT", new BigDecimal("80")));
 
         assertThat(edited.getId()).isEqualTo(saved.getId());
         assertThat(edited.getSubject()).isEqualTo("علوم");
@@ -53,7 +53,7 @@ class TeacherDraftTest {
     @Test
     void anUnknownIdIsRefusedRatherThanCreatingARow() {
         assertThatThrownBy(() -> teacherService.saveTeacher(
-                new TeacherDraft(4242L, "معلّم وهمي", "رياضيات", "PERCENTAGE", BigDecimal.TEN)))
+                new TeacherDraft(4242L, "معلّم وهمي", subject("رياضيات").getId(), "PERCENTAGE", BigDecimal.TEN)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage(I18n.get("error.teacher.notFound"));
 
@@ -68,7 +68,7 @@ class TeacherDraftTest {
     @Test
     void anUnknownCommissionTypeIsRefusedAtSaveTime() {
         assertThatThrownBy(() -> teacherService.saveTeacher(
-                new TeacherDraft(null, "أ/ سامي", "لغات", "HALF_OF_WHATEVER", BigDecimal.TEN)))
+                new TeacherDraft(null, "أ/ سامي", subject("لغات").getId(), "HALF_OF_WHATEVER", BigDecimal.TEN)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage(I18n.format("error.teacher.unknownCommission", "HALF_OF_WHATEVER"));
 
@@ -87,12 +87,19 @@ class TeacherDraftTest {
 
         CommissionTypes.KNOWN.forEach(type ->
                 assertThatCode(() -> teacherService.saveTeacher(
-                        new TeacherDraft(null, "أ/ " + type, "مادة", type, new BigDecimal("10"))))
+                        new TeacherDraft(null, "أ/ " + type, subject("مادة").getId(), type, new BigDecimal("10"))))
                         .as("نوعُ عمولةٍ معروف يجب أن يُحفظ: " + type)
                         .doesNotThrowAnyException());
 
         assertThat(teacherRepository.findAll())
                 .extracting(Teacher::getCommissionType)
                 .containsExactlyInAnyOrderElementsOf(CommissionTypes.KNOWN);
+    }
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.codejava.center.repository.SubjectRepository subjectRepository;
+    private com.codejava.center.domain.Subject subject(String name) {
+        String key = com.codejava.center.core.catalog.SubjectNames.key(name);
+        return subjectRepository.findByNameKey(key).orElseGet(() -> subjectRepository.saveAndFlush(
+                new com.codejava.center.domain.Subject(name, key)));
     }
 }

@@ -81,6 +81,7 @@ class AdminEdgeTest {
         sessionRepository.deleteAll();
         courseGroupRepository.deleteAll();
         teacherRepository.deleteAll();
+        subjectRepository.deleteAll();
         studentRepository.deleteAll();
         settingsRepository.deleteAll();
         userRepository.deleteAll();
@@ -208,7 +209,7 @@ class AdminEdgeTest {
         mockMvc.perform(post("/api/teachers").session(signIn("admin")).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"أ/ سامي","subject":"لغات",
+                                {"name":"أ/ سامي","subjectId":999999,
                                  "commissionType":"HALF_OF_WHATEVER","commissionValue":"10"}"""))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message")
@@ -222,8 +223,8 @@ class AdminEdgeTest {
         mockMvc.perform(post("/api/teachers").session(session).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"أ/ محمد","subject":"رياضيات",
-                                 "commissionType":"PERCENTAGE","commissionValue":"50"}"""))
+                                {"name":"أ/ محمد","subjectId":%d,
+                                 "commissionType":"PERCENTAGE","commissionValue":"50"}""".formatted(subject("رياضيات").getId())))
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/teachers").session(session))
@@ -300,5 +301,36 @@ class AdminEdgeTest {
         user.setPassword(passwordEncoder.encode(PASSWORD));
         user.setRole(role);
         userRepository.save(user);
+    }
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.codejava.center.repository.SubjectRepository subjectRepository;
+    private com.codejava.center.domain.Subject subject(String name) {
+        String key = com.codejava.center.core.catalog.SubjectNames.key(name);
+        return subjectRepository.findByNameKey(key).orElseGet(() -> subjectRepository.saveAndFlush(
+                new com.codejava.center.domain.Subject(name, key)));
+    }
+
+    @Test void subjectsRejectAliasesAndRequireAdmin() throws Exception {
+        var english = subject("اللغة الإنجليزية");
+        mockMvc.perform(post("/api/subjects").session(signIn("admin")).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"E\"}"))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.message").value(I18n.get("subject.duplicate")));
+        mockMvc.perform(get("/api/subjects").session(signIn("secretary"))).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/teachers").session(signIn("admin")).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"معلم\",\"subject\":\"E\",\"commissionType\":\"PERCENTAGE\",\"commissionValue\":10}"))
+                .andExpect(status().isBadRequest());
+    }
+    @Test void subjectFilterUsesIdAndRenameUpdatesTeacherDisplay() throws Exception {
+        var subject = subject("روبوتات"); var session=signIn("admin");
+        mockMvc.perform(post("/api/teachers").session(session).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"معلم\",\"subjectId\":%d,\"commissionType\":\"PERCENTAGE\",\"commissionValue\":10}".formatted(subject.getId())))
+                .andExpect(status().isOk());
+        mockMvc.perform(put("/api/subjects/"+subject.getId()).session(session).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"الروبوتات\"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/teachers").param("subjectId",subject.getId().toString()).session(session))
+                .andExpect(jsonPath("$[0].subject").value("الروبوتات"));
+        mockMvc.perform(get("/api/teachers").param("subjectId","999999").session(session)).andExpect(content().json("[]"));
+        mockMvc.perform(delete("/api/subjects/"+subject.getId()).session(session).with(csrf())).andExpect(status().isConflict());
     }
 }

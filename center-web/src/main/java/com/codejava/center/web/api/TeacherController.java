@@ -44,19 +44,19 @@ public class TeacherController {
     private final TeacherService teacherService;
 
     /** العمولةُ ثلاثةُ حقول أو لا شيء: نوعُها خاماً، واسمُه المترجَم، وقيمتها */
-    public record TeacherView(Long id, String name, String subject,
+    public record TeacherView(Long id, String name, Long subjectId, String subject,
                               String commissionType, String commissionName,
                               BigDecimal commissionValue) {
     }
 
     public record TeacherRequest(
             @NotBlank @Size(max = 100) String name,
-            @Size(max = 50) String subject,
+            @jakarta.validation.constraints.NotNull Long subjectId,
             @Size(max = 20) String commissionType,
             BigDecimal commissionValue) {
 
         TeacherDraft toDraft(Long id) {
-            return new TeacherDraft(id, name, subject, commissionType, commissionValue);
+            return new TeacherDraft(id, name, subjectId, commissionType, commissionValue);
         }
     }
 
@@ -68,8 +68,10 @@ public class TeacherController {
      */
     @GetMapping
     public List<TeacherView> teachers(
-            @RequestParam(defaultValue = "false") boolean withCommission) {
+            @RequestParam(defaultValue = "false") boolean withCommission,
+            @RequestParam(required = false) Long subjectId) {
         return teacherService.getAllTeachers().stream()
+                .filter(teacher -> subjectId == null || subjectId.equals(teacher.getSubjectDefinition().getId()))
                 .map(teacher -> view(teacher, withCommission))
                 .toList();
     }
@@ -104,7 +106,7 @@ public class TeacherController {
     }
 
     private static TeacherView view(Teacher teacher, boolean withCommission) {
-        return new TeacherView(teacher.getId(), teacher.getName(), teacher.getSubject(),
+        return new TeacherView(teacher.getId(), teacher.getName(), teacher.getSubjectDefinition().getId(), teacher.getSubject(),
                 withCommission ? teacher.getCommissionType() : null,
                 withCommission ? CommissionTypes.displayName(teacher.getCommissionType()) : null,
                 withCommission ? teacher.getCommissionValue() : null);

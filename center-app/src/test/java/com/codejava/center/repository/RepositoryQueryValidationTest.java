@@ -197,7 +197,7 @@ class RepositoryQueryValidationTest {
     private void enrol(Student student) {
         Teacher teacher = teacherRepository.saveAndFlush(Teacher.builder()
                 .name("معلم " + student.getBarcode())
-                .subject("رياضيات")
+                .subjectDefinition(subject("رياضيات"))
                 .commissionType("PERCENTAGE")
                 .commissionValue(new BigDecimal("50.00"))
                 .build());
@@ -283,7 +283,7 @@ class RepositoryQueryValidationTest {
     void moneyIsPersistedWithExactScale() {
         Teacher teacher = teacherRepository.saveAndFlush(Teacher.builder()
                 .name("معلم اختبار")
-                .subject("رياضيات")
+                .subjectDefinition(subject("رياضيات"))
                 .commissionType("PERCENTAGE")
                 .commissionValue(new BigDecimal("50.00"))
                 .build());
@@ -299,5 +299,12 @@ class RepositoryQueryValidationTest {
         // ثلاث حصص بسعر 33.33 = 99.99 بالضبط، وليس 99.99000000000001
         assertThat(saved.getSessionPrice().multiply(BigDecimal.valueOf(3)))
                 .isEqualByComparingTo("99.99");
+    }
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.codejava.center.repository.SubjectRepository subjectRepository;
+    private com.codejava.center.domain.Subject subject(String name) {
+        String key = com.codejava.center.core.catalog.SubjectNames.key(name);
+        return subjectRepository.findByNameKey(key).orElseGet(() -> subjectRepository.saveAndFlush(
+                new com.codejava.center.domain.Subject(name, key)));
     }
 }

@@ -1,6 +1,7 @@
 package com.codejava.center.controller;
 
 import com.codejava.center.domain.Teacher;
+import com.codejava.center.domain.Subject;
 import com.codejava.center.service.ReportService;
 import com.codejava.center.service.TeacherService;
 import com.codejava.center.service.dto.TeacherDraft;
@@ -38,13 +39,17 @@ public class TeacherController {
 
     private final ReportService reportService;
     private final TeacherService teacherService;
+    private final com.codejava.center.service.SubjectService subjectService;
+    private final com.codejava.center.util.ViewLoader viewLoader;
     private final ObservableList<Teacher> teachersList = FXCollections.observableArrayList();
     @FXML
-    private TextField nameField, subjectField, valueField;
+    private TextField nameField, valueField;
+    @FXML private ComboBox<com.codejava.center.domain.Subject> subjectField;
     @FXML private TextField searchField;
     @FXML
     private ComboBox<String> typeCombo;
-    @FXML private ComboBox<String> subjectFilterCombo, typeFilterCombo;
+    @FXML private ComboBox<Subject> subjectFilterCombo;
+    @FXML private ComboBox<String> typeFilterCombo;
     @FXML
     private TableView<Teacher> teacherTable;
     @FXML
@@ -85,7 +90,11 @@ public class TeacherController {
 
         // تأمين خانة المبلغ
         Forms.decimalOnly(valueField);
-        Forms.focusNextOnEnter(nameField, subjectField);
+        subjectField.setConverter(new StringConverter<>() {
+            public String toString(com.codejava.center.domain.Subject subject) { return subject == null ? "" : subject.getName(); }
+            public com.codejava.center.domain.Subject fromString(String text) { return null; }
+        });
+        loadSubjects();
     }
 
     /**
@@ -122,12 +131,12 @@ public class TeacherController {
     private void setupFilters() {
         subjectFilterCombo.setConverter(new StringConverter<>() {
             @Override
-            public String toString(String subject) {
-                return subject == null ? I18n.get("common.all") : subject;
+            public String toString(Subject subject) {
+                return subject == null ? I18n.get("common.all") : subject.getName();
             }
 
             @Override
-            public String fromString(String string) {
+            public Subject fromString(String string) {
                 return null;
             }
         });
@@ -163,7 +172,7 @@ public class TeacherController {
 
     private void applyFilters() {
         String text = searchField.getText() == null ? "" : searchField.getText().toLowerCase().trim();
-        String subject = subjectFilterCombo.getValue();
+        Subject subject = subjectFilterCombo.getValue();
         String type = typeFilterCombo.getValue();
 
         filteredTeachers.setPredicate(teacher -> {
@@ -172,7 +181,7 @@ public class TeacherController {
                     && !teacher.getSubject().toLowerCase().contains(text)) {
                 return false;
             }
-            if (subject != null && !subject.equals(teacher.getSubject())) {
+            if (subject != null && !subject.getId().equals(teacher.getSubjectDefinition().getId())) {
                 return false;
             }
             return type == null || type.equals(teacher.getCommissionType());
@@ -181,20 +190,19 @@ public class TeacherController {
 
     /** المواد المتاحة تُبنى من المعلمين أنفسهم: قائمة مواد ثابتة تعرض مواد لا معلّم لها */
     private void refreshSubjectFilterItems() {
-        String chosen = subjectFilterCombo.getValue();
+        Subject chosen = subjectFilterCombo.getValue();
 
-        List<String> subjects = new ArrayList<>();
+        List<Subject> subjects = new ArrayList<>();
         subjects.add(null);
         teachersList.stream()
-                .map(Teacher::getSubject)
+                .map(Teacher::getSubjectDefinition)
                 .filter(Objects::nonNull)
-                .filter(subject -> !subject.isBlank())
                 .distinct()
-                .sorted()
+                .sorted(java.util.Comparator.comparing(Subject::getName))
                 .forEach(subjects::add);
 
         subjectFilterCombo.getItems().setAll(subjects);
-        subjectFilterCombo.setValue(subjects.contains(chosen) ? chosen : null);
+        subjectFilterCombo.setValue(subjects.stream().filter(item -> item != null && item.equals(chosen)).findFirst().orElse(null));
     }
 
     private void setupTableSelectionListener() {
@@ -202,7 +210,7 @@ public class TeacherController {
             if (newVal != null) {
                 selectedTeacher = newVal;
                 nameField.setText(selectedTeacher.getName());
-                subjectField.setText(selectedTeacher.getSubject());
+                subjectField.setValue(selectedTeacher.getSubjectDefinition());
                 typeCombo.setValue(selectedTeacher.getCommissionType());
                 valueField.setText(MoneyUtils.format(selectedTeacher.getCommissionValue()));
 
@@ -248,7 +256,7 @@ public class TeacherController {
     private String describeFilters() {
         List<String> parts = new ArrayList<>();
         if (subjectFilterCombo.getValue() != null) {
-            parts.add(I18n.format("teacher.filterSubjectAs", subjectFilterCombo.getValue()));
+            parts.add(I18n.format("teacher.filterSubjectAs", subjectFilterCombo.getValue().getName()));
         }
         if (typeFilterCombo.getValue() != null) {
             parts.add(I18n.format("teacher.filterTypeAs",
@@ -266,7 +274,7 @@ public class TeacherController {
     @FXML
     private void clearFields() {
         nameField.clear();
-        subjectField.clear();
+        subjectField.setValue(null);
         valueField.clear();
         typeCombo.setValue(null);
 
@@ -302,7 +310,7 @@ public class TeacherController {
         // بياناتٍ غير محفوظة في الجدول كأنها محفوظة
         TeacherDraft draft;
         try {
-            draft = new TeacherDraft(teacher.getId(), nameField.getText(), subjectField.getText(),
+            draft = new TeacherDraft(teacher.getId(), nameField.getText(), subjectField.getValue() == null ? null : subjectField.getValue().getId(),
                     typeCombo.getValue(), new BigDecimal(valueField.getText().trim()));
         } catch (NumberFormatException e) {
             Dialogs.error(I18n.get("common.invalidInput"), I18n.get("teacher.commissionMustBeNumeric"));
@@ -342,4 +350,18 @@ public class TeacherController {
         }
     }
 
+    private void loadSubjects() {
+        FxAsync.supply(subjectService::getAllSubjects, rows -> {
+            var selected = subjectField.getValue();
+            subjectField.getItems().setAll(rows);
+            subjectField.setValue(rows.stream().filter(row -> row.equals(selected)).findFirst().orElse(null));
+        }, error -> Dialogs.error(FxAsync.messageOf(error)));
+    }
+    @FXML private void handleSubjects() {
+        try {
+            viewLoader.showModal("/fxml/Subjects.fxml", I18n.get("subject.title"),
+                    teacherTable.getScene().getWindow(), 650, 500, null);
+            loadSubjects(); loadTeachers();
+        } catch (java.io.IOException error) { Dialogs.error(FxAsync.messageOf(error)); }
+    }
 }
